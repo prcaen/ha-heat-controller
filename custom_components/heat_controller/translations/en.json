@@ -1,0 +1,112 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Sensors",
+        "description": "Pick the sensors used for decisions. For solar production choose your plant's power sensor (e.g. Solenso) — actual produced power replaces the forecast.",
+        "data": {
+          "outdoor_temp_sensor": "Outdoor temperature",
+          "indoor_temp_sensor": "Indoor temperature",
+          "production_sensor": "Solar production (instantaneous power)"
+        }
+      },
+      "devices": {
+        "title": "Controlled devices",
+        "description": "The boiler is driven through its climate entity. For the heat pump list the climate units and, in the same order, their power fans (optional). Accessory fans are switched on with the heat pump and off with the boiler.",
+        "data": {
+          "boiler_climate": "Boiler (climate)",
+          "pac_climates": "Heat pump climate units (ordered)",
+          "pac_fans": "Power fans (same order as climate units)",
+          "accessory_fans": "Accessory fans"
+        }
+      },
+      "settings": {
+        "title": "Settings",
+        "data": {
+          "consigne_jour": "Day setpoint (°C)",
+          "consigne_nuit": "Night setpoint (°C)",
+          "consigne_absent": "Away setpoint (°C)",
+          "consigne_solaire": "Solar setpoint (°C)",
+          "hysteresis": "Hysteresis (°C)",
+          "seuil_exterieur": "Outdoor threshold for heat pump/boiler switch (°C)",
+          "seuil_production": "Solar production threshold (W)",
+          "vitesse_pac": "Heat-up rate, heat pump (°C/h)",
+          "vitesse_chaudiere": "Heat-up rate, boiler (°C/h)",
+          "marge_securite": "Pre-heat safety margin (min)",
+          "heure_jour": "Day period start time",
+          "heure_nuit": "Night period start time",
+          "heure_retour": "Return time in away mode",
+          "heure_solaire_debut": "Solar window start",
+          "heure_solaire_fin": "Solar window end"
+        }
+      }
+    },
+    "error": {
+      "fan_count_mismatch": "Provide either no fan or one per climate unit, in the same order."
+    }
+  },
+  "options": {
+    "step": {
+      "user": {
+        "title": "Sensors",
+        "description": "Pick the sensors used for decisions. For solar production choose your plant's power sensor (e.g. Solenso) — actual produced power replaces the forecast.",
+        "data": {
+          "outdoor_temp_sensor": "Outdoor temperature",
+          "indoor_temp_sensor": "Indoor temperature",
+          "production_sensor": "Solar production (instantaneous power)"
+        }
+      },
+      "devices": {
+        "title": "Controlled devices",
+        "description": "The boiler is driven through its climate entity. For the heat pump list the climate units and, in the same order, their power fans (optional). Accessory fans are switched on with the heat pump and off with the boiler.",
+        "data": {
+          "boiler_climate": "Boiler (climate)",
+          "pac_climates": "Heat pump climate units (ordered)",
+          "pac_fans": "Power fans (same order as climate units)",
+          "accessory_fans": "Accessory fans"
+        }
+      },
+      "settings": {
+        "title": "Settings",
+        "data": {
+          "consigne_jour": "Day setpoint (°C)",
+          "consigne_nuit": "Night setpoint (°C)",
+          "consigne_absent": "Away setpoint (°C)",
+          "consigne_solaire": "Solar setpoint (°C)",
+          "hysteresis": "Hysteresis (°C)",
+          "seuil_exterieur": "Outdoor threshold for heat pump/boiler switch (°C)",
+          "seuil_production": "Solar production threshold (W)",
+          "vitesse_pac": "Heat-up rate, heat pump (°C/h)",
+          "vitesse_chaudiere": "Heat-up rate, boiler (°C/h)",
+          "marge_securite": "Pre-heat safety margin (min)",
+          "heure_jour": "Day period start time",
+          "heure_nuit": "Night period start time",
+          "heure_retour": "Return time in away mode",
+          "heure_solaire_debut": "Solar window start",
+          "heure_solaire_fin": "Solar window end"
+        }
+      }
+    },
+    "error": {
+      "fan_count_mismatch": "Provide either no fan or one per climate unit, in the same order."
+    }
+  },
+  "entity": {
+    "switch": {
+      "actif": { "name": "Heating control", "state": { "on": "Active", "off": "Inactive" } },
+      "mode_absent": { "name": "Away mode", "state": { "on": "Away", "off": "Home" } }
+    },
+    "binary_sensor": {
+      "source_pac": { "name": "Heat pump source" },
+      "prechauffe": { "name": "Pre-heating" },
+      "demande_chauffe": { "name": "Heating demand" },
+      "periode_jour": { "name": "Day period" },
+      "periode_solaire": { "name": "Solar period" }
+    },
+    "sensor": {
+      "consigne_cible": { "name": "Target setpoint" },
+      "duree_prechauffe": { "name": "Pre-heat duration" },
+      "source": { "name": "Heat source" }
+    }
+  }
+}

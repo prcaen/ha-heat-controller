@@ -1,0 +1,110 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Capteurs",
+        "description": "Choisissez les capteurs utilisés pour les décisions. Pour la production solaire, sélectionnez le capteur de puissance de votre centrale (par ex. Solenso) — la puissance réellement produite remplace la prévision.",
+        "data": {
+          "outdoor_temp_sensor": "Température extérieure",
+          "indoor_temp_sensor": "Température intérieure",
+          "production_sensor": "Production solaire (puissance instantanée)"
+        }
+      },
+      "devices": {
+        "title": "Appareils pilotés",
+        "description": "La chaudière est pilotée par son entité climate. Pour la PAC, listez les clims et, dans le même ordre, leur ventilateur de puissance (facultatif). Les ventilateurs accessoires sont allumés avec la PAC et coupés avec la chaudière.",
+        "data": {
+          "boiler_climate": "Chauffière (climate)",
+          "pac_climates": "Clims de la PAC (dans l'ordre)",
+          "pac_fans": "Ventilateurs de puissance (même ordre que les clims)",
+          "accessory_fans": "Ventilateurs accessoires"
+        }
+      },
+      "settings": {
+        "title": "Réglages",
+        "data": {
+          "consigne_jour": "Consigne jour (°C)",
+          "consigne_nuit": "Consigne nuit (°C)",
+          "consigne_absent": "Consigne absence (°C)",
+          "consigne_solaire": "Consigne solaire (°C)",
+          "hysteresis": "Hystérésis (°C)",
+          "seuil_exterieur": "Seuil extérieur de bascule PAC/chaudière (°C)",
+          "seuil_production": "Seuil de production solaire (W)",
+          "vitesse_pac": "Vitesse de montée en température, PAC (°C/h)",
+          "vitesse_chaudiere": "Vitesse de montée en température, chaudière (°C/h)",
+          "marge_securite": "Marge de sécurité de la préchauffe (min)",
+          "heure_jour": "Heure de début de la période jour",
+          "heure_nuit": "Heure de début de la période nuit",
+          "heure_retour": "Heure de retour en mode absence",
+          "heure_solaire_debut": "Début de la fenêtre solaire",
+          "heure_solaire_fin": "Fin de la fenêtre solaire"
+        }
+      }
+    },
+    "error": {
+      "fan_count_mismatch": "Indiquez soit aucun ventilateur, soit un par clim, dans le même ordre."
+    }
+  },
+  "options": {
+    "step": {
+      "user": {
+        "title": "Capteurs",
+        "data": {
+          "outdoor_temp_sensor": "Température extérieure",
+          "indoor_temp_sensor": "Température intérieure",
+          "production_sensor": "Production solaire (puissance instantanée)"
+        }
+      },
+      "devices": {
+        "title": "Appareils pilotés",
+        "data": {
+          "boiler_climate": "Chauffière (climate)",
+          "pac_climates": "Clims de la PAC (dans l'ordre)",
+          "pac_fans": "Ventilateurs de puissance (même ordre que les clims)",
+          "accessory_fans": "Ventilateurs accessoires"
+        }
+      },
+      "settings": {
+        "title": "Réglages",
+        "data": {
+          "consigne_jour": "Consigne jour (°C)",
+          "consigne_nuit": "Consigne nuit (°C)",
+          "consigne_absent": "Consigne absence (°C)",
+          "consigne_solaire": "Consigne solaire (°C)",
+          "hysteresis": "Hystérésis (°C)",
+          "seuil_exterieur": "Seuil extérieur de bascule PAC/chaudière (°C)",
+          "seuil_production": "Seuil de production solaire (W)",
+          "vitesse_pac": "Vitesse de montée en température, PAC (°C/h)",
+          "vitesse_chaudiere": "Vitesse de montée en température, chaudière (°C/h)",
+          "marge_securite": "Marge de sécurité de la préchauffe (min)",
+          "heure_jour": "Heure de début de la période jour",
+          "heure_nuit": "Heure de début de la période nuit",
+          "heure_retour": "Heure de retour en mode absence",
+          "heure_solaire_debut": "Début de la fenêtre solaire",
+          "heure_solaire_fin": "Fin de la fenêtre solaire"
+        }
+      }
+    },
+    "error": {
+      "fan_count_mismatch": "Indiquez soit aucun ventilateur, soit un par clim, dans le même ordre."
+    }
+  },
+  "entity": {
+    "switch": {
+      "actif": { "name": "Pilotage actif", "state": { "on": "Actif", "off": "Inactif" } },
+      "mode_absent": { "name": "Mode absence", "state": { "on": "Absent", "off": "Présent" } }
+    },
+    "binary_sensor": {
+      "source_pac": { "name": "Source PAC" },
+      "prechauffe": { "name": "Préchauffe" },
+      "demande_chauffe": { "name": "Demande de chauffage" },
+      "periode_jour": { "name": "Période jour" },
+      "periode_solaire": { "name": "Période solaire" }
+    },
+    "sensor": {
+      "consigne_cible": { "name": "Consigne cible" },
+      "duree_prechauffe": { "name": "Durée de préchauffe" },
+      "source": { "name": "Source de chaleur" }
+    }
+  }
+}
