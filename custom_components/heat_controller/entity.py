@@ -38,4 +38,4 @@ class HeatControllerEntity:
 
     @callback
     def _on_shared_update(self) -> None:
-        self.async_write_state()
+        self.async_write_ha_state()
