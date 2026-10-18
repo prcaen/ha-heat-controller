@@ -160,7 +160,9 @@ class HeatController:
         )
         self._cancel.append(
             async_track_time_interval(
-                self.hass, timedelta(seconds=POLL_INTERVAL_SECONDS), self._on_heartbeat
+                self.hass,
+                self._on_heartbeat,
+                timedelta(seconds=POLL_INTERVAL_SECONDS),
             )
         )
         async_call_later(

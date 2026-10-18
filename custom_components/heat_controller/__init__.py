@@ -26,8 +26,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     controller = HeatController(hass, entry, entry.data, shared)
     hass.data[DOMAIN][entry.entry_id] = {"shared": shared, "controller": controller}
 
-    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     await controller.async_start()
+    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))
     return True
