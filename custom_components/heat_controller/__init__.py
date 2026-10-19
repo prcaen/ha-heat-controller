@@ -23,7 +23,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         raise ConfigEntryNotReady("Incomplete configuration")
 
     shared = HeatState()
-    controller = HeatController(hass, entry, entry.data, shared)
+    # Settings live in the entry options once the entry has been reconfigured;
+    # the entry data keeps the installation description (and settings from
+    # entries created before the options split).
+    config = {**entry.data, **entry.options}
+    controller = HeatController(hass, entry, config, shared)
     hass.data[DOMAIN][entry.entry_id] = {"shared": shared, "controller": controller}
 
     await controller.async_start()

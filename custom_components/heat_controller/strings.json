@@ -3,20 +3,20 @@
     "step": {
       "user": {
         "title": "Sensors",
-        "description": "Choose the sensors used for decisions. For solar production, select the power sensor from your central (e.g. Solenso) — the actual power produced replaces the forecast.",
+        "description": "Pick the sensors used for decisions. For solar production choose your plant's power sensor (e.g. Solenso) — actual produced power replaces the forecast.",
         "data": {
           "outdoor_temp_sensor": "Outdoor temperature",
           "indoor_temp_sensor": "Indoor temperature",
-          "production_sensor": "Solar power production (instantaneous)"
+          "production_sensor": "Solar production (instantaneous power)"
         }
       },
       "devices": {
         "title": "Controlled devices",
-        "description": "The boiler is controlled by its climate entity. For the PAC, list the clims and, in the same order, their power fans (optional). Accessory fans are turned on with the PAC and turned off with the boiler.",
+        "description": "The boiler is driven through its climate entity. For the heat pump list the climate units and, in the same order, their power fans (optional). Accessory fans are switched on with the heat pump and off with the boiler.",
         "data": {
           "boiler_climate": "Boiler (climate)",
-          "heat_pump_climates": "PAC clims (in order)",
-          "heat_pump_fans": "Power fans (same order as clims)",
+          "heat_pump_climates": "Heat pump climate units (ordered)",
+          "heat_pump_fans": "Power fans (same order as climate units)",
           "accessory_fans": "Accessory fans"
         }
       },
@@ -27,40 +27,43 @@
           "night_setpoint": "Night setpoint (°C)",
           "away_setpoint": "Away setpoint (°C)",
           "solar_setpoint": "Solar setpoint (°C)",
+          "idle_setpoint": "Idle setpoint (°C)",
           "hysteresis": "Hysteresis (°C)",
-          "outdoor_threshold": "PAC / Boiler changeover threshold (°C)",
+          "outdoor_threshold": "Outdoor threshold for heat pump/boiler switch (°C)",
           "production_threshold": "Solar production threshold (W)",
-          "heat_pump_rate": "PAC temperature rise rate (°C/h)",
-          "boiler_rate": "Boiler temperature rise rate (°C/h)",
-          "safety_margin": "Preheating safety margin (min)",
+          "heat_pump_rate": "Heat-up rate, heat pump (°C/h)",
+          "boiler_rate": "Heat-up rate, boiler (°C/h)",
+          "safety_margin": "Pre-heat safety margin (min)",
           "day_start": "Day period start time",
           "night_start": "Night period start time",
-          "return_time": "Away mode return time",
+          "return_time": "Return time in away mode",
           "solar_start": "Solar window start",
           "solar_end": "Solar window end"
         }
       }
     },
     "error": {
-      "fan_count_mismatch": "Indicate either no fan, or one per clim, in the same order."
+      "fan_count_mismatch": "Provide either no fan or one per climate unit, in the same order."
     }
   },
   "options": {
     "step": {
       "user": {
         "title": "Sensors",
+        "description": "Pick the sensors used for decisions. For solar production choose your plant's power sensor (e.g. Solenso) — actual produced power replaces the forecast.",
         "data": {
           "outdoor_temp_sensor": "Outdoor temperature",
           "indoor_temp_sensor": "Indoor temperature",
-          "production_sensor": "Solar power production (instantaneous)"
+          "production_sensor": "Solar production (instantaneous power)"
         }
       },
       "devices": {
         "title": "Controlled devices",
+        "description": "The boiler is driven through its climate entity. For the heat pump list the climate units and, in the same order, their power fans (optional). Accessory fans are switched on with the heat pump and off with the boiler.",
         "data": {
           "boiler_climate": "Boiler (climate)",
-          "heat_pump_climates": "PAC clims (in order)",
-          "heat_pump_fans": "Power fans (same order as clims)",
+          "heat_pump_climates": "Heat pump climate units (ordered)",
+          "heat_pump_fans": "Power fans (same order as climate units)",
           "accessory_fans": "Accessory fans"
         }
       },
@@ -71,22 +74,23 @@
           "night_setpoint": "Night setpoint (°C)",
           "away_setpoint": "Away setpoint (°C)",
           "solar_setpoint": "Solar setpoint (°C)",
+          "idle_setpoint": "Idle setpoint (°C)",
           "hysteresis": "Hysteresis (°C)",
-          "outdoor_threshold": "PAC / Boiler changeover threshold (°C)",
+          "outdoor_threshold": "Outdoor threshold for heat pump/boiler switch (°C)",
           "production_threshold": "Solar production threshold (W)",
-          "heat_pump_rate": "PAC temperature rise rate (°C/h)",
-          "boiler_rate": "Boiler temperature rise rate (°C/h)",
-          "safety_margin": "Preheating safety margin (min)",
+          "heat_pump_rate": "Heat-up rate, heat pump (°C/h)",
+          "boiler_rate": "Heat-up rate, boiler (°C/h)",
+          "safety_margin": "Pre-heat safety margin (min)",
           "day_start": "Day period start time",
           "night_start": "Night period start time",
-          "return_time": "Away mode return time",
+          "return_time": "Return time in away mode",
           "solar_start": "Solar window start",
           "solar_end": "Solar window end"
         }
       }
     },
     "error": {
-      "fan_count_mismatch": "Indicate either no fan, or one per clim, in the same order."
+      "fan_count_mismatch": "Provide either no fan or one per climate unit, in the same order."
     }
   },
   "entity": {

@@ -34,6 +34,7 @@ from .const import (
     CONF_HEAT_PUMP_FANS,
     CONF_HEAT_PUMP_RATE,
     CONF_HYSTERESIS,
+    CONF_IDLE_SETPOINT,
     CONF_INDOOR_TEMP_SENSOR,
     CONF_NIGHT_SETPOINT,
     CONF_NIGHT_START,
@@ -46,6 +47,7 @@ from .const import (
     CONF_SOLAR_END,
     CONF_SOLAR_SETPOINT,
     CONF_SOLAR_START,
+    CONNECTION_KEYS,
     DOMAIN,
     SETTING_DEFAULTS,
 )
@@ -142,6 +144,9 @@ def _settings_schema(data: dict[str, Any]) -> vol.Schema:
             ): TEMPERATURE_SELECTOR,
             vol.Required(
                 CONF_SOLAR_SETPOINT, default=setting(CONF_SOLAR_SETPOINT)
+            ): TEMPERATURE_SELECTOR,
+            vol.Required(
+                CONF_IDLE_SETPOINT, default=setting(CONF_IDLE_SETPOINT)
             ): TEMPERATURE_SELECTOR,
             vol.Required(
                 CONF_HYSTERESIS,
@@ -261,7 +266,10 @@ class HeatControllerOptionsFlow(OptionsFlow):
     """Edit the same screens as the initial configuration."""
 
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
-        self._data: dict[str, Any] = dict(self.config_entry.data)
+        self._data: dict[str, Any] = {
+            **self.config_entry.data,
+            **self.config_entry.options,
+        }
         return await self.async_step_user(user_input)
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
@@ -294,10 +302,16 @@ class HeatControllerOptionsFlow(OptionsFlow):
     async def async_step_settings(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         if user_input is not None:
             self._data.update(user_input)
+            connection = {
+                key: self._data[key] for key in CONNECTION_KEYS if key in self._data
+            }
+            settings = {
+                key: self._data[key] for key in SETTING_DEFAULTS if key in self._data
+            }
             self.hass.config_entries.async_update_entry(
-                self.config_entry, data=self._data
+                self.config_entry, data=connection, options=settings
             )
-            return self.async_create_entry(title="", data={})
+            return self.async_create_entry(title="", data=settings)
         return self.async_show_form(
             step_id="settings",
             data_schema=_settings_schema(self._data),

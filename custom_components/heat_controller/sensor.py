@@ -46,6 +46,10 @@ class HeatTargetSetpointSensor(HeatControllerEntity, SensorEntity):
         super().__init__(entry, shared, "target_setpoint")
 
     @property
+    def available(self) -> bool:
+        return self._shared.decision is not None
+
+    @property
     def native_value(self) -> Optional[float]:
         decision = self._shared.decision
         return decision.target_setpoint if decision else None
@@ -61,6 +65,10 @@ class HeatPreheatingDurationSensor(HeatControllerEntity, SensorEntity):
 
     def __init__(self, entry: ConfigEntry, shared: HeatState) -> None:
         super().__init__(entry, shared, "preheating_duration")
+
+    @property
+    def available(self) -> bool:
+        return self._shared.decision is not None
 
     @property
     def native_value(self) -> Optional[int]:

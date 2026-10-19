@@ -2,20 +2,16 @@
 
 from __future__ import annotations
 
-import logging
-
 from homeassistant.components.switch import SwitchEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import STATE_ON
-from homeassistant.core import HomeAssistant, callback
+from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.restore_state import RestoreEntity
 
 from .controller import HeatController
 from .entity import HeatControllerEntity
 from .state import HeatState
-
-_LOGGER = logging.getLogger(__name__)
 
 
 async def async_setup_entry(
@@ -68,6 +64,9 @@ class HeatActiveSwitch(_HeatSwitch):
 
     async def async_turn_off(self, **kwargs) -> None:
         self._shared.set_active(False)
+        # Let the controller drop the stale decision (computed entities
+        # become unavailable while the control is off).
+        self._controller.request_update()
 
     def _restore(self, value: bool) -> None:
         self._shared.set_active(value)

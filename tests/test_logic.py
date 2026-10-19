@@ -35,6 +35,7 @@ def settings(**kwargs) -> Settings:
         night_setpoint=16.0,
         away_setpoint=12.0,
         solar_setpoint=22.0,
+        idle_setpoint=12.0,
         hysteresis=0.3,
         production_threshold=500.0,
         heat_pump_rate=1.0,
@@ -76,12 +77,18 @@ class TestParseTime(unittest.TestCase):
         self.assertIsNone(parse_time(None))
 
 
+class TestSettingsDefaults(unittest.TestCase):
+    """Default values matching the original YAML configuration."""
+
+    def test_default_outdoor_threshold(self):
+        self.assertEqual(Settings().outdoor_threshold, 3.0)
+
+    def test_default_idle_setpoint(self):
+        self.assertEqual(Settings().idle_setpoint, 12.0)
+
+
 class TestChangeover(unittest.TestCase):
     """Outdoor threshold with 0.5 °C hysteresis (1st automation)."""
-
-    def test_default_threshold(self):
-        """The default outdoor threshold is 3.0 °C."""
-        self.assertEqual(Settings().outdoor_threshold, 3.0)
 
     def test_boiler_to_heat_pump(self):
         s = settings()

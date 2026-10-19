@@ -196,7 +196,7 @@ async def run_pass():
     # program: no demand -> thermostat kept on but reduced to 12, no clims touched
     assert ("climate", "set_temperature", "climate.netatmo", None, 12.0) in summary2
     assert not any(
-        c[1] == "set_temperature" and c[2]["entity_id"] in ("climate.g", "climate.d")
+        c[1] == "set_temperature" and c[2] in ("climate.g", "climate.d")
         for c in summary2
     )
     print("boiler pass OK")

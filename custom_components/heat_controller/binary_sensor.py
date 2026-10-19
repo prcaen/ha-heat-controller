@@ -7,8 +7,6 @@ heat pump source, preheating, heating demand, plus two calculated sensors
 
 from __future__ import annotations
 
-import logging
-
 from homeassistant.components.binary_sensor import BinarySensorEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import STATE_ON
@@ -18,8 +16,6 @@ from homeassistant.helpers.restore_state import RestoreEntity
 
 from .entity import HeatControllerEntity
 from .state import HeatState
-
-_LOGGER = logging.getLogger(__name__)
 
 
 async def async_setup_entry(
@@ -73,7 +69,15 @@ class HeatComputedBinarySensor(HeatControllerEntity, BinarySensorEntity):
     def __init__(self, entry: ConfigEntry, shared: HeatState, key: str) -> None:
         super().__init__(entry, shared, key)
         self._attr_translation_key = key
-        self._attr_icon = "mdi:weather-sunny" if key == "solar_period" else "mdi:weather-day-party-cloudy"
+        self._attr_icon = (
+            "mdi:weather-sunny"
+            if key == "solar_period"
+            else "mdi:weather-day-party-cloudy"
+        )
+
+    @property
+    def available(self) -> bool:
+        return self._shared.decision is not None
 
     @property
     def is_on(self) -> bool | None:

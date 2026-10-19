@@ -60,6 +60,7 @@ class Settings:
     night_setpoint: float = 16.0
     away_setpoint: float = 12.0
     solar_setpoint: float = 22.0
+    idle_setpoint: float = 12.0
     hysteresis: float = 0.3
     production_threshold: float = 500.0
     heat_pump_rate: float = 1.0

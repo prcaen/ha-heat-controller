@@ -76,11 +76,13 @@ Settings → Devices and services → **Add integration** →
    climate units **in order**, their power fans **in the same order**
    (optional), and the accessory fans (those for the changeover,
    `fan.climate_series_accessory*` in the original YAML).
-3. **Settings** : day/night/away/solar setpoints, hysteresis, exterior
-   changeover threshold, production threshold, rise rate (°C/h),
+3. **Settings** : day/night/away/solar/**idle** setpoints, hysteresis,
+   exterior changeover threshold, production threshold, rise rate (°C/h),
    safety margin (min), day/night/return hours and solar window.
 
-All is then modifiable via **Configure** on the entry.
+All is then modifiable via **Configure** on the entry; settings changed
+there are stored in the integration options. Diagnostics (settings, flags,
+last decision and sensor readings) can be downloaded from the entry page.
 
 ### YAML configuration comparison
 
@@ -116,7 +118,9 @@ All is then modifiable via **Configure** on the entry.
   turned off (the YAML only turned off the accessory fans) : nothing
   remains unnecessarily powered.
 - When there is no heating need, the thermostat is not turned off ; its
-  setpoint is reduced to the away setpoint (12 °C default) and it stays on.
+  setpoint is reduced to the idle setpoint (12 °C default, adjustable) and
+  it stays on: heat pump climate units remain in `heat` mode (no cooling
+  risk), the boiler remains in `auto`.
 - The solar window is based on measured production, therefore more reliable
   than a forecast ; in case of a Solenso data feed cut-off in full sun,
   the sensor becomes unavailable and is treated as « no production ».
@@ -124,11 +128,14 @@ All is then modifiable via **Configure** on the entry.
 ## Development
 
 ```bash
-# Logic decision tests (no dependencies)
+# Unit tests (logic, translations; the controller and config flow tests
+# are skipped without homeassistant installed)
 python3 -m unittest discover -s tests
 
-# Smoke test with a real homeassistant (Python 3.13+)
+# Full run, including controller, config flow and smoke test, with a real
+# homeassistant (Python 3.13+)
 uv venv /tmp/hacheck --python 3.13
 uv pip install --python /tmp/hacheck/bin/python homeassistant
+/tmp/hacheck/bin/python -m unittest discover -s tests
 /tmp/hacheck/bin/python tests/smoke_test_ha.py
 ```

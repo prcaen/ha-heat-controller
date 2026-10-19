@@ -21,6 +21,7 @@ CONF_DAY_SETPOINT = "day_setpoint"
 CONF_NIGHT_SETPOINT = "night_setpoint"
 CONF_AWAY_SETPOINT = "away_setpoint"
 CONF_SOLAR_SETPOINT = "solar_setpoint"
+CONF_IDLE_SETPOINT = "idle_setpoint"
 CONF_HYSTERESIS = "hysteresis"
 CONF_PRODUCTION_THRESHOLD = "production_threshold"
 CONF_HEAT_PUMP_RATE = "heat_pump_rate"
@@ -38,6 +39,7 @@ DEFAULT_DAY_SETPOINT = 20.0
 DEFAULT_NIGHT_SETPOINT = 16.0
 DEFAULT_AWAY_SETPOINT = 12.0
 DEFAULT_SOLAR_SETPOINT = 22.0
+DEFAULT_IDLE_SETPOINT = 12.0
 DEFAULT_HYSTERESIS = 0.3
 DEFAULT_PRODUCTION_THRESHOLD = 500.0
 DEFAULT_HEAT_PUMP_RATE = 1.0
@@ -52,14 +54,28 @@ DEFAULT_SOLAR_END = "15:00:00"
 DEFAULT_INDOOR_TEMP = 19.0  # fallback if the indoor sensor is silent
 DEFAULT_PRODUCTION = 0.0  # fallback if the production sensor is silent
 
-# --- Default settings exposed in the config flow ------------------------------
+# --- Config entry layout -----------------------------------------------------
 
+# Keys describing the controlled installation (stored in the entry data).
+CONNECTION_KEYS = (
+    CONF_OUTDOOR_TEMP_SENSOR,
+    CONF_INDOOR_TEMP_SENSOR,
+    CONF_PRODUCTION_SENSOR,
+    CONF_BOILER_CLIMATE,
+    CONF_HEAT_PUMP_CLIMATES,
+    CONF_HEAT_PUMP_FANS,
+    CONF_ACCESSORY_FANS,
+)
+
+# Default settings exposed in the config flow (stored in the entry options
+# once the entry has been reconfigured through the options flow).
 SETTING_DEFAULTS = {
     CONF_OUTDOOR_THRESHOLD: DEFAULT_OUTDOOR_THRESHOLD,
     CONF_DAY_SETPOINT: DEFAULT_DAY_SETPOINT,
     CONF_NIGHT_SETPOINT: DEFAULT_NIGHT_SETPOINT,
     CONF_AWAY_SETPOINT: DEFAULT_AWAY_SETPOINT,
     CONF_SOLAR_SETPOINT: DEFAULT_SOLAR_SETPOINT,
+    CONF_IDLE_SETPOINT: DEFAULT_IDLE_SETPOINT,
     CONF_HYSTERESIS: DEFAULT_HYSTERESIS,
     CONF_PRODUCTION_THRESHOLD: DEFAULT_PRODUCTION_THRESHOLD,
     CONF_HEAT_PUMP_RATE: DEFAULT_HEAT_PUMP_RATE,

@@ -41,6 +41,7 @@ from .const import (
     CONF_HEAT_PUMP_FANS,
     CONF_HEAT_PUMP_RATE,
     CONF_HYSTERESIS,
+    CONF_IDLE_SETPOINT,
     CONF_INDOOR_TEMP_SENSOR,
     CONF_NIGHT_SETPOINT,
     CONF_NIGHT_START,
@@ -101,6 +102,7 @@ def settings_from_config(config: Mapping[str, Any]) -> Settings:
         night_setpoint=number(CONF_NIGHT_SETPOINT),
         away_setpoint=number(CONF_AWAY_SETPOINT),
         solar_setpoint=number(CONF_SOLAR_SETPOINT),
+        idle_setpoint=number(CONF_IDLE_SETPOINT),
         hysteresis=number(CONF_HYSTERESIS),
         production_threshold=number(CONF_PRODUCTION_THRESHOLD),
         heat_pump_rate=number(CONF_HEAT_PUMP_RATE),
@@ -166,10 +168,12 @@ class HeatController:
                 timedelta(seconds=POLL_INTERVAL_SECONDS),
             )
         )
-        async_call_later(
-            self.hass,
-            STARTUP_DELAY_SECONDS,
-            self._on_first_run,
+        self._cancel.append(
+            async_call_later(
+                self.hass,
+                STARTUP_DELAY_SECONDS,
+                self._on_first_run,
+            )
         )
 
     async def async_stop(self) -> None:
@@ -236,6 +240,9 @@ class HeatController:
     async def _update_locked(self) -> None:
         shared = self.shared
         if not shared.active:
+            # Control disabled: no decision is valid any more.
+            if shared.decision is not None:
+                shared.set_decision(None)
             return
 
         decision = compute(self.settings, self._snapshot_inputs())
@@ -336,9 +343,9 @@ class HeatController:
             else [(self.boiler_climate, None)]
         )
 
-        desired_mode = HVAC_AUTO if not heating_needed else (
-            HVAC_HEAT if heat_pump_source else HVAC_AUTO
-        )
+        # Heat pump climate units always stay in "heat" (no cooling risk when
+        # idle); the boiler stays in "auto" like the original YAML.
+        desired_mode = HVAC_HEAT if heat_pump_source else HVAC_AUTO
 
         for clim, fan in pairs:
             state = self.hass.states.get(clim)
@@ -351,7 +358,7 @@ class HeatController:
                     await self._call("fan", "turn_on", fan)
                     fan_on = await self._wait_fan_on(fan, FAN_WAIT_TIMEOUT_SECONDS)
 
-            # HVAC mode: off / heat (heat pump) / auto (boiler).
+            # HVAC mode: heat (heat pump) or auto (boiler).
             if (
                 self._valid(state)
                 and state.state != desired_mode  # type: ignore[union-attr]
@@ -363,23 +370,21 @@ class HeatController:
                 await asyncio.sleep(HVAC_MODE_DELAY_SECONDS)
                 state = self.hass.states.get(clim)
 
-            # Setpoint, rounded to the device step and clamped.
-            if heating_needed and self._valid(state):
+            # Setpoint: heating setpoint when there is a need, idle setpoint
+            # otherwise; the thermostat is never switched off.
+            if self._valid(state):
                 attributes = state.attributes if state else {}  # type: ignore[union-attr]
+                setpoint = (
+                    decision.target_setpoint
+                    if heating_needed
+                    else self.settings.idle_setpoint
+                )
                 target = target_temperature(
-                    decision.target_setpoint,
+                    setpoint,
                     step=float(attributes.get("target_temp_step") or 0.5),
                     minimum=float(attributes.get("min_temp") or 5.0),
                     maximum=float(attributes.get("max_temp") or 30.0),
                 )
-                current = self._current_temperature(attributes)
-                if current != target:
-                    await self._call("climate", "set_temperature", clim, temperature=target)
-            elif not heating_needed and self._valid(state):
-                # Reduce the temperature to 12 when there is no heating need
-                # without turning off the thermostat (default away setpoint).
-                attributes = state.attributes if state else {}  # type: ignore[union-attr]
-                target = 12.0
                 current = self._current_temperature(attributes)
                 if current != target:
                     await self._call("climate", "set_temperature", clim, temperature=target)
