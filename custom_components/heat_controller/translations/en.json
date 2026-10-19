@@ -15,29 +15,29 @@
         "description": "The boiler is driven through its climate entity. For the heat pump list the climate units and, in the same order, their power fans (optional). Accessory fans are switched on with the heat pump and off with the boiler.",
         "data": {
           "boiler_climate": "Boiler (climate)",
-          "pac_climates": "Heat pump climate units (ordered)",
-          "pac_fans": "Power fans (same order as climate units)",
+          "heat_pump_climates": "Heat pump climate units (ordered)",
+          "heat_pump_fans": "Power fans (same order as climate units)",
           "accessory_fans": "Accessory fans"
         }
       },
       "settings": {
         "title": "Settings",
         "data": {
-          "consigne_jour": "Day setpoint (°C)",
-          "consigne_nuit": "Night setpoint (°C)",
-          "consigne_absent": "Away setpoint (°C)",
-          "consigne_solaire": "Solar setpoint (°C)",
+          "day_setpoint": "Day setpoint (°C)",
+          "night_setpoint": "Night setpoint (°C)",
+          "away_setpoint": "Away setpoint (°C)",
+          "solar_setpoint": "Solar setpoint (°C)",
           "hysteresis": "Hysteresis (°C)",
-          "seuil_exterieur": "Outdoor threshold for heat pump/boiler switch (°C)",
-          "seuil_production": "Solar production threshold (W)",
-          "vitesse_pac": "Heat-up rate, heat pump (°C/h)",
-          "vitesse_chaudiere": "Heat-up rate, boiler (°C/h)",
-          "marge_securite": "Pre-heat safety margin (min)",
-          "heure_jour": "Day period start time",
-          "heure_nuit": "Night period start time",
-          "heure_retour": "Return time in away mode",
-          "heure_solaire_debut": "Solar window start",
-          "heure_solaire_fin": "Solar window end"
+          "outdoor_threshold": "Outdoor threshold for heat pump/boiler switch (°C)",
+          "production_threshold": "Solar production threshold (W)",
+          "heat_pump_rate": "Heat-up rate, heat pump (°C/h)",
+          "boiler_rate": "Heat-up rate, boiler (°C/h)",
+          "safety_margin": "Pre-heat safety margin (min)",
+          "day_start": "Day period start time",
+          "night_start": "Night period start time",
+          "return_time": "Return time in away mode",
+          "solar_start": "Solar window start",
+          "solar_end": "Solar window end"
         }
       }
     },
@@ -61,29 +61,29 @@
         "description": "The boiler is driven through its climate entity. For the heat pump list the climate units and, in the same order, their power fans (optional). Accessory fans are switched on with the heat pump and off with the boiler.",
         "data": {
           "boiler_climate": "Boiler (climate)",
-          "pac_climates": "Heat pump climate units (ordered)",
-          "pac_fans": "Power fans (same order as climate units)",
+          "heat_pump_climates": "Heat pump climate units (ordered)",
+          "heat_pump_fans": "Power fans (same order as climate units)",
           "accessory_fans": "Accessory fans"
         }
       },
       "settings": {
         "title": "Settings",
         "data": {
-          "consigne_jour": "Day setpoint (°C)",
-          "consigne_nuit": "Night setpoint (°C)",
-          "consigne_absent": "Away setpoint (°C)",
-          "consigne_solaire": "Solar setpoint (°C)",
+          "day_setpoint": "Day setpoint (°C)",
+          "night_setpoint": "Night setpoint (°C)",
+          "away_setpoint": "Away setpoint (°C)",
+          "solar_setpoint": "Solar setpoint (°C)",
           "hysteresis": "Hysteresis (°C)",
-          "seuil_exterieur": "Outdoor threshold for heat pump/boiler switch (°C)",
-          "seuil_production": "Solar production threshold (W)",
-          "vitesse_pac": "Heat-up rate, heat pump (°C/h)",
-          "vitesse_chaudiere": "Heat-up rate, boiler (°C/h)",
-          "marge_securite": "Pre-heat safety margin (min)",
-          "heure_jour": "Day period start time",
-          "heure_nuit": "Night period start time",
-          "heure_retour": "Return time in away mode",
-          "heure_solaire_debut": "Solar window start",
-          "heure_solaire_fin": "Solar window end"
+          "outdoor_threshold": "Outdoor threshold for heat pump/boiler switch (°C)",
+          "production_threshold": "Solar production threshold (W)",
+          "heat_pump_rate": "Heat-up rate, heat pump (°C/h)",
+          "boiler_rate": "Heat-up rate, boiler (°C/h)",
+          "safety_margin": "Pre-heat safety margin (min)",
+          "day_start": "Day period start time",
+          "night_start": "Night period start time",
+          "return_time": "Return time in away mode",
+          "solar_start": "Solar window start",
+          "solar_end": "Solar window end"
         }
       }
     },
@@ -93,19 +93,19 @@
   },
   "entity": {
     "switch": {
-      "actif": { "name": "Heating control", "state": { "on": "Active", "off": "Inactive" } },
-      "mode_absent": { "name": "Away mode", "state": { "on": "Away", "off": "Home" } }
+      "active": { "name": "Heating control", "state": { "on": "Active", "off": "Inactive" } },
+      "away_mode": { "name": "Away mode", "state": { "on": "Away", "off": "Home" } }
     },
     "binary_sensor": {
-      "source_pac": { "name": "Heat pump source" },
-      "prechauffe": { "name": "Pre-heating" },
-      "demande_chauffe": { "name": "Heating demand" },
-      "periode_jour": { "name": "Day period" },
-      "periode_solaire": { "name": "Solar period" }
+      "heat_pump_source": { "name": "Heat pump source" },
+      "preheating": { "name": "Pre-heating" },
+      "heating_demand": { "name": "Heating demand" },
+      "day_period": { "name": "Day period" },
+      "solar_period": { "name": "Solar period" }
     },
     "sensor": {
-      "consigne_cible": { "name": "Target setpoint" },
-      "duree_prechauffe": { "name": "Pre-heat duration" },
+      "target_setpoint": { "name": "Target setpoint" },
+      "preheating_duration": { "name": "Pre-heat duration" },
       "source": { "name": "Heat source" }
     }
   }

@@ -1,4 +1,4 @@
-"""Entité de base du contrôleur de chauffage."""
+"""Base entity of the heat controller."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from .state import HeatState
 
 
 class HeatControllerEntity:
-    """Mixin commune : abonnement à l'état partagé + appareil unique."""
+    """Common mixin: shared state subscription + single device."""
 
     _attr_has_entity_name = True
 
@@ -24,7 +24,7 @@ class HeatControllerEntity:
 
     @property
     def device_info(self) -> DeviceInfo:
-        return DeviceInfo(identifiers={(DOMAIN, self._entry_id)}, name="Chauffage")
+        return DeviceInfo(identifiers={(DOMAIN, self._entry_id)}, name="Heating")
 
     async def async_added_to_hass(self) -> None:
         self._unsubscribe.append(

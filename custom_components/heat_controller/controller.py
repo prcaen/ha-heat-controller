@@ -1,13 +1,13 @@
-"""Contrôleur de chauffage : lit l'état, décide, applique.
+"""Heat Controller: reads state, decides, applies.
 
-Équivalent Python des automatisations YAML « Chauffage - Bascule PAC/chaudière »
-et « Chauffage - Programmation jour/nuit/absence avec anticipation ».
+Equivalent Python of YAML automations « Heating - PAC/Boiler changeover »
+and « Heating - Day/Night/Away with anticipation ».
 
-Différences volontaires avec les YAML, sans changement de comportement :
-- battement de cœur toutes les minutes (au lieu de 5/15 min) + écoute des
-  capteurs : les décisions sont idempotentes et protégées par hystérésis ;
-- la production solaire vient d'un capteur de puissance réel (centrale
-  Solenso) au lieu de la prévision Forecast.Solar.
+Voluntary differences from YAML, without changing behavior:
+- Heartbeat every minutes (instead of 5/15 min) + sensor listening:
+  decisions are idempotent and protected by hysteresis;
+- Solar production comes from a real power sensor (Solenso central)
+  instead of the Forecast.Solar forecast.
 """
 
 from __future__ import annotations
@@ -30,29 +30,29 @@ from homeassistant.helpers.event import async_track_time_interval
 from homeassistant.util import dt as dt_util
 
 from .const import (
-    BASCULE_FAN_DELAY_SECONDS,
+    CHANGEOVER_FAN_DELAY_SECONDS,
     CONF_ACCESSORY_FANS,
+    CONF_AWAY_SETPOINT,
     CONF_BOILER_CLIMATE,
-    CONF_CONSIGNE_ABSENT,
-    CONF_CONSIGNE_JOUR,
-    CONF_CONSIGNE_NUIT,
-    CONF_CONSIGNE_SOLAIRE,
-    CONF_HEURE_JOUR,
-    CONF_HEURE_NUIT,
-    CONF_HEURE_RETOUR,
-    CONF_HEURE_SOLAIRE_DEBUT,
-    CONF_HEURE_SOLAIRE_FIN,
+    CONF_BOILER_RATE,
+    CONF_DAY_SETPOINT,
+    CONF_DAY_START,
+    CONF_HEAT_PUMP_CLIMATES,
+    CONF_HEAT_PUMP_FANS,
+    CONF_HEAT_PUMP_RATE,
     CONF_HYSTERESIS,
     CONF_INDOOR_TEMP_SENSOR,
-    CONF_MARGE_SECURITE,
+    CONF_NIGHT_SETPOINT,
+    CONF_NIGHT_START,
     CONF_OUTDOOR_TEMP_SENSOR,
-    CONF_PAC_CLIMATES,
-    CONF_PAC_FANS,
+    CONF_OUTDOOR_THRESHOLD,
     CONF_PRODUCTION_SENSOR,
-    CONF_SEUIL_EXTERIEUR,
-    CONF_SEUIL_PRODUCTION,
-    CONF_VITESSE_CHAUDIERE,
-    CONF_VITESSE_PAC,
+    CONF_PRODUCTION_THRESHOLD,
+    CONF_RETURN_TIME,
+    CONF_SAFETY_MARGIN,
+    CONF_SOLAR_END,
+    CONF_SOLAR_SETPOINT,
+    CONF_SOLAR_START,
     SETTING_DEFAULTS,
     DEFAULT_INDOOR_TEMP,
     DEFAULT_PRODUCTION,
@@ -82,7 +82,7 @@ def _as_float(state: Optional[State], default: Optional[float] = None) -> Option
 
 
 def settings_from_config(config: Mapping[str, Any]) -> Settings:
-    """Construit les réglages à partir de la configuration de l'entrée."""
+    """Build the settings from the entry configuration."""
 
     def number(key: str) -> float:
         try:
@@ -96,26 +96,26 @@ def settings_from_config(config: Mapping[str, Any]) -> Settings:
         )
 
     return Settings(
-        seuil_exterieur=number(CONF_SEUIL_EXTERIEUR),
-        consigne_jour=number(CONF_CONSIGNE_JOUR),
-        consigne_nuit=number(CONF_CONSIGNE_NUIT),
-        consigne_absent=number(CONF_CONSIGNE_ABSENT),
-        consigne_solaire=number(CONF_CONSIGNE_SOLAIRE),
+        outdoor_threshold=number(CONF_OUTDOOR_THRESHOLD),
+        day_setpoint=number(CONF_DAY_SETPOINT),
+        night_setpoint=number(CONF_NIGHT_SETPOINT),
+        away_setpoint=number(CONF_AWAY_SETPOINT),
+        solar_setpoint=number(CONF_SOLAR_SETPOINT),
         hysteresis=number(CONF_HYSTERESIS),
-        seuil_production=number(CONF_SEUIL_PRODUCTION),
-        vitesse_pac=number(CONF_VITESSE_PAC),
-        vitesse_chaudiere=number(CONF_VITESSE_CHAUDIERE),
-        marge_securite=int(number(CONF_MARGE_SECURITE)),
-        heure_jour=moment(CONF_HEURE_JOUR),
-        heure_nuit=moment(CONF_HEURE_NUIT),
-        heure_retour=moment(CONF_HEURE_RETOUR),
-        heure_solaire_debut=moment(CONF_HEURE_SOLAIRE_DEBUT),
-        heure_solaire_fin=moment(CONF_HEURE_SOLAIRE_FIN),
+        production_threshold=number(CONF_PRODUCTION_THRESHOLD),
+        heat_pump_rate=number(CONF_HEAT_PUMP_RATE),
+        boiler_rate=number(CONF_BOILER_RATE),
+        safety_margin=int(number(CONF_SAFETY_MARGIN)),
+        day_start=moment(CONF_DAY_START),
+        night_start=moment(CONF_NIGHT_START),
+        return_time=moment(CONF_RETURN_TIME),
+        solar_start=moment(CONF_SOLAR_START),
+        solar_end=moment(CONF_SOLAR_END),
     )
 
 
 class HeatController:
-    """Pilote les clims, les ventilateurs et la source de chaleur."""
+    """Drive the climate units, the fans and the heat source."""
 
     def __init__(
         self,
@@ -134,11 +134,12 @@ class HeatController:
         self.production_sensor: str = config.get(CONF_PRODUCTION_SENSOR, "")
 
         self.boiler_climate: str = config.get(CONF_BOILER_CLIMATE, "")
-        self.pac_climates: list[str] = list(config.get(CONF_PAC_CLIMATES, []))
-        pac_fans: list[str] = list(config.get(CONF_PAC_FANS, []))
-        # Appairage par ordre : fan[i] alimente clim[i] (None si absent).
-        self.pac_fans: list[Optional[str]] = [
-            pac_fans[i] if i < len(pac_fans) else None for i in range(len(self.pac_climates))
+        self.heat_pump_climates: list[str] = list(config.get(CONF_HEAT_PUMP_CLIMATES, []))
+        heat_pump_fans: list[str] = list(config.get(CONF_HEAT_PUMP_FANS, []))
+        # Pairing by order: fan[i] powers climate[i] (None if missing).
+        self.heat_pump_fans: list[Optional[str]] = [
+            heat_pump_fans[i] if i < len(heat_pump_fans) else None
+            for i in range(len(self.heat_pump_climates))
         ]
         self.accessory_fans: list[str] = list(config.get(CONF_ACCESSORY_FANS, []))
 
@@ -146,10 +147,10 @@ class HeatController:
         self._cancel: list[Callable] = []
         self._first_run = True
 
-    # --- Cycle de vie --------------------------------------------------------
+    # --- Lifecycle -----------------------------------------------------------
 
     async def async_start(self) -> None:
-        """Démarre l'écoute et le battement de cœur, puis la première passe."""
+        """Start listening and heartbeat, then first pass."""
         watched = [
             entity
             for entity in (self.outdoor_sensor, self.indoor_sensor, self.production_sensor)
@@ -178,7 +179,7 @@ class HeatController:
 
     @callback
     def request_update(self) -> None:
-        """Demande une passe de pilotage (action utilisateur, changement de réglage)."""
+        """Request a control pass (user action, setting change)."""
         self.hass.async_create_task(self.async_update())
 
     @callback
@@ -198,11 +199,11 @@ class HeatController:
     def _on_first_run(self, now) -> None:
         self.hass.async_create_task(self.async_update())
 
-    # --- Décision ------------------------------------------------------------
+    # --- Decision ------------------------------------------------------------
 
     def _snapshot_inputs(self) -> Inputs:
-        temp_ext = _as_float(self.hass.states.get(self.outdoor_sensor))
-        temp_int = _as_float(
+        outdoor_temp = _as_float(self.hass.states.get(self.outdoor_sensor))
+        indoor_temp = _as_float(
             self.hass.states.get(self.indoor_sensor), DEFAULT_INDOOR_TEMP
         )
         production = _as_float(
@@ -210,49 +211,49 @@ class HeatController:
         )
         return Inputs(
             now=dt_util.now(),
-            temp_ext=temp_ext,
-            temp_int=temp_int if temp_int is not None else DEFAULT_INDOOR_TEMP,
+            outdoor_temp=outdoor_temp,
+            indoor_temp=indoor_temp if indoor_temp is not None else DEFAULT_INDOOR_TEMP,
             production=production if production is not None else DEFAULT_PRODUCTION,
-            actif=self.shared.actif,
-            mode_absent=self.shared.mode_absent,
-            source_pac=self.shared.source_pac,
-            prechauffe_flag=self.shared.prechauffe,
-            demande_flag=self.shared.demande,
+            active=self.shared.active,
+            away_mode=self.shared.away_mode,
+            heat_pump_source=self.shared.heat_pump_source,
+            preheating_flag=self.shared.preheating,
+            demand_flag=self.shared.demand,
         )
 
     async def async_update(self) -> None:
-        """Passe complète : décision puis application (sérialisée)."""
+        """Full pass: decision then application (serialized)."""
         if self._lock.locked():
             return
         async with self._lock:
             try:
                 await self._update_locked()
             except Exception:  # noqa: BLE001
-                _LOGGER.exception("Erreur pendant la passe de pilotage")
+                _LOGGER.exception("Error during the control pass")
             finally:
                 self._first_run = False
 
     async def _update_locked(self) -> None:
         shared = self.shared
-        if not shared.actif:
+        if not shared.active:
             return
 
         decision = compute(self.settings, self._snapshot_inputs())
         shared.set_decision(decision)
 
-        # L'heure de retour est dépassée : fin du mode absence (comme le YAML).
-        if decision.retour_passe and shared.mode_absent:
-            shared.set_mode_absent(False)
-        shared.set_prechauffe(decision.prechauffe)
-        shared.set_demande(decision.besoin_chauffe)
+        # Return time exceeded: end of away mode (as in YAML).
+        if decision.return_passed and shared.away_mode:
+            shared.set_away_mode(False)
+        shared.set_preheating(decision.preheating)
+        shared.set_demand(decision.heating_needed)
 
-        # Bascule PAC <-> chaudière (ou réapplication au premier passage).
-        if decision.bascule:
-            await self._apply_bascule(decision.doit_utiliser_pac)
+        # PAC / Boiler changeover (or reapplication on first pass).
+        if decision.changeover:
+            await self._apply_changeover(decision.should_use_heat_pump)
         elif self._first_run:
-            await self._enforce_accessory_fans(shared.source_pac)
+            await self._enforce_accessory_fans(shared.heat_pump_source)
 
-        # Programmation jour/nuit/absence/solaire sur la source active.
+        # Day/night/away/solar scheduling on the active source.
         await self._apply_program(decision)
 
     # --- Application ---------------------------------------------------------
@@ -265,10 +266,10 @@ class HeatController:
                 SERVICE_TIMEOUT_SECONDS,
             )
         except TimeoutError:
-            _LOGGER.warning("Timeout du service %s.%s sur %s", domain, service, entity_id)
-        except Exception:  # noqa: BLE001 - service ou entité manquante
+            _LOGGER.warning("Timeout of service %s.%s on %s", domain, service, entity_id)
+        except Exception:  # noqa: BLE001 - missing service or entity
             _LOGGER.warning(
-                "Échec du service %s.%s sur %s", domain, service, entity_id, exc_info=True
+                "Failure of service %s.%s on %s", domain, service, entity_id, exc_info=True
             )
 
     def _is_on(self, entity_id: Optional[str]) -> bool:
@@ -281,7 +282,7 @@ class HeatController:
         return state is not None and state.state not in (STATE_UNAVAILABLE, STATE_UNKNOWN)
 
     async def _wait_fan_on(self, entity_id: str, timeout: int) -> bool:
-        """Attend que le ventilateur soit allumé, comme wait_template du YAML."""
+        """Wait for the fan to turn on, like the YAML wait_template."""
         waited = 0.0
         while waited < timeout:
             if self._is_on(entity_id):
@@ -290,34 +291,34 @@ class HeatController:
             waited += 1
         return self._is_on(entity_id)
 
-    async def _apply_bascule(self, vers_pac: bool) -> None:
-        """Reproduit « Chauffage - Bascule PAC/chaudière »."""
+    async def _apply_changeover(self, to_heat_pump: bool) -> None:
+        """Reproduces « Heating - PAC/Boiler changeover »."""
         shared = self.shared
-        if vers_pac:
-            _LOGGER.info("Bascule vers la PAC (température extérieure suffisante)")
+        if to_heat_pump:
+            _LOGGER.info("Changeover to the heat pump (outdoor temperature high enough)")
             await self._call("climate", "set_hvac_mode", self.boiler_climate, hvac_mode=HVAC_OFF)
             for fan in self.accessory_fans:
                 await self._call("fan", "turn_on", fan)
-            await asyncio.sleep(BASCULE_FAN_DELAY_SECONDS)
-            for clim in self.pac_climates:
+            await asyncio.sleep(CHANGEOVER_FAN_DELAY_SECONDS)
+            for clim in self.heat_pump_climates:
                 await self._call("climate", "set_hvac_mode", clim, hvac_mode=HVAC_HEAT)
-            shared.set_source_pac(True)
+            shared.set_heat_pump_source(True)
         else:
-            _LOGGER.info("Bascule vers la chaudière (température extérieure trop basse)")
-            for clim in self.pac_climates:
+            _LOGGER.info("Changeover to the boiler (outdoor temperature too low)")
+            for clim in self.heat_pump_climates:
                 await self._call("climate", "set_hvac_mode", clim, hvac_mode=HVAC_OFF)
-            # Ventilateurs accessoires (YAML d'origine) et ventilateurs de
-            # puissance : tout ce qui alimente la PAC doit s'éteindre.
+            # Accessory fans (original YAML) and power fans: everything
+            # that powers the heat pump must turn off.
             fans = dict.fromkeys(
-                [*self.accessory_fans, *(fan for fan in self.pac_fans if fan)]
+                [*self.accessory_fans, *(fan for fan in self.heat_pump_fans if fan)]
             )
             for fan in fans:
                 await self._call("fan", "turn_off", fan)
             await self._call("climate", "set_hvac_mode", self.boiler_climate, hvac_mode=HVAC_AUTO)
-            shared.set_source_pac(False)
+            shared.set_heat_pump_source(False)
 
     async def _enforce_accessory_fans(self, on: bool) -> None:
-        """Réaligne les ventilateurs accessoires sur la source active."""
+        """Re-align the accessory fans with the active source."""
         for fan in self.accessory_fans:
             if on and not self._is_on(fan):
                 await self._call("fan", "turn_on", fan)
@@ -325,57 +326,71 @@ class HeatController:
                 await self._call("fan", "turn_off", fan)
 
     async def _apply_program(self, decision: Decision) -> None:
-        """Reproduit « Chauffage - Programmation jour/nuit/absence »."""
-        besoin = decision.besoin_chauffe
-        source_pac = self.shared.source_pac
+        """Reproduces « Heating - Day/Night/Away scheduling »."""
+        heating_needed = decision.heating_needed
+        heat_pump_source = self.shared.heat_pump_source
 
         pairs: list[tuple[str, Optional[str]]] = (
-            list(zip(self.pac_climates, self.pac_fans))
-            if source_pac
+            list(zip(self.heat_pump_climates, self.heat_pump_fans))
+            if heat_pump_source
             else [(self.boiler_climate, None)]
         )
 
-        mode_desire = HVAC_OFF if not besoin else (HVAC_HEAT if source_pac else HVAC_AUTO)
+        desired_mode = HVAC_AUTO if not heating_needed else (
+            HVAC_HEAT if heat_pump_source else HVAC_AUTO
+        )
 
         for clim, fan in pairs:
             state = self.hass.states.get(clim)
 
-            # Alimentation du ventilateur de puissance avant d'attaquer la clim.
+            # Power fan supply before driving the climate unit.
             fan_on = True
             if fan:
                 fan_on = self._is_on(fan)
-                if besoin and source_pac and not fan_on:
+                if heating_needed and heat_pump_source and not fan_on:
                     await self._call("fan", "turn_on", fan)
                     fan_on = await self._wait_fan_on(fan, FAN_WAIT_TIMEOUT_SECONDS)
 
-            # Mode HVAC : off / heat (PAC) / auto (chaudière).
+            # HVAC mode: off / heat (heat pump) / auto (boiler).
             if (
                 self._valid(state)
-                and state.state != mode_desire  # type: ignore[union-attr]
-                and (not source_pac or fan is None or fan_on)
+                and state.state != desired_mode  # type: ignore[union-attr]
+                and (not heat_pump_source or fan is None or fan_on)
             ):
                 await self._call(
-                    "climate", "set_hvac_mode", clim, hvac_mode=mode_desire
+                    "climate", "set_hvac_mode", clim, hvac_mode=desired_mode
                 )
                 await asyncio.sleep(HVAC_MODE_DELAY_SECONDS)
                 state = self.hass.states.get(clim)
 
-            # Consigne, arrondie au pas de l'appareil et bornée.
-            if besoin and self._valid(state):
+            # Setpoint, rounded to the device step and clamped.
+            if heating_needed and self._valid(state):
                 attributes = state.attributes if state else {}  # type: ignore[union-attr]
-                cible = target_temperature(
-                    decision.consigne_cible,
+                target = target_temperature(
+                    decision.target_setpoint,
                     step=float(attributes.get("target_temp_step") or 0.5),
                     minimum=float(attributes.get("min_temp") or 5.0),
                     maximum=float(attributes.get("max_temp") or 30.0),
                 )
-                try:
-                    actuelle = float(attributes.get("temperature") or 0)
-                except (TypeError, ValueError):
-                    actuelle = 0.0
-                if actuelle != cible:
-                    await self._call("climate", "set_temperature", clim, temperature=cible)
+                current = self._current_temperature(attributes)
+                if current != target:
+                    await self._call("climate", "set_temperature", clim, temperature=target)
+            elif not heating_needed and self._valid(state):
+                # Reduce the temperature to 12 when there is no heating need
+                # without turning off the thermostat (default away setpoint).
+                attributes = state.attributes if state else {}  # type: ignore[union-attr]
+                target = 12.0
+                current = self._current_temperature(attributes)
+                if current != target:
+                    await self._call("climate", "set_temperature", clim, temperature=target)
 
-            # Coupure du ventilateur de puissance quand il n'y a pas de besoin.
-            if fan and not besoin and source_pac and self._is_on(fan):
+            # Power fan shutdown when there is no need.
+            if fan and not heating_needed and heat_pump_source and self._is_on(fan):
                 await self._call("fan", "turn_off", fan)
+
+    @staticmethod
+    def _current_temperature(attributes: Mapping[str, Any]) -> float:
+        try:
+            return float(attributes.get("temperature") or 0)
+        except (TypeError, ValueError):
+            return 0.0

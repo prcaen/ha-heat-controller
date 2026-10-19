@@ -1,4 +1,4 @@
-"""Flux de configuration et d'options du contrôleur de chauffage."""
+"""Heat controller configuration and options flow."""
 
 from __future__ import annotations
 
@@ -25,27 +25,27 @@ from homeassistant.helpers.selector import (
 
 from .const import (
     CONF_ACCESSORY_FANS,
+    CONF_AWAY_SETPOINT,
     CONF_BOILER_CLIMATE,
-    CONF_CONSIGNE_ABSENT,
-    CONF_CONSIGNE_JOUR,
-    CONF_CONSIGNE_NUIT,
-    CONF_CONSIGNE_SOLAIRE,
-    CONF_HEURE_JOUR,
-    CONF_HEURE_NUIT,
-    CONF_HEURE_RETOUR,
-    CONF_HEURE_SOLAIRE_DEBUT,
-    CONF_HEURE_SOLAIRE_FIN,
+    CONF_BOILER_RATE,
+    CONF_DAY_SETPOINT,
+    CONF_DAY_START,
+    CONF_HEAT_PUMP_CLIMATES,
+    CONF_HEAT_PUMP_FANS,
+    CONF_HEAT_PUMP_RATE,
     CONF_HYSTERESIS,
     CONF_INDOOR_TEMP_SENSOR,
-    CONF_MARGE_SECURITE,
+    CONF_NIGHT_SETPOINT,
+    CONF_NIGHT_START,
     CONF_OUTDOOR_TEMP_SENSOR,
-    CONF_PAC_CLIMATES,
-    CONF_PAC_FANS,
+    CONF_OUTDOOR_THRESHOLD,
     CONF_PRODUCTION_SENSOR,
-    CONF_SEUIL_EXTERIEUR,
-    CONF_SEUIL_PRODUCTION,
-    CONF_VITESSE_CHAUDIERE,
-    CONF_VITESSE_PAC,
+    CONF_PRODUCTION_THRESHOLD,
+    CONF_RETURN_TIME,
+    CONF_SAFETY_MARGIN,
+    CONF_SOLAR_END,
+    CONF_SOLAR_SETPOINT,
+    CONF_SOLAR_START,
     DOMAIN,
     SETTING_DEFAULTS,
 )
@@ -58,7 +58,7 @@ TEMPERATURE_SELECTOR = NumberSelector(
 
 
 def _solenso_power_sensor(hass: HomeAssistant) -> str | None:
-    """Capteur de puissance de la centrale Solenso, si l'intégration est présente."""
+    """Solenso central power sensor, if the integration is present."""
     solenso_entries = {
         entry.entry_id for entry in hass.config_entries.async_entries("solenso")
     }
@@ -72,8 +72,8 @@ def _solenso_power_sensor(hass: HomeAssistant) -> str | None:
         and entity.domain == "sensor"
         and entity.device_class == "power"
     ]
-    # Le capteur de la centrale (unique_id « <id>_power ») prime sur les
-    # micro-onduleurs (« micro_<sn>_power »).
+    # The central sensor (unique_id "<id>_power") takes precedence over the
+    # micro-inverters ("micro_<sn>_power").
     station = [e for e in candidates if not e.unique_id.startswith("micro_")]
     chosen = (station or candidates)[0] if (station or candidates) else None
     return chosen.entity_id if chosen else None
@@ -111,12 +111,12 @@ def _devices_schema(data: dict[str, Any]) -> vol.Schema:
                 CONF_BOILER_CLIMATE, default=data.get(CONF_BOILER_CLIMATE)
             ): EntitySelector(EntitySelectorConfig(domain="climate")),
             vol.Required(
-                CONF_PAC_CLIMATES, default=data.get(CONF_PAC_CLIMATES, [])
+                CONF_HEAT_PUMP_CLIMATES, default=data.get(CONF_HEAT_PUMP_CLIMATES, [])
             ): EntitySelector(
                 EntitySelectorConfig(domain="climate", multiple=True)
             ),
             vol.Optional(
-                CONF_PAC_FANS, default=data.get(CONF_PAC_FANS, [])
+                CONF_HEAT_PUMP_FANS, default=data.get(CONF_HEAT_PUMP_FANS, [])
             ): EntitySelector(EntitySelectorConfig(domain="fan", multiple=True)),
             vol.Optional(
                 CONF_ACCESSORY_FANS, default=data.get(CONF_ACCESSORY_FANS, [])
@@ -132,16 +132,16 @@ def _settings_schema(data: dict[str, Any]) -> vol.Schema:
     return vol.Schema(
         {
             vol.Required(
-                CONF_CONSIGNE_JOUR, default=setting(CONF_CONSIGNE_JOUR)
+                CONF_DAY_SETPOINT, default=setting(CONF_DAY_SETPOINT)
             ): TEMPERATURE_SELECTOR,
             vol.Required(
-                CONF_CONSIGNE_NUIT, default=setting(CONF_CONSIGNE_NUIT)
+                CONF_NIGHT_SETPOINT, default=setting(CONF_NIGHT_SETPOINT)
             ): TEMPERATURE_SELECTOR,
             vol.Required(
-                CONF_CONSIGNE_ABSENT, default=setting(CONF_CONSIGNE_ABSENT)
+                CONF_AWAY_SETPOINT, default=setting(CONF_AWAY_SETPOINT)
             ): TEMPERATURE_SELECTOR,
             vol.Required(
-                CONF_CONSIGNE_SOLAIRE, default=setting(CONF_CONSIGNE_SOLAIRE)
+                CONF_SOLAR_SETPOINT, default=setting(CONF_SOLAR_SETPOINT)
             ): TEMPERATURE_SELECTOR,
             vol.Required(
                 CONF_HYSTERESIS,
@@ -150,61 +150,61 @@ def _settings_schema(data: dict[str, Any]) -> vol.Schema:
                 NumberSelectorConfig(min=0, max=5, step=0.1, unit_of_measurement="°C")
             ),
             vol.Required(
-                CONF_SEUIL_EXTERIEUR, default=setting(CONF_SEUIL_EXTERIEUR)
+                CONF_OUTDOOR_THRESHOLD, default=setting(CONF_OUTDOOR_THRESHOLD)
             ): NumberSelector(
                 NumberSelectorConfig(
-                    min=-20, max=30, step=0.5, unit_of_measurement=UnitOfTemperature.CELSIUS
+                    min=-5, max=10, step=0.5, unit_of_measurement=UnitOfTemperature.CELSIUS
                 )
             ),
             vol.Required(
-                CONF_SEUIL_PRODUCTION, default=setting(CONF_SEUIL_PRODUCTION)
+                CONF_PRODUCTION_THRESHOLD, default=setting(CONF_PRODUCTION_THRESHOLD)
             ): NumberSelector(
                 NumberSelectorConfig(
                     min=0, max=20000, step=50, mode=NumberSelectorMode.BOX, unit_of_measurement=UnitOfPower.WATT
                 )
             ),
             vol.Required(
-                CONF_VITESSE_PAC, default=setting(CONF_VITESSE_PAC)
+                CONF_HEAT_PUMP_RATE, default=setting(CONF_HEAT_PUMP_RATE)
             ): NumberSelector(
                 NumberSelectorConfig(
                     min=0, max=10, step=0.1, unit_of_measurement="°C/h"
                 )
             ),
             vol.Required(
-                CONF_VITESSE_CHAUDIERE, default=setting(CONF_VITESSE_CHAUDIERE)
+                CONF_BOILER_RATE, default=setting(CONF_BOILER_RATE)
             ): NumberSelector(
                 NumberSelectorConfig(
                     min=0, max=10, step=0.1, unit_of_measurement="°C/h"
                 )
             ),
             vol.Required(
-                CONF_MARGE_SECURITE, default=setting(CONF_MARGE_SECURITE)
+                CONF_SAFETY_MARGIN, default=setting(CONF_SAFETY_MARGIN)
             ): NumberSelector(
                 NumberSelectorConfig(
                     min=0, max=240, step=5, mode=NumberSelectorMode.BOX, unit_of_measurement="min"
                 )
             ),
             vol.Required(
-                CONF_HEURE_JOUR, default=setting(CONF_HEURE_JOUR)
+                CONF_DAY_START, default=setting(CONF_DAY_START)
             ): TimeSelector(),
             vol.Required(
-                CONF_HEURE_NUIT, default=setting(CONF_HEURE_NUIT)
+                CONF_NIGHT_START, default=setting(CONF_NIGHT_START)
             ): TimeSelector(),
             vol.Required(
-                CONF_HEURE_RETOUR, default=setting(CONF_HEURE_RETOUR)
+                CONF_RETURN_TIME, default=setting(CONF_RETURN_TIME)
             ): TimeSelector(),
             vol.Required(
-                CONF_HEURE_SOLAIRE_DEBUT, default=setting(CONF_HEURE_SOLAIRE_DEBUT)
+                CONF_SOLAR_START, default=setting(CONF_SOLAR_START)
             ): TimeSelector(),
             vol.Required(
-                CONF_HEURE_SOLAIRE_FIN, default=setting(CONF_HEURE_SOLAIRE_FIN)
+                CONF_SOLAR_END, default=setting(CONF_SOLAR_END)
             ): TimeSelector(),
         }
     )
 
 
 class HeatControllerConfigFlow(ConfigFlow, domain=DOMAIN):
-    """Configuration initiale : capteurs, appareils, réglages."""
+    """Initial configuration: sensors, devices, settings."""
 
     VERSION = 1
 
@@ -234,8 +234,8 @@ class HeatControllerConfigFlow(ConfigFlow, domain=DOMAIN):
     async def async_step_devices(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         errors: dict[str, str] = {}
         if user_input is not None:
-            climates = user_input.get(CONF_PAC_CLIMATES) or []
-            fans = user_input.get(CONF_PAC_FANS) or []
+            climates = user_input.get(CONF_HEAT_PUMP_CLIMATES) or []
+            fans = user_input.get(CONF_HEAT_PUMP_FANS) or []
             if fans and len(fans) != len(climates):
                 errors["base"] = "fan_count_mismatch"
             else:
@@ -250,7 +250,7 @@ class HeatControllerConfigFlow(ConfigFlow, domain=DOMAIN):
     async def async_step_settings(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         if user_input is not None:
             self._data.update(user_input)
-            return self.async_create_entry(title="Chauffage", data=self._data)
+            return self.async_create_entry(title="Heating", data=self._data)
         return self.async_show_form(
             step_id="settings",
             data_schema=_settings_schema(self._data),
@@ -258,7 +258,7 @@ class HeatControllerConfigFlow(ConfigFlow, domain=DOMAIN):
 
 
 class HeatControllerOptionsFlow(OptionsFlow):
-    """Modification des mêmes écrans que la configuration initiale."""
+    """Edit the same screens as the initial configuration."""
 
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         self._data: dict[str, Any] = dict(self.config_entry.data)
@@ -278,8 +278,8 @@ class HeatControllerOptionsFlow(OptionsFlow):
     async def async_step_devices(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         errors: dict[str, str] = {}
         if user_input is not None:
-            climates = user_input.get(CONF_PAC_CLIMATES) or []
-            fans = user_input.get(CONF_PAC_FANS) or []
+            climates = user_input.get(CONF_HEAT_PUMP_CLIMATES) or []
+            fans = user_input.get(CONF_HEAT_PUMP_FANS) or []
             if fans and len(fans) != len(climates):
                 errors["base"] = "fan_count_mismatch"
             else:

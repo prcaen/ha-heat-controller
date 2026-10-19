@@ -1,4 +1,4 @@
-"""Tests de la logique de décision, équivalents aux automatisations YAML."""
+"""Logic decision tests, equivalents to YAML automations."""
 
 import importlib.util
 import os
@@ -6,8 +6,8 @@ import sys
 import unittest
 from datetime import datetime, timedelta
 
-# logic.py ne dépend pas de Home Assistant : chargement direct par chemin
-# pour éviter d'importer le package (qui, lui, dépend de homeassistant).
+# logic.py does not depend on Home Assistant: direct loading by path
+# to avoid importing the package (which depends on homeassistant).
 _LOGIC_PATH = os.path.join(
     os.path.dirname(__file__),
     "..",
@@ -20,7 +20,7 @@ logic = importlib.util.module_from_spec(_spec)
 sys.modules[_spec.name] = logic
 _spec.loader.exec_module(logic)
 
-HYSTERESIS_BASCULE = logic.HYSTERESIS_BASCULE
+CHANGEOVER_HYSTERESIS = logic.CHANGEOVER_HYSTERESIS
 Inputs = logic.Inputs
 Settings = logic.Settings
 compute = logic.compute
@@ -30,36 +30,42 @@ target_temperature = logic.target_temperature
 
 def settings(**kwargs) -> Settings:
     base = dict(
-        seuil_exterieur=7.0,
-        consigne_jour=20.0,
-        consigne_nuit=16.0,
-        consigne_absent=12.0,
-        consigne_solaire=22.0,
+        outdoor_threshold=3.0,
+        day_setpoint=20.0,
+        night_setpoint=16.0,
+        away_setpoint=12.0,
+        solar_setpoint=22.0,
         hysteresis=0.3,
-        seuil_production=500.0,
-        vitesse_pac=1.0,
-        vitesse_chaudiere=1.0,
-        marge_securite=15,
-        heure_jour=timedelta(hours=7),
-        heure_nuit=timedelta(hours=22),
-        heure_retour=timedelta(hours=18),
-        heure_solaire_debut=timedelta(hours=11),
-        heure_solaire_fin=timedelta(hours=15),
+        production_threshold=500.0,
+        heat_pump_rate=1.0,
+        boiler_rate=1.0,
+        safety_margin=15,
+        day_start=timedelta(hours=7),
+        night_start=timedelta(hours=22),
+        return_time=timedelta(hours=18),
+        solar_start=timedelta(hours=11),
+        solar_end=timedelta(hours=15),
     )
     base.update(kwargs)
     return Settings(**base)
 
 
-def inputs(now, temp_ext=10.0, temp_int=19.0, production=0.0, **kwargs) -> Inputs:
+def inputs(now, outdoor_temp=10.0, indoor_temp=19.0, production=0.0, **kwargs) -> Inputs:
     base = dict(
-        actif=True,
-        mode_absent=False,
-        source_pac=False,
-        prechauffe_flag=False,
-        demande_flag=False,
+        active=True,
+        away_mode=False,
+        heat_pump_source=False,
+        preheating_flag=False,
+        demand_flag=False,
     )
     base.update(kwargs)
-    return Inputs(now=now, temp_ext=temp_ext, temp_int=temp_int, production=production, **base)
+    return Inputs(
+        now=now,
+        outdoor_temp=outdoor_temp,
+        indoor_temp=indoor_temp,
+        production=production,
+        **base,
+    )
 
 
 class TestParseTime(unittest.TestCase):
@@ -70,192 +76,249 @@ class TestParseTime(unittest.TestCase):
         self.assertIsNone(parse_time(None))
 
 
-class TestBascule(unittest.TestCase):
-    """Seuil extérieur avec hystérésis de 0,5 °C (1re automatisation)."""
+class TestChangeover(unittest.TestCase):
+    """Outdoor threshold with 0.5 °C hysteresis (1st automation)."""
 
-    def test_chaudiere_vers_pac(self):
+    def test_default_threshold(self):
+        """The default outdoor threshold is 3.0 °C."""
+        self.assertEqual(Settings().outdoor_threshold, 3.0)
+
+    def test_boiler_to_heat_pump(self):
         s = settings()
-        # source chaudière : bascule si temp_ext > 7,5
-        d = compute(s, inputs(datetime(2026, 1, 15, 12), temp_ext=7.5))
-        self.assertFalse(d.bascule)
-        d = compute(s, inputs(datetime(2026, 1, 15, 12), temp_ext=7.6))
-        self.assertTrue(d.bascule)
-        self.assertTrue(d.doit_utiliser_pac)
+        # boiler source: changeover if outdoor_temp > 3.5
+        d = compute(s, inputs(datetime(2026, 1, 15, 12), outdoor_temp=3.5))
+        self.assertFalse(d.changeover)
+        d = compute(s, inputs(datetime(2026, 1, 15, 12), outdoor_temp=3.6))
+        self.assertTrue(d.changeover)
+        self.assertTrue(d.should_use_heat_pump)
 
-    def test_pac_vers_chaudiere(self):
+    def test_heat_pump_to_boiler(self):
         s = settings()
-        # source PAC : bascule si temp_ext <= 6,5
-        d = compute(s, inputs(datetime(2026, 1, 15, 12), temp_ext=6.5, source_pac=True))
-        self.assertTrue(d.bascule)
-        self.assertFalse(d.doit_utiliser_pac)
-        d = compute(s, inputs(datetime(2026, 1, 15, 12), temp_ext=6.6, source_pac=True))
-        self.assertFalse(d.bascule)
+        # heat pump source: changeover if outdoor_temp <= 2.5
+        d = compute(
+            s, inputs(datetime(2026, 1, 15, 12), outdoor_temp=2.5, heat_pump_source=True)
+        )
+        self.assertTrue(d.changeover)
+        self.assertFalse(d.should_use_heat_pump)
+        d = compute(
+            s, inputs(datetime(2026, 1, 15, 12), outdoor_temp=2.6, heat_pump_source=True)
+        )
+        self.assertFalse(d.changeover)
 
-    def test_temp_ext_inconnue(self):
+    def test_outdoor_temp_unknown(self):
         s = settings()
-        d = compute(s, inputs(datetime(2026, 1, 15, 12), temp_ext=None))
-        self.assertFalse(d.bascule)
-        self.assertEqual(d.doit_utiliser_pac, False)
+        d = compute(s, inputs(datetime(2026, 1, 15, 12), outdoor_temp=None))
+        self.assertFalse(d.changeover)
+        self.assertEqual(d.should_use_heat_pump, False)
 
 
-class TestPeriodes(unittest.TestCase):
-    def test_periode_jour(self):
+class TestPeriods(unittest.TestCase):
+    def test_day_period(self):
         s = settings()
-        self.assertTrue(compute(s, inputs(datetime(2026, 1, 15, 7, 0, 0))).en_periode_jour)
-        self.assertFalse(compute(s, inputs(datetime(2026, 1, 15, 6, 59, 59))).en_periode_jour)
-        self.assertFalse(compute(s, inputs(datetime(2026, 1, 15, 22, 0, 0))).en_periode_jour)
-        self.assertTrue(compute(s, inputs(datetime(2026, 1, 15, 21, 59, 59))).en_periode_jour)
+        self.assertTrue(compute(s, inputs(datetime(2026, 1, 15, 7, 0, 0))).in_day_period)
+        self.assertFalse(compute(s, inputs(datetime(2026, 1, 15, 6, 59, 59))).in_day_period)
+        self.assertFalse(compute(s, inputs(datetime(2026, 1, 15, 22, 0, 0))).in_day_period)
+        self.assertTrue(compute(s, inputs(datetime(2026, 1, 15, 21, 59, 59))).in_day_period)
 
-    def test_periode_solaire(self):
+    def test_solar_period(self):
         s = settings()
-        # 12:00, dans la fenêtre 11:00-15:00, production suffisante
+        # 12:00, inside the 11:00-15:00 window, enough production
         d = compute(s, inputs(datetime(2026, 1, 15, 12), production=500.0))
-        self.assertTrue(d.en_periode_solaire)
-        # production insuffisante
+        self.assertTrue(d.in_solar_period)
+        # not enough production
         d = compute(s, inputs(datetime(2026, 1, 15, 12), production=499.9))
-        self.assertFalse(d.en_periode_solaire)
-        # hors fenêtre
+        self.assertFalse(d.in_solar_period)
+        # outside the window
         d = compute(s, inputs(datetime(2026, 1, 15, 16), production=3000.0))
-        self.assertFalse(d.en_periode_solaire)
-        # la nuit, même en produisant (néant), pas de période solaire
+        self.assertFalse(d.in_solar_period)
+        # at night, even when producing (nothing), no solar period
         d = compute(s, inputs(datetime(2026, 1, 15, 23), production=3000.0))
-        self.assertFalse(d.en_periode_solaire)
+        self.assertFalse(d.in_solar_period)
 
 
-class TestConsigneCible(unittest.TestCase):
-    def test_jour_nuit(self):
+class TestTargetSetpoint(unittest.TestCase):
+    def test_day_night(self):
         s = settings()
         d = compute(s, inputs(datetime(2026, 1, 15, 12)))
-        self.assertEqual(d.consigne_cible, 20.0)
+        self.assertEqual(d.target_setpoint, 20.0)
         d = compute(s, inputs(datetime(2026, 1, 15, 23)))
-        self.assertEqual(d.consigne_cible, 16.0)
+        self.assertEqual(d.target_setpoint, 16.0)
 
-    def test_solaire_max_avec_jour(self):
-        s = settings(consigne_solaire=22.0, consigne_jour=23.5)
+    def test_solar_max_with_day(self):
+        s = settings(solar_setpoint=22.0, day_setpoint=23.5)
         d = compute(s, inputs(datetime(2026, 1, 15, 12), production=800.0))
-        self.assertEqual(d.consigne_cible, 23.5)
+        self.assertEqual(d.target_setpoint, 23.5)
 
-    def test_absent(self):
+    def test_away(self):
         s = settings()
-        d = compute(s, inputs(datetime(2026, 1, 15, 12), mode_absent=True))
-        self.assertTrue(d.mode_absent_effectif)
-        self.assertEqual(d.consigne_cible, 12.0)
+        d = compute(s, inputs(datetime(2026, 1, 15, 12), away_mode=True))
+        self.assertTrue(d.away_mode_active)
+        self.assertEqual(d.target_setpoint, 12.0)
 
-    def test_absent_prechauffe_vaut_jour(self):
+    def test_away_preheating_uses_day_setpoint(self):
         s = settings()
-        # retour 18:00, préchauffe nécessaire ~ (20-15)/1*60+15 = 315 min
+        # return 18:00, preheating needed ~ (20-15)/1*60+15 = 315 min
         d = compute(
             s,
             inputs(
                 datetime(2026, 1, 15, 13, 0, 0),
-                temp_int=15.0,
-                mode_absent=True,
+                indoor_temp=15.0,
+                away_mode=True,
             ),
         )
-        self.assertTrue(d.prechauffe)
-        self.assertEqual(d.consigne_cible, 20.0)
+        self.assertTrue(d.preheating)
+        self.assertEqual(d.target_setpoint, 20.0)
 
 
-class TestPrechauffe(unittest.TestCase):
-    def test_minutes_necessaires(self):
-        s = settings(vitesse_pac=2.0, marge_securite=15)
-        d = compute(s, inputs(datetime(2026, 1, 15, 12), temp_int=17.0, source_pac=True))
-        # écart 3 °C / 2 °C/h * 60 = 90 min + 15 = 105
-        self.assertEqual(d.minutes_necessaires, 105)
+class TestPreheating(unittest.TestCase):
+    def test_preheating_minutes(self):
+        s = settings(heat_pump_rate=2.0, safety_margin=15)
+        d = compute(
+            s,
+            inputs(datetime(2026, 1, 15, 12), indoor_temp=17.0, heat_pump_source=True),
+        )
+        # difference 3 °C / 2 °C/h * 60 = 90 min + 15 = 105
+        self.assertEqual(d.preheating_minutes, 105)
 
-    def test_vitesse_nulle(self):
-        s = settings(vitesse_pac=0.0, marge_securite=20)
-        d = compute(s, inputs(datetime(2026, 1, 15, 12), temp_int=17.0, source_pac=True))
-        self.assertEqual(d.minutes_necessaires, 20)
+    def test_zero_rate(self):
+        s = settings(heat_pump_rate=0.0, safety_margin=20)
+        d = compute(
+            s,
+            inputs(datetime(2026, 1, 15, 12), indoor_temp=17.0, heat_pump_source=True),
+        )
+        self.assertEqual(d.preheating_minutes, 20)
 
-    def test_debut_prechauffe_matin(self):
-        s = settings(marge_securite=15)
-        # (20-17)/1*60 + 15 = 195 min -> préchauffe dès 03:45
-        d = compute(s, inputs(datetime(2026, 1, 15, 3, 44, 0), temp_int=17.0))
-        self.assertFalse(d.prechauffe)
-        d = compute(s, inputs(datetime(2026, 1, 15, 3, 45, 0), temp_int=17.0))
-        self.assertTrue(d.prechauffe)
+    def test_morning_preheating_start(self):
+        s = settings(safety_margin=15)
+        # (20-17)/1*60 + 15 = 195 min -> preheating from 03:45
+        d = compute(s, inputs(datetime(2026, 1, 15, 3, 44, 0), indoor_temp=17.0))
+        self.assertFalse(d.preheating)
+        d = compute(s, inputs(datetime(2026, 1, 15, 3, 45, 0), indoor_temp=17.0))
+        self.assertTrue(d.preheating)
 
-    def test_prechauffe_persiste_hors_periode_jour(self):
+    def test_preheating_persists_outside_day_period(self):
         s = settings()
-        # drapeau levé, on reste en préchauffe tant que la période jour n'a pas commencé
-        d = compute(s, inputs(datetime(2026, 1, 15, 5, 0, 0), prechauffe_flag=True))
-        self.assertTrue(d.prechauffe)
-        # drapeau levé mais période jour commencée : plus de préchauffe
-        d = compute(s, inputs(datetime(2026, 1, 15, 12, 0, 0), prechauffe_flag=True))
-        self.assertFalse(d.prechauffe)
+        # flag raised, we stay in preheating as long as the day period has not started
+        d = compute(s, inputs(datetime(2026, 1, 15, 5, 0, 0), preheating_flag=True))
+        self.assertTrue(d.preheating)
+        # flag raised but day period started: no more preheating
+        d = compute(s, inputs(datetime(2026, 1, 15, 12, 0, 0), preheating_flag=True))
+        self.assertFalse(d.preheating)
 
-    def test_debut_prechauffe_retour(self):
+    def test_return_preheating_start(self):
         s = settings()
-        # retour 18:00, préchauffe 195 min -> 14:45
+        # return 18:00, preheating 195 min -> 14:45
         d = compute(
             s,
             inputs(
                 datetime(2026, 1, 15, 14, 44, 0),
-                temp_int=17.0,
-                mode_absent=True,
+                indoor_temp=17.0,
+                away_mode=True,
             ),
         )
-        self.assertFalse(d.prechauffe)
+        self.assertFalse(d.preheating)
         d = compute(
             s,
             inputs(
                 datetime(2026, 1, 15, 14, 45, 0),
-                temp_int=17.0,
-                mode_absent=True,
+                indoor_temp=17.0,
+                away_mode=True,
             ),
         )
-        self.assertTrue(d.prechauffe)
+        self.assertTrue(d.preheating)
 
-    def test_retour_passe(self):
+    def test_return_passed(self):
         s = settings()
         d = compute(
             s,
-            inputs(datetime(2026, 1, 15, 18, 30, 0), mode_absent=True),
+            inputs(datetime(2026, 1, 15, 18, 30, 0), away_mode=True),
         )
-        self.assertTrue(d.retour_passe)
-        self.assertFalse(d.mode_absent_effectif)
-        # comme dans le YAML : le mode absent doit être éteint, consigne jour
-        self.assertEqual(d.consigne_cible, 20.0)
+        self.assertTrue(d.return_passed)
+        self.assertFalse(d.away_mode_active)
+        # as in YAML: away mode must be turned off, day setpoint
+        self.assertEqual(d.target_setpoint, 20.0)
 
 
-class TestBesoinChauffe(unittest.TestCase):
+class TestHeatingDemand(unittest.TestCase):
     def test_hysteresis(self):
         s = settings(hysteresis=0.3)
-        # sans demande : démarre sous 19,7 (20 - 0,3)
+        # without demand: starts below 19.7 (20 - 0.3)
         self.assertFalse(
-            compute(s, inputs(datetime(2026, 1, 15, 12), temp_int=19.7)).besoin_chauffe
+            compute(s, inputs(datetime(2026, 1, 15, 12), indoor_temp=19.7)).heating_needed
         )
         self.assertTrue(
-            compute(s, inputs(datetime(2026, 1, 15, 12), temp_int=19.6)).besoin_chauffe
+            compute(s, inputs(datetime(2026, 1, 15, 12), indoor_temp=19.6)).heating_needed
         )
-        # avec demande : s'arrête à partir de 20,3 (consigne + hystérésis)
+        # with demand: stops at 20.3 (setpoint + hysteresis)
         self.assertTrue(
             compute(
                 s,
-                inputs(datetime(2026, 1, 15, 12), temp_int=20.29, demande_flag=True),
-            ).besoin_chauffe
+                inputs(datetime(2026, 1, 15, 12), indoor_temp=20.29, demand_flag=True),
+            ).heating_needed
         )
         self.assertFalse(
             compute(
                 s,
-                inputs(datetime(2026, 1, 15, 12), temp_int=20.31, demande_flag=True),
-            ).besoin_chauffe
+                inputs(datetime(2026, 1, 15, 12), indoor_temp=20.31, demand_flag=True),
+            ).heating_needed
         )
+
+
+class TestNoHeatingDemand(unittest.TestCase):
+    """Tests for when there is no heating need (heating_needed = False)."""
+
+    def test_no_need_above_setpoint_with_hysteresis(self):
+        """Without demand flag: heating stops above setpoint + hysteresis."""
+        s = settings(hysteresis=0.3)
+        # day_setpoint=20, hysteresis=0.3 -> demand stops at 20.3
+        d = compute(s, inputs(datetime(2026, 1, 15, 12), indoor_temp=20.31))
+        self.assertFalse(d.heating_needed)
+        self.assertEqual(d.target_setpoint, 20.0)
+
+    def test_no_need_above_setpoint_with_demand(self):
+        """With demand flag: heating stops at setpoint + hysteresis."""
+        s = settings(hysteresis=0.3)
+        # with demand: stops at 20.3 (setpoint + hysteresis)
+        d = compute(
+            s,
+            inputs(datetime(2026, 1, 15, 12), indoor_temp=20.31, demand_flag=True),
+        )
+        self.assertFalse(d.heating_needed)
+        self.assertEqual(d.target_setpoint, 20.0)
+
+    def test_no_need_below_setpoint_negative_hysteresis(self):
+        """Without demand flag below setpoint - hysteresis: demand = True."""
+        s = settings(hysteresis=0.3)
+        # below setpoint - hysteresis -> demand=True
+        self.assertTrue(
+            compute(s, inputs(datetime(2026, 1, 15, 12), indoor_temp=19.6)).heating_needed
+        )
+        # well below -> demand=True with margin
+        self.assertTrue(
+            compute(s, inputs(datetime(2026, 1, 15, 12), indoor_temp=19.0)).heating_needed
+        )
+
+    def test_target_setpoint_away_when_no_need(self):
+        """When no heating need in away mode, target_setpoint should be 12.0."""
+        s = settings()
+        d = compute(s, inputs(datetime(2026, 1, 15, 12), away_mode=True))
+        self.assertTrue(d.away_mode_active)
+        self.assertEqual(d.target_setpoint, 12.0)
+        self.assertFalse(d.heating_needed)
 
 
 class TestTargetTemperature(unittest.TestCase):
-    def test_arrondi_au_pas(self):
+    def test_rounding_to_step(self):
         self.assertEqual(target_temperature(21.0), 21.0)
         self.assertEqual(target_temperature(21.3, step=0.5), 21.5)
         self.assertEqual(target_temperature(21.24, step=0.5), 21.0)
         self.assertEqual(target_temperature(21.7, step=1.0), 22.0)
 
-    def test_bornes(self):
+    def test_bounds(self):
         self.assertEqual(target_temperature(2.0, minimum=5.0), 5.0)
         self.assertEqual(target_temperature(35.0, maximum=30.0), 30.0)
 
-    def test_pas_invalide(self):
+    def test_invalid_step(self):
         self.assertEqual(target_temperature(21.0, step=0.0), 21.0)
 
 

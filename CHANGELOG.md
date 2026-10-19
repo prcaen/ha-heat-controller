@@ -1,10 +1,11 @@
 # Changelog
 
-## 1.0.0 - 2026-10-18
+## 0.0.1 - 2026-10-18
 
-- Version initiale.
-- Bascule PAC / chaudière selon la température extérieure, avec hystérésis de 0,5 °C.
-- Programmation jour / nuit / absence / solaire avec préchauffe anticipée et hystérésis de la demande.
-- Production solaire réelle (capteur de puissance, p. ex. Solenso) au lieu d'une prévision.
-- Interrupteurs « Pilotage actif » et « Mode absence », capteurs d'état persistants.
-- Flux de configuration en trois écrans, modifiable via les options.
+- Initial version.
+- Heat pump / Boiler changeover according to outdoor temperature, with 0.5 °C hysteresis.
+- Day / Night / Away / Solar scheduling with anticipated preheating and heating demand hysteresis.
+- Actual solar power production (power sensor, e.g. Solenso) instead of a forecast.
+- Heating control switch and Away mode switch, persistent state entities.
+- When there is no heating need, the thermostat is kept on and its setpoint is reduced to the away setpoint (12 °C) instead of being turned off.
+- Three-screen configuration flow, modifiable via options.

@@ -1,6 +1,6 @@
 {
   "domain": "heat_controller",
-  "name": "Contrôleur de chauffage",
+  "name": "Heat Controller",
   "codeowners": ["@pierrick"],
   "config_flow": true,
   "documentation": "https://github.com/pierrick/ha-heat-controller",
@@ -9,5 +9,5 @@
   "issue_tracker": "https://github.com/pierrick/ha-heat-controller/issues",
   "loggers": ["custom_components.heat_controller"],
   "requirements": [],
-  "version": "1.0.0"
+  "version": "0.0.1"
 }

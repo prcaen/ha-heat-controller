@@ -1,131 +1,133 @@
-# Contrôleur de chauffage pour Home Assistant
+# Heat Controller for Home Assistant
 
-Intégration personnalisée qui remplace les automatisations YAML
-« Chauffage - Bascule PAC/chaudière » et
-« Chauffage - Programmation jour/nuit/absence avec anticipation »
-(et tous les `input_*` qui allaient avec) par un seul composant configurable,
-et qui pilote la période solaire grâce à la **production réelle** de la
-centrale photovoltaïque (capteur de puissance de l'intégration
-[Solenso](https://github.com/pismache/ha-solenso)) au lieu d'une prévision
-de type Forecast.Solar.
+Custom integration that replaces YAML automations
+« Heating - Heat pump/Boiler changeover » and
+« Heating - Day/Night/Away with anticipation »
+(and all associated `input_*`) with a single configurable component,
+and controls the solar period using the **actual production** from the
+photovoltaic central (power sensor from the
+[Solenso](https://github.com/pismache/ha-solenso) integration) instead of a
+Forecast.Solar forecast.
 
-## Ce que fait l'intégration
+## What the integration does
 
-- **Bascule PAC / chaudière** : la pompe à chaleur prend le relais quand la
-  température extérieure dépasse le seuil (7 °C par défaut), la chaudière
-  quand elle passe en dessous, avec un hystérésis de ±0,5 °C pour éviter les
-  allers-retours. Séquence de bascule identique au YAML : chaudière off,
-  ventilateurs accessoires on, attente 15 s, clims PAC en mode `heat`
-  (et l'inverse vers la chaudière).
-- **Programmation jour / nuit / absence / solaire** : consigne cible selon la
-  période (jour, nuit, absence, fenêtre solaire), préchauffe anticipée
-  proportionnelle à l'écart de température et à la vitesse de montée de la
-  source active (°C/h) + marge de sécurité, hystérésis de la demande de
-  chauffage, arrêt automatique du mode absence après l'heure de retour.
-- **Période solaire réelle** : la fenêtre solaire ne s'active que si la
-  centrale **produit effectivement** au-dessus du seuil (500 W par défaut),
-  lu sur le capteur de puissance instantanée — la nuit il lit 0 W, la
-  fenêtre ne s'ouvre donc que s'il y a vraiment du soleil.
+- **Heat pump / Boiler changeover**: the heat pump takes over when the
+  outdoor temperature exceeds the threshold (3 °C default, adjustable from
+  -5 °C to 10 °C), the boiler when it goes below, with a hysteresis of
+  ±0.5 °C to avoid back-and-forth.
+  Changeover sequence identical to YAML: boiler off, accessory fans on,
+  wait 15 s, heat pump climate units in `heat` mode (and the reverse for
+  the boiler).
+- **Day/Night/Away / Solar scheduling**: target setpoint according to the
+  period (day, night, away, solar window), anticipated preheating
+  proportional to the temperature difference and the active source's
+  rise rate (°C/h) + safety hysteresis, heating demand hysteresis,
+  automatic away mode stop after the return time.
+- **Actual solar period**: the solar window only activates if the
+  central is actually producing above the threshold (500 W default),
+  read from the instantaneous power sensor — at night it reads 0 W,
+  so the window only opens if there's real sunlight.
 
-## Entités créées (appareil « Chauffage »)
+## Created entities ( « Heating » device)
 
-| Entité | Type | Équivalent YAML |
+| Entity | Type | YAML equivalent |
 |---|---|---|
-| `switch.chauffage_pilotage_actif` | interrupteur | `input_boolean.chauffage_actif` |
-| `switch.chauffage_mode_absent` | interrupteur | `input_boolean.chauffage_mode_absent` |
-| `binary_sensor.chauffage_source_pac` | capteur binaire | `input_boolean.chauffage_source_pac` |
-| `binary_sensor.chauffage_prechauffe` | capteur binaire | `input_boolean.chauffage_prechauffe` |
-| `binary_sensor.chauffage_demande_chauffe` | capteur binaire | `input_boolean.chauffage_demande` |
-| `binary_sensor.chauffage_periode_jour` | capteur binaire | (calculé) |
-| `binary_sensor.chauffage_periode_solaire` | capteur binaire | (calculé) |
-| `sensor.chauffage_consigne_cible` | capteur | (calculé) |
-| `sensor.chauffage_duree_prechauffe` | capteur | (calculé, minutes) |
-| `sensor.chauffage_source_de_chaleur` | capteur | `PAC` / `Chaudière` |
+| `switch.heating_heating_control` | switch | `input_boolean.chauffage_actif` |
+| `switch.heating_away_mode` | switch | `input_boolean.chauffage_mode_absent` |
+| `binary_sensor.heating_heat_pump_source` | binary_sensor | `input_boolean.chauffage_source_pac` |
+| `binary_sensor.heating_pre_heating` | binary_sensor | `input_boolean.chauffage_prechauffe` |
+| `binary_sensor.heating_heating_demand` | binary_sensor | `input_boolean.chauffage_demande` |
+| `binary_sensor.heating_day_period` | binary_sensor | (calculated) |
+| `binary_sensor.heating_solar_period` | binary_sensor | (calculated) |
+| `sensor.heating_target_setpoint` | sensor | (calculated) |
+| `sensor.heating_pre_heat_duration` | sensor | (calculated, minutes) |
+| `sensor.heating_heat_source` | sensor | `Heat pump` / `Boiler` |
 
-Les drapeaux (source PAC, préchauffe, demande, actif, mode absent)
-persistent d'un redémarrage à l'autre, comme les `input_boolean` d'origine.
+Flags (heat pump source, preheating, demand, active, away mode)
+persist across restarts, like the original `input_boolean` entities.
 
-> Les identifiants exacts sont générés par Home Assistant à partir des noms
-> (p. ex. `binary_sensor.chauffage_demande_de_chauffe`) ; vérifiez-les dans
-> les outils de développement après l'installation.
+> Exact identifiers are generated by Home Assistant from the names
+> (device "Heating" + entity name) ; check them in
+> the development tools after installation.
 
 ## Installation
 
 ### HACS
 
-HACS → menu ⋮ → **Dépôts personnalisés** → `https://github.com/<votre-compte>/ha-heat-controller`,
-catégorie **Intégration** → installer **Contrôleur de chauffage** → redémarrer
+HACS → menu ⋮ → **Custom repositories** → `https://github.com/<your-account>/ha-heat-controller`,
+category **Integration** → install **Heat Controller** → restart
 Home Assistant.
 
-### Manuelle
+### Manual
 
-Copier le dossier `custom_components/heat_controller` dans
-`/config/custom_components/`, puis redémarrer Home Assistant.
+Copy the `custom_components/heat_controller` folder to
+ `/config/custom_components/`, then restart Home Assistant.
 
 ## Configuration
 
-Paramètres → Appareils et services → **Ajouter une intégration** →
-**Contrôleur de chauffage**. Trois écrans :
+Settings → Devices and services → **Add integration** →
+**Heat Controller**. Three screens :
 
-1. **Capteurs** : température extérieure, température intérieure, et
-   production solaire (capteur de **puissance** instantanée). Si
-   l'intégration Solenso est installée, le capteur de puissance de la
-   centrale est présélectionné.
-2. **Appareils pilotés** : le climate de la chaudière (Netatmo), les clims de
-   la PAC **dans l'ordre**, leurs ventilateurs de puissance **dans le même
-   ordre** (facultatif), et les ventilateurs accessoires (ceux de la bascule,
-   `fan.climate_series_accessory*` dans le YAML d'origine).
-3. **Réglages** : consignes jour/nuit/absent/solaire, hystérésis, seuil
-   extérieur de bascule, seuil de production, vitesses de montée (°C/h),
-   marge de sécurité (min), heures jour/nuit/retour et fenêtre solaire.
+1. **Sensors** : outdoor temperature, indoor temperature, and
+   instantaneous solar power production (power sensor). If
+   the Solenso integration is installed, the central's power sensor
+   is pre-selected.
+2. **Controlled devices** : the boiler's climate (Netatmo), the heat pump's
+   climate units **in order**, their power fans **in the same order**
+   (optional), and the accessory fans (those for the changeover,
+   `fan.climate_series_accessory*` in the original YAML).
+3. **Settings** : day/night/away/solar setpoints, hysteresis, exterior
+   changeover threshold, production threshold, rise rate (°C/h),
+   safety margin (min), day/night/return hours and solar window.
 
-Tout est modifiable ensuite via **Configurer** sur l'entrée.
+All is then modifiable via **Configure** on the entry.
 
-### Correspondance avec la configuration YAML d'origine
+### YAML configuration comparison
 
-| YAML | Intégration |
+| YAML | Integration |
 |---|---|
-| `sensor.jardin_station_meteo_externe_temperature` | Capteur « température extérieure » |
-| `sensor.salon_station_meteo_interne_temperature` | Capteur « température intérieure » |
-| `sensor.power_production_now` (Forecast.Solar) | Capteur « production solaire » : **puissance de la centrale Solenso** |
-| `climate.netatmo_smart_thermostat` | Climate chaudière |
-| `climate.salon_clim_gauche`, `climate.salon_clim_droite` | Clims PAC |
-| `fan.clim_salon_gauche_puissance`, `fan.clim_salon_droite_puissance` | Ventilateurs de puissance (même ordre) |
-| `fan.climate_series_accessory`, `fan.climate_series_accessory_2` | Ventilateurs accessoires |
-| `input_number.chauffage_*` | Écran Réglages |
-| `input_datetime.chauffage_heure_*` | Écran Réglages |
-| `input_boolean.chauffage_*` | Interrupteurs et capteurs binaires ci-dessus |
+| `sensor.jardin_station_meteo_externe_temperature` | « Outdoor temperature » sensor |
+| `sensor.salon_station_meteo_interne_temperature` | « Indoor temperature » sensor |
+| `sensor.power_production_now` (Forecast.Solar) | « Solar power production » sensor: **central's Solenso power** |
+| `climate.netatmo_smart_thermostat` | Boiler climate |
+| `climate.salon_clim_gauche`, `climate.salon_clim_droite` | Heat pump climate units |
+| `fan.clim_salon_gauche_puissance`, `fan.clim_salon_droite_puissance` | Power fans (same order) |
+| `fan.climate_series_accessory`, `fan.climate_series_accessory_2` | Accessory fans |
+| `input_number.chauffage_*` | Settings screen |
+| `input_datetime.chauffage_heure_*` | Settings screen |
+| `input_boolean.chauffage_*` | Switches and binary sensors above |
 
-### Migration depuis les YAML
+### Migration from YAML
 
-1. Installer et configurer l'intégration (laisser le pilotage **inactif**
-   pour commencer).
-2. Désactiver les deux automatisations YAML.
-3. Activer l'interrupteur « Pilotage actif ».
-4. Les `input_number` / `input_datetime` / `input_boolean` ne sont plus
-   utilisés par le pilotage ; ne supprimez leurs entrées qu'après avoir
-   vérifié que rien d'autre ne les référence (dashboards, autres
-   automatisations).
+1. Install and configure the integration (leave control **inactive** to start).
+2. Disable the two YAML automations.
+3. Enable the « Heating control » switch.
+4. The `input_number` / `input_datetime` / `input_boolean` are no longer
+   used by the control ; do not delete their entries until you have
+   verified that nothing else references them (dashboards, other
+   automations).
 
-## Différences volontaires avec les YAML
+## Voluntary differences from YAML
 
-- Battement de cœur toutes les minutes + écoute des capteurs, au lieu de
-  5/15 minutes : les décisions sont idempotentes et protégées par
-  hystérésis, on réagit juste plus vite.
-- À la bascule vers la chaudière, les ventilateurs de puissance de la PAC
-  sont aussi coupés (le YAML ne coupait que les ventilateurs accessoires) :
-  rien ne reste alimenté inutilement.
-- La fenêtre solaire repose sur la production mesurée, donc plus fiable
-  qu'une prévision ; en cas de coupure de remontée Solenso en plein soleil,
-  le capteur passe indisponible et est traité comme « pas de production ».
+- Heartbeat every minutes + sensor listening, instead of
+  5/15 minutes : decisions are idempotent and protected by
+  hysteresis, we just react faster.
+- When changing over to the boiler, the heat pump's power fans are also
+  turned off (the YAML only turned off the accessory fans) : nothing
+  remains unnecessarily powered.
+- When there is no heating need, the thermostat is not turned off ; its
+  setpoint is reduced to the away setpoint (12 °C default) and it stays on.
+- The solar window is based on measured production, therefore more reliable
+  than a forecast ; in case of a Solenso data feed cut-off in full sun,
+  the sensor becomes unavailable and is treated as « no production ».
 
-## Développement
+## Development
 
 ```bash
-# tests de la logique de décision (aucune dépendance)
+# Logic decision tests (no dependencies)
 python3 -m unittest discover -s tests
 
-# smoke test avec un vrai homeassistant (Python 3.13+)
+# Smoke test with a real homeassistant (Python 3.13+)
 uv venv /tmp/hacheck --python 3.13
 uv pip install --python /tmp/hacheck/bin/python homeassistant
 /tmp/hacheck/bin/python tests/smoke_test_ha.py

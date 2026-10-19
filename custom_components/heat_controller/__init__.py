@@ -1,4 +1,4 @@
-"""Contrôleur de chauffage : bascule PAC/chaudière et programmation jour/nuit/absence."""
+"""Heat controller: PAC/boiler changeover and day/night/away scheduling."""
 
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if not entry.data.get(CONF_OUTDOOR_TEMP_SENSOR):
-        raise ConfigEntryNotReady("Configuration incomplète")
+        raise ConfigEntryNotReady("Incomplete configuration")
 
     shared = HeatState()
     controller = HeatController(hass, entry, entry.data, shared)

@@ -1,8 +1,8 @@
-"""Capteurs binaires d'état du contrôleur de chauffage.
+"""Binary state sensors for the heat controller.
 
-Reproduisent les input_boolean des automatisations YAML :
-source PAC, préchauffe, demande de chauffage, plus deux capteurs calculés
-(période jour, période solaire).
+Reproduce the YAML input_boolean:
+heat pump source, preheating, heating demand, plus two calculated sensors
+(day period, solar period).
 """
 
 from __future__ import annotations
@@ -30,22 +30,22 @@ async def async_setup_entry(
     shared: HeatState = hass.data["heat_controller"][entry.entry_id]["shared"]
     async_add_entities(
         [
-            HeatRestorableBinarySensor(entry, shared, "source_pac"),
-            HeatRestorableBinarySensor(entry, shared, "prechauffe"),
-            HeatRestorableBinarySensor(entry, shared, "demande_chauffe"),
-            HeatComputedBinarySensor(entry, shared, "periode_jour"),
-            HeatComputedBinarySensor(entry, shared, "periode_solaire"),
+            HeatRestorableBinarySensor(entry, shared, "heat_pump_source"),
+            HeatRestorableBinarySensor(entry, shared, "preheating"),
+            HeatRestorableBinarySensor(entry, shared, "heating_demand"),
+            HeatComputedBinarySensor(entry, shared, "day_period"),
+            HeatComputedBinarySensor(entry, shared, "solar_period"),
         ]
     )
 
 
 class HeatRestorableBinarySensor(HeatControllerEntity, BinarySensorEntity, RestoreEntity):
-    """Drapeau persistant : source_pac, prechauffe, demande_chauffe."""
+    """Persistent flag: heat_pump_source, preheating, heating_demand."""
 
     _FLAGS = {
-        "source_pac": ("source_pac", "mdi:heat-pump"),
-        "prechauffe": ("prechauffe", "mdi:clock-fast"),
-        "demande_chauffe": ("demande", "mdi:radiator"),
+        "heat_pump_source": ("heat_pump_source", "mdi:heat-pump"),
+        "preheating": ("preheating", "mdi:clock-fast"),
+        "heating_demand": ("demand", "mdi:radiator"),
     }
 
     def __init__(self, entry: ConfigEntry, shared: HeatState, key: str) -> None:
@@ -68,18 +68,18 @@ class HeatRestorableBinarySensor(HeatControllerEntity, BinarySensorEntity, Resto
 
 
 class HeatComputedBinarySensor(HeatControllerEntity, BinarySensorEntity):
-    """Période calculée à chaque décision (jour, solaire)."""
+    """Calculated period at each decision (day, solar)."""
 
     def __init__(self, entry: ConfigEntry, shared: HeatState, key: str) -> None:
         super().__init__(entry, shared, key)
         self._attr_translation_key = key
-        self._attr_icon = "mdi:weather-sunny" if key == "periode_solaire" else "mdi:weather-day-party-cloudy"
+        self._attr_icon = "mdi:weather-sunny" if key == "solar_period" else "mdi:weather-day-party-cloudy"
 
     @property
     def is_on(self) -> bool | None:
         decision = self._shared.decision
         if decision is None:
             return None
-        if self._key == "periode_jour":
-            return decision.en_periode_jour
-        return decision.en_periode_solaire
+        if self._key == "day_period":
+            return decision.in_day_period
+        return decision.in_solar_period

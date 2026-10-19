@@ -1,4 +1,4 @@
-"""État partagé entre le contrôleur et ses entités."""
+"""State shared between the controller and its entities."""
 
 from __future__ import annotations
 
@@ -15,25 +15,25 @@ Subscriber = Callable[[], None]
 
 
 class HeatState:
-    """Drapeaux et dernière décision, partagés entre contrôleur et entités.
+    """Flags and last decision, shared between controller and entities.
 
-    Les drapeaux persistent via les entités qui les portent (RestoreEntity) :
-    source PAC, préchauffe, demande, actif, mode absent — comme les
-    input_boolean des automatisations YAML d'origine.
+    Flags persist through the entities that carry them (RestoreEntity) :
+    heat pump source, preheating, demand, active, away mode — like the
+    input_boolean from the original YAML automations.
     """
 
     def __init__(self) -> None:
-        self.actif: bool = False
-        self.mode_absent: bool = False
-        self.source_pac: bool = False
-        self.prechauffe: bool = False
-        self.demande: bool = False
+        self.active: bool = False
+        self.away_mode: bool = False
+        self.heat_pump_source: bool = False
+        self.preheating: bool = False
+        self.demand: bool = False
         self.decision: Optional[Decision] = None
         self._subscribers: list[Subscriber] = []
 
     @callback
     def subscribe(self, subscriber: Subscriber) -> Callable[[], None]:
-        """Abonne une entité ; retourne une fonction de désabonnement."""
+        """Subscribe an entity; returns an unsubscribe function."""
         self._subscribers.append(subscriber)
 
         @callback
@@ -48,32 +48,32 @@ class HeatState:
         for subscriber in list(self._subscribers):
             try:
                 subscriber()
-            except Exception:  # noqa: BLE001 - ne jamais bloquer la publication
-                _LOGGER.exception("Erreur lors de la notification d'une entité")
+            except Exception:  # noqa: BLE001 - never block the publication
+                _LOGGER.exception("Error while notifying an entity")
 
     @callback
-    def set_actif(self, value: bool) -> None:
-        self.actif = bool(value)
+    def set_active(self, value: bool) -> None:
+        self.active = bool(value)
         self._publish()
 
     @callback
-    def set_mode_absent(self, value: bool) -> None:
-        self.mode_absent = bool(value)
+    def set_away_mode(self, value: bool) -> None:
+        self.away_mode = bool(value)
         self._publish()
 
     @callback
-    def set_source_pac(self, value: bool) -> None:
-        self.source_pac = bool(value)
+    def set_heat_pump_source(self, value: bool) -> None:
+        self.heat_pump_source = bool(value)
         self._publish()
 
     @callback
-    def set_prechauffe(self, value: bool) -> None:
-        self.prechauffe = bool(value)
+    def set_preheating(self, value: bool) -> None:
+        self.preheating = bool(value)
         self._publish()
 
     @callback
-    def set_demande(self, value: bool) -> None:
-        self.demande = bool(value)
+    def set_demand(self, value: bool) -> None:
+        self.demand = bool(value)
         self._publish()
 
     @callback

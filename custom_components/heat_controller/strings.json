@@ -2,109 +2,109 @@
   "config": {
     "step": {
       "user": {
-        "title": "Capteurs",
-        "description": "Choisissez les capteurs utilisés pour les décisions. Pour la production solaire, sélectionnez le capteur de puissance de votre centrale (par ex. Solenso) — la puissance réellement produite remplace la prévision.",
+        "title": "Sensors",
+        "description": "Choose the sensors used for decisions. For solar production, select the power sensor from your central (e.g. Solenso) — the actual power produced replaces the forecast.",
         "data": {
-          "outdoor_temp_sensor": "Température extérieure",
-          "indoor_temp_sensor": "Température intérieure",
-          "production_sensor": "Production solaire (puissance instantanée)"
+          "outdoor_temp_sensor": "Outdoor temperature",
+          "indoor_temp_sensor": "Indoor temperature",
+          "production_sensor": "Solar power production (instantaneous)"
         }
       },
       "devices": {
-        "title": "Appareils pilotés",
-        "description": "La chaudière est pilotée par son entité climate. Pour la PAC, listez les clims et, dans le même ordre, leur ventilateur de puissance (facultatif). Les ventilateurs accessoires sont allumés avec la PAC et coupés avec la chaudière.",
+        "title": "Controlled devices",
+        "description": "The boiler is controlled by its climate entity. For the PAC, list the clims and, in the same order, their power fans (optional). Accessory fans are turned on with the PAC and turned off with the boiler.",
         "data": {
-          "boiler_climate": "Chauffière (climate)",
-          "pac_climates": "Clims de la PAC (dans l'ordre)",
-          "pac_fans": "Ventilateurs de puissance (même ordre que les clims)",
-          "accessory_fans": "Ventilateurs accessoires"
+          "boiler_climate": "Boiler (climate)",
+          "heat_pump_climates": "PAC clims (in order)",
+          "heat_pump_fans": "Power fans (same order as clims)",
+          "accessory_fans": "Accessory fans"
         }
       },
       "settings": {
-        "title": "Réglages",
+        "title": "Settings",
         "data": {
-          "consigne_jour": "Consigne jour (°C)",
-          "consigne_nuit": "Consigne nuit (°C)",
-          "consigne_absent": "Consigne absence (°C)",
-          "consigne_solaire": "Consigne solaire (°C)",
-          "hysteresis": "Hystérésis (°C)",
-          "seuil_exterieur": "Seuil extérieur de bascule PAC/chaudière (°C)",
-          "seuil_production": "Seuil de production solaire (W)",
-          "vitesse_pac": "Vitesse de montée en température, PAC (°C/h)",
-          "vitesse_chaudiere": "Vitesse de montée en température, chaudière (°C/h)",
-          "marge_securite": "Marge de sécurité de la préchauffe (min)",
-          "heure_jour": "Heure de début de la période jour",
-          "heure_nuit": "Heure de début de la période nuit",
-          "heure_retour": "Heure de retour en mode absence",
-          "heure_solaire_debut": "Début de la fenêtre solaire",
-          "heure_solaire_fin": "Fin de la fenêtre solaire"
+          "day_setpoint": "Day setpoint (°C)",
+          "night_setpoint": "Night setpoint (°C)",
+          "away_setpoint": "Away setpoint (°C)",
+          "solar_setpoint": "Solar setpoint (°C)",
+          "hysteresis": "Hysteresis (°C)",
+          "outdoor_threshold": "PAC / Boiler changeover threshold (°C)",
+          "production_threshold": "Solar production threshold (W)",
+          "heat_pump_rate": "PAC temperature rise rate (°C/h)",
+          "boiler_rate": "Boiler temperature rise rate (°C/h)",
+          "safety_margin": "Preheating safety margin (min)",
+          "day_start": "Day period start time",
+          "night_start": "Night period start time",
+          "return_time": "Away mode return time",
+          "solar_start": "Solar window start",
+          "solar_end": "Solar window end"
         }
       }
     },
     "error": {
-      "fan_count_mismatch": "Indiquez soit aucun ventilateur, soit un par clim, dans le même ordre."
+      "fan_count_mismatch": "Indicate either no fan, or one per clim, in the same order."
     }
   },
   "options": {
     "step": {
       "user": {
-        "title": "Capteurs",
+        "title": "Sensors",
         "data": {
-          "outdoor_temp_sensor": "Température extérieure",
-          "indoor_temp_sensor": "Température intérieure",
-          "production_sensor": "Production solaire (puissance instantanée)"
+          "outdoor_temp_sensor": "Outdoor temperature",
+          "indoor_temp_sensor": "Indoor temperature",
+          "production_sensor": "Solar power production (instantaneous)"
         }
       },
       "devices": {
-        "title": "Appareils pilotés",
+        "title": "Controlled devices",
         "data": {
-          "boiler_climate": "Chauffière (climate)",
-          "pac_climates": "Clims de la PAC (dans l'ordre)",
-          "pac_fans": "Ventilateurs de puissance (même ordre que les clims)",
-          "accessory_fans": "Ventilateurs accessoires"
+          "boiler_climate": "Boiler (climate)",
+          "heat_pump_climates": "PAC clims (in order)",
+          "heat_pump_fans": "Power fans (same order as clims)",
+          "accessory_fans": "Accessory fans"
         }
       },
       "settings": {
-        "title": "Réglages",
+        "title": "Settings",
         "data": {
-          "consigne_jour": "Consigne jour (°C)",
-          "consigne_nuit": "Consigne nuit (°C)",
-          "consigne_absent": "Consigne absence (°C)",
-          "consigne_solaire": "Consigne solaire (°C)",
-          "hysteresis": "Hystérésis (°C)",
-          "seuil_exterieur": "Seuil extérieur de bascule PAC/chaudière (°C)",
-          "seuil_production": "Seuil de production solaire (W)",
-          "vitesse_pac": "Vitesse de montée en température, PAC (°C/h)",
-          "vitesse_chaudiere": "Vitesse de montée en température, chaudière (°C/h)",
-          "marge_securite": "Marge de sécurité de la préchauffe (min)",
-          "heure_jour": "Heure de début de la période jour",
-          "heure_nuit": "Heure de début de la période nuit",
-          "heure_retour": "Heure de retour en mode absence",
-          "heure_solaire_debut": "Début de la fenêtre solaire",
-          "heure_solaire_fin": "Fin de la fenêtre solaire"
+          "day_setpoint": "Day setpoint (°C)",
+          "night_setpoint": "Night setpoint (°C)",
+          "away_setpoint": "Away setpoint (°C)",
+          "solar_setpoint": "Solar setpoint (°C)",
+          "hysteresis": "Hysteresis (°C)",
+          "outdoor_threshold": "PAC / Boiler changeover threshold (°C)",
+          "production_threshold": "Solar production threshold (W)",
+          "heat_pump_rate": "PAC temperature rise rate (°C/h)",
+          "boiler_rate": "Boiler temperature rise rate (°C/h)",
+          "safety_margin": "Preheating safety margin (min)",
+          "day_start": "Day period start time",
+          "night_start": "Night period start time",
+          "return_time": "Away mode return time",
+          "solar_start": "Solar window start",
+          "solar_end": "Solar window end"
         }
       }
     },
     "error": {
-      "fan_count_mismatch": "Indiquez soit aucun ventilateur, soit un par clim, dans le même ordre."
+      "fan_count_mismatch": "Indicate either no fan, or one per clim, in the same order."
     }
   },
   "entity": {
     "switch": {
-      "actif": { "name": "Pilotage actif", "state": { "on": "Actif", "off": "Inactif" } },
-      "mode_absent": { "name": "Mode absence", "state": { "on": "Absent", "off": "Présent" } }
+      "active": { "name": "Heating control", "state": { "on": "Active", "off": "Inactive" } },
+      "away_mode": { "name": "Away mode", "state": { "on": "Away", "off": "Home" } }
     },
     "binary_sensor": {
-      "source_pac": { "name": "Source PAC" },
-      "prechauffe": { "name": "Préchauffe" },
-      "demande_chauffe": { "name": "Demande de chauffage" },
-      "periode_jour": { "name": "Période jour" },
-      "periode_solaire": { "name": "Période solaire" }
+      "heat_pump_source": { "name": "Heat pump source" },
+      "preheating": { "name": "Pre-heating" },
+      "heating_demand": { "name": "Heating demand" },
+      "day_period": { "name": "Day period" },
+      "solar_period": { "name": "Solar period" }
     },
     "sensor": {
-      "consigne_cible": { "name": "Consigne cible" },
-      "duree_prechauffe": { "name": "Durée de préchauffe" },
-      "source": { "name": "Source de chaleur" }
+      "target_setpoint": { "name": "Target setpoint" },
+      "preheating_duration": { "name": "Pre-heat duration" },
+      "source": { "name": "Heat source" }
     }
   }
 }

@@ -1,4 +1,4 @@
-"""Capteurs du contrôleur : consigne cible, durée de préchauffe, source active."""
+"""Heat controller sensors: target setpoint, preheating duration, active source."""
 
 from __future__ import annotations
 
@@ -26,50 +26,50 @@ async def async_setup_entry(
     shared: HeatState = hass.data["heat_controller"][entry.entry_id]["shared"]
     async_add_entities(
         [
-            HeatConsigneCibleSensor(entry, shared),
-            HeatDureePrechauffeSensor(entry, shared),
+            HeatTargetSetpointSensor(entry, shared),
+            HeatPreheatingDurationSensor(entry, shared),
             HeatSourceSensor(entry, shared),
         ]
     )
 
 
-class HeatConsigneCibleSensor(HeatControllerEntity, SensorEntity):
-    """Consigne visée en ce moment (jour, nuit, absence, solaire, préchauffe)."""
+class HeatTargetSetpointSensor(HeatControllerEntity, SensorEntity):
+    """Instantaneous target setpoint (day, night, away, solar, preheating)."""
 
     _attr_device_class = SensorDeviceClass.TEMPERATURE
     _attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS
     _attr_state_class = SensorStateClass.MEASUREMENT
-    _attr_translation_key = "consigne_cible"
+    _attr_translation_key = "target_setpoint"
     _attr_icon = "mdi:thermometer"
 
     def __init__(self, entry: ConfigEntry, shared: HeatState) -> None:
-        super().__init__(entry, shared, "consigne_cible")
+        super().__init__(entry, shared, "target_setpoint")
 
     @property
     def native_value(self) -> Optional[float]:
         decision = self._shared.decision
-        return decision.consigne_cible if decision else None
+        return decision.target_setpoint if decision else None
 
 
-class HeatDureePrechauffeSensor(HeatControllerEntity, SensorEntity):
-    """Durée de montée en température estimée (anticipation), en minutes."""
+class HeatPreheatingDurationSensor(HeatControllerEntity, SensorEntity):
+    """Estimated temperature rise duration (anticipation), in minutes."""
 
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_native_unit_of_measurement = "min"
-    _attr_translation_key = "duree_prechauffe"
+    _attr_translation_key = "preheating_duration"
     _attr_icon = "mdi:timer-outline"
 
     def __init__(self, entry: ConfigEntry, shared: HeatState) -> None:
-        super().__init__(entry, shared, "duree_prechauffe")
+        super().__init__(entry, shared, "preheating_duration")
 
     @property
     def native_value(self) -> Optional[int]:
         decision = self._shared.decision
-        return decision.minutes_necessaires if decision else None
+        return decision.preheating_minutes if decision else None
 
 
 class HeatSourceSensor(HeatControllerEntity, SensorEntity):
-    """Source de chaleur active : PAC ou chaudière."""
+    """Active heat source: heat pump or boiler."""
 
     _attr_translation_key = "source"
     _attr_icon = "mdi:fire"
@@ -79,4 +79,4 @@ class HeatSourceSensor(HeatControllerEntity, SensorEntity):
 
     @property
     def native_value(self) -> Optional[str]:
-        return "PAC" if self._shared.source_pac else "Chaudière"
+        return "Heat pump" if self._shared.heat_pump_source else "Boiler"

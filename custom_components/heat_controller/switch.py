@@ -1,4 +1,4 @@
-"""Interrupteurs du contrôleur de chauffage : actif et mode absent."""
+"""Heat controller switches: active and away mode."""
 
 from __future__ import annotations
 
@@ -29,13 +29,13 @@ async def async_setup_entry(
     async_add_entities(
         [
             HeatActiveSwitch(entry, shared, controller),
-            HeatAbsentSwitch(entry, shared, controller),
+            HeatAwayModeSwitch(entry, shared, controller),
         ]
     )
 
 
 class _HeatSwitch(HeatControllerEntity, SwitchEntity, RestoreEntity):
-    """Interrupteur avec persistance, comme les input_boolean d'origine."""
+    """Switch with persistence, like the original input_boolean."""
 
     def __init__(self, entry: ConfigEntry, shared: HeatState, controller: HeatController) -> None:
         super().__init__(entry, shared, self._key)
@@ -52,45 +52,45 @@ class _HeatSwitch(HeatControllerEntity, SwitchEntity, RestoreEntity):
 
 
 class HeatActiveSwitch(_HeatSwitch):
-    """Marche/arrêt du pilotage (input_boolean.chauffage_actif)."""
+    """Heating control on/off (input_boolean.chauffage_actif)."""
 
-    _key = "actif"
+    _key = "active"
     _attr_icon = "mdi:hvac"
-    _attr_translation_key = "actif"
+    _attr_translation_key = "active"
 
     @property
     def is_on(self) -> bool:
-        return self._shared.actif
+        return self._shared.active
 
     async def async_turn_on(self, **kwargs) -> None:
-        self._shared.set_actif(True)
+        self._shared.set_active(True)
         self._controller.request_update()
 
     async def async_turn_off(self, **kwargs) -> None:
-        self._shared.set_actif(False)
+        self._shared.set_active(False)
 
     def _restore(self, value: bool) -> None:
-        self._shared.set_actif(value)
+        self._shared.set_active(value)
 
 
-class HeatAbsentSwitch(_HeatSwitch):
-    """Mode absence avec retour programmé (input_boolean.chauffage_mode_absent)."""
+class HeatAwayModeSwitch(_HeatSwitch):
+    """Away mode with scheduled return (input_boolean.chauffage_mode_absent)."""
 
-    _key = "mode_absent"
+    _key = "away_mode"
     _attr_icon = "mdi:bag-checked"
-    _attr_translation_key = "mode_absent"
+    _attr_translation_key = "away_mode"
 
     @property
     def is_on(self) -> bool:
-        return self._shared.mode_absent
+        return self._shared.away_mode
 
     async def async_turn_on(self, **kwargs) -> None:
-        self._shared.set_mode_absent(True)
+        self._shared.set_away_mode(True)
         self._controller.request_update()
 
     async def async_turn_off(self, **kwargs) -> None:
-        self._shared.set_mode_absent(False)
+        self._shared.set_away_mode(False)
         self._controller.request_update()
 
     def _restore(self, value: bool) -> None:
-        self._shared.set_mode_absent(value)
+        self._shared.set_away_mode(value)
