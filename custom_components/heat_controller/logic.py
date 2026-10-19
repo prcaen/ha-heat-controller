@@ -34,6 +34,13 @@ SOURCE_HEAT_PUMP = "heat_pump"
 SOURCE_BOILER = "boiler"
 SOURCE_OPTIONS = (SOURCE_AUTO, SOURCE_HEAT_PUMP, SOURCE_BOILER)
 
+# Setting names driven by the virtual thermostat (same values as the
+# CONF_*_SETPOINT constants of const.py).
+SETPOINT_DAY = "day_setpoint"
+SETPOINT_NIGHT = "night_setpoint"
+SETPOINT_AWAY = "away_setpoint"
+SETPOINT_SOLAR = "solar_setpoint"
+
 
 def round_half_up(value: float) -> int:
     """Round to the nearest integer, 0.5 rounds up (like Jinja |round(0))."""
@@ -232,6 +239,23 @@ def compute(settings: Settings, inputs: Inputs) -> Decision:
         changeover=changeover,
         frost_protection=frost_protection,
     )
+
+
+def active_setpoint(decision: Decision) -> str:
+    """Setting the virtual thermostat adjusts right now.
+
+    Mirrors the target setpoint choice of `compute`, so changing it from the
+    thermostat card updates the setpoint of the active period.
+    """
+    if decision.preheating:
+        return SETPOINT_DAY
+    if decision.away_mode_active:
+        return SETPOINT_AWAY
+    if decision.in_solar_period:
+        return SETPOINT_SOLAR
+    if decision.in_day_period:
+        return SETPOINT_DAY
+    return SETPOINT_NIGHT
 
 
 def target_temperature(

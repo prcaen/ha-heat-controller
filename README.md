@@ -41,6 +41,12 @@ Forecast.Solar forecast.
   to turn away mode on until that date and time; the absence ends by
   itself, with pre-heating before your return (the daily return time
   remains as a fallback when no date is set).
+- **Thermostat card**: the `climate.heating_thermostat` entity shows the
+  indoor temperature and the current setpoint (day, night, away or solar —
+  it does not drop to the idle setpoint), ready for the standard thermostat
+  card. Adjusting it changes the setpoint of the active period (the matching
+  `number` entity follows); its on/off button mirrors the heating control
+  switch.
 
 ## Created entities ( « Heating » device)
 
@@ -59,6 +65,7 @@ Forecast.Solar forecast.
 | `binary_sensor.heating_frost_protection` | binary_sensor | (calculated) |
 | `select.heating_heat_source_override` | select | Automatic / Heat pump / Boiler |
 | `datetime.heating_away_until` | datetime | absence end (date + time) |
+| `climate.heating_thermostat` | climate | thermostat card (indoor temp + setpoint) |
 | `number.heating_*` (12 entities) | number | `input_number.chauffage_*` |
 | `time.heating_*` (5 entities) | time | `input_datetime.chauffage_heure_*` |
 
@@ -109,16 +116,16 @@ page.
 
 ### Dashboard
 
-`examples/dashboard.yaml` provides a ready-to-paste card column: thermostat
-card on the boiler climate, an « Absence » card with the away mode switch
-and the « Away until » date/time, the heat source override and the main
-settings.
+`examples/dashboard.yaml` provides a ready-to-paste card column: the
+integration's virtual thermostat (indoor temperature + setpoint), an
+« Absence » card with the away mode switch and the « Away until » date/time,
+the heat source override and the main settings.
 
 ```yaml
 type: vertical-stack
 cards:
   - type: thermostat
-    entity: climate.netatmo_smart_thermostat
+    entity: climate.heating_thermostat
     name: Heating
   - type: entities
     title: Absence

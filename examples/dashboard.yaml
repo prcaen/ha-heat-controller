@@ -5,10 +5,14 @@
 # the entity names. Check them in Developer Tools > States.
 type: vertical-stack
 cards:
-  # Thermostat card on the boiler (Netatmo); for the heat pump use the
-  # climate entities directly, e.g. climate.salon_clim_gauche.
+  # Virtual thermostat of the integration: indoor temperature and current
+  # setpoint (day, night, away or solar — it does not drop to the idle
+  # setpoint). The +/- buttons adjust the active period's setpoint and the
+  # power button mirrors "Heating control". To watch the boiler's own
+  # setpoint instead, use climate.netatmo_smart_thermostat (or the heat pump
+  # climates, e.g. climate.salon_clim_gauche).
   - type: thermostat
-    entity: climate.netatmo_smart_thermostat
+    entity: climate.heating_thermostat
     name: Heating
 
   # Absence: tap the date/time to pick the return moment, away mode follows

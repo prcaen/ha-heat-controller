@@ -70,6 +70,7 @@ class TestTranslations(unittest.TestCase):
             set(self.strings["entity"]["select"]), {"heat_source_override"}
         )
         self.assertEqual(set(self.strings["entity"]["datetime"]), {"away_until"})
+        self.assertEqual(set(self.strings["entity"]["climate"]), {"thermostat"})
 
     def test_settings_split_covers_defaults(self):
         """Numeric and time settings together cover every default."""

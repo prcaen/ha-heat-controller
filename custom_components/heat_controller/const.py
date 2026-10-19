@@ -6,6 +6,7 @@ DOMAIN = "heat_controller"
 
 PLATFORMS = [
     "binary_sensor",
+    "climate",
     "datetime",
     "number",
     "select",

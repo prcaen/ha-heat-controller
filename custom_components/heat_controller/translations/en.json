@@ -100,6 +100,9 @@
       "active": { "name": "Heating control", "state": { "on": "Active", "off": "Inactive" } },
       "away_mode": { "name": "Away mode", "state": { "on": "Away", "off": "Home" } }
     },
+    "climate": {
+      "thermostat": { "name": "Thermostat" }
+    },
     "binary_sensor": {
       "heat_pump_source": { "name": "Heat pump source" },
       "preheating": { "name": "Pre-heating" },

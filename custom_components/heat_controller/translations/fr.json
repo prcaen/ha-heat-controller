@@ -100,6 +100,9 @@
       "active": { "name": "Pilotage actif", "state": { "on": "Actif", "off": "Inactif" } },
       "away_mode": { "name": "Mode absence", "state": { "on": "Absent", "off": "Présent" } }
     },
+    "climate": {
+      "thermostat": { "name": "Thermostat" }
+    },
     "binary_sensor": {
       "heat_pump_source": { "name": "Source PAC" },
       "preheating": { "name": "Préchauffe" },

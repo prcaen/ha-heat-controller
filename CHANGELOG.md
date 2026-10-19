@@ -14,6 +14,7 @@
 - Manual heat source override: `select` entity (Automatic / Heat pump / Boiler), persisted across restarts.
 - Frost protection: minimum setpoint (7 °C default, adjustable) and forced heating when the indoor temperature reaches it.
 - Absence end date/time: `datetime` entity « Away until » switching away mode on until then, with automatic end and pre-heating.
+- Virtual thermostat: `climate.heating_thermostat` (indoor temperature + current setpoint) for the standard thermostat card; adjusting it updates the active period's setpoint, on/off mirrors the heating control switch.
 - Example dashboard (`examples/dashboard.yaml`): thermostat card + absence date/time.
 - Computed entities become unavailable while no decision is available or when the control is off; the startup timer is cancelled on unload.
 - Unit tests for logic, controller, config flow and translations, run in CI together with Hassfest and HACS validation.

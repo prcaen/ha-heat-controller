@@ -450,6 +450,36 @@ class TestAwayUntil(unittest.TestCase):
         self.assertTrue(d.return_passed)
 
 
+class TestActiveSetpoint(unittest.TestCase):
+    """Setting adjusted by the virtual thermostat, per period."""
+
+    def test_day(self):
+        d = compute(settings(), inputs(datetime(2026, 1, 15, 12)))
+        self.assertEqual(logic.active_setpoint(d), logic.SETPOINT_DAY)
+
+    def test_night(self):
+        d = compute(settings(), inputs(datetime(2026, 1, 15, 23)))
+        self.assertEqual(logic.active_setpoint(d), logic.SETPOINT_NIGHT)
+
+    def test_away(self):
+        d = compute(
+            settings(), inputs(datetime(2026, 1, 15, 12), away_mode=True)
+        )
+        self.assertEqual(logic.active_setpoint(d), logic.SETPOINT_AWAY)
+
+    def test_solar(self):
+        d = compute(
+            settings(), inputs(datetime(2026, 1, 15, 12), production=800.0)
+        )
+        self.assertEqual(logic.active_setpoint(d), logic.SETPOINT_SOLAR)
+
+    def test_preheating_uses_day_setpoint(self):
+        d = compute(
+            settings(), inputs(datetime(2026, 1, 15, 3, 45), indoor_temp=17.0)
+        )
+        self.assertEqual(logic.active_setpoint(d), logic.SETPOINT_DAY)
+
+
 class TestTargetTemperature(unittest.TestCase):
     def test_rounding_to_step(self):
         self.assertEqual(target_temperature(21.0), 21.0)

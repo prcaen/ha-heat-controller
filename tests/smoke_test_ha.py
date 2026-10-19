@@ -15,6 +15,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 import custom_components.heat_controller as hc  # noqa: E402
 from custom_components.heat_controller import (  # noqa: E402
     binary_sensor,
+    climate as climate_platform,
     config_flow,
     controller,
     datetime as datetime_platform,
@@ -27,6 +28,7 @@ from custom_components.heat_controller import (  # noqa: E402
     switch,
     time as time_platform,
 )
+from homeassistant.components.climate import HVACAction, HVACMode  # noqa: E402
 from homeassistant.util import dt as dt_util  # noqa: E402
 
 print("imports OK, domain =", hc.DOMAIN)
@@ -94,6 +96,17 @@ decision = logic.compute(ctrl.settings, inputs)
 assert decision.changeover and decision.should_use_heat_pump
 assert decision.in_solar_period and decision.target_setpoint == 22.0
 print("decision OK:", decision)
+
+# Virtual thermostat: setpoint of the active period, mirrors the target sensor
+shared.set_active(True)
+shared.set_decision(decision)
+thermo = climate_platform.HeatThermostat(entry, shared, mock_ctl)
+assert thermo.hvac_modes == [HVACMode.HEAT, HVACMode.OFF]
+assert thermo.hvac_mode == HVACMode.HEAT
+assert thermo.hvac_action == HVACAction.HEATING
+assert thermo.target_temperature == 22.0  # same as sensor.heating_target_setpoint
+assert thermo._setpoint_key() == logic.SETPOINT_SOLAR
+print("thermostat OK:", thermo.target_temperature, thermo._setpoint_key())
 
 # --- Simulation of a full pass with fake states and services ---------------
 import asyncio  # noqa: E402
