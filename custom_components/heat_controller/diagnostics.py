@@ -7,7 +7,7 @@ settings, flags, last decision and watched sensor readings.
 from __future__ import annotations
 
 from dataclasses import asdict
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
@@ -20,6 +20,8 @@ from .state import HeatState
 
 def _serialize(value: Any) -> Any:
     """Convert dataclass contents into JSON-serializable values."""
+    if isinstance(value, datetime):
+        return value.isoformat()
     if isinstance(value, timedelta):
         return value.total_seconds()
     if isinstance(value, dict):
@@ -59,9 +61,11 @@ async def async_get_config_entry_diagnostics(
             "flags": {
                 "active": shared.active,
                 "away_mode": shared.away_mode,
+                "away_until": _serialize(shared.away_until),
                 "heat_pump_source": shared.heat_pump_source,
                 "preheating": shared.preheating,
                 "demand": shared.demand,
+                "forced_source": shared.forced_source,
             },
             "settings": _serialize(asdict(controller.settings)),
             "decision": _serialize(asdict(shared.decision)) if shared.decision else None,

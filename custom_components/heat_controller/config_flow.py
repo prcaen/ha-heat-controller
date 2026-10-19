@@ -11,7 +11,6 @@ from homeassistant.config_entries import (
     ConfigFlowResult,
     OptionsFlow,
 )
-from homeassistant.const import UnitOfPower, UnitOfTemperature
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.selector import (
@@ -25,38 +24,32 @@ from homeassistant.helpers.selector import (
 
 from .const import (
     CONF_ACCESSORY_FANS,
-    CONF_AWAY_SETPOINT,
     CONF_BOILER_CLIMATE,
-    CONF_BOILER_RATE,
-    CONF_DAY_SETPOINT,
-    CONF_DAY_START,
     CONF_HEAT_PUMP_CLIMATES,
     CONF_HEAT_PUMP_FANS,
-    CONF_HEAT_PUMP_RATE,
-    CONF_HYSTERESIS,
-    CONF_IDLE_SETPOINT,
     CONF_INDOOR_TEMP_SENSOR,
-    CONF_NIGHT_SETPOINT,
-    CONF_NIGHT_START,
     CONF_OUTDOOR_TEMP_SENSOR,
-    CONF_OUTDOOR_THRESHOLD,
     CONF_PRODUCTION_SENSOR,
-    CONF_PRODUCTION_THRESHOLD,
-    CONF_RETURN_TIME,
-    CONF_SAFETY_MARGIN,
-    CONF_SOLAR_END,
-    CONF_SOLAR_SETPOINT,
-    CONF_SOLAR_START,
     CONNECTION_KEYS,
     DOMAIN,
     SETTING_DEFAULTS,
+    SETTING_NUMBERS,
+    SETTING_TIMES,
 )
 
-TEMPERATURE_SELECTOR = NumberSelector(
-    NumberSelectorConfig(
-        min=5, max=30, step=0.5, unit_of_measurement=UnitOfTemperature.CELSIUS
-    )
-)
+
+def _number_selector(key: str) -> NumberSelector:
+    """Number selector matching the dashboard `number` entity bounds."""
+    spec = SETTING_NUMBERS[key]
+    kwargs: dict[str, Any] = {
+        "min": spec["min"],
+        "max": spec["max"],
+        "step": spec["step"],
+        "unit_of_measurement": spec["unit"],
+    }
+    if spec.get("mode") == "box":
+        kwargs["mode"] = NumberSelectorMode.BOX
+    return NumberSelector(NumberSelectorConfig(**kwargs))
 
 
 def _solenso_power_sensor(hass: HomeAssistant) -> str | None:
@@ -131,81 +124,12 @@ def _settings_schema(data: dict[str, Any]) -> vol.Schema:
     def setting(key: str) -> Any:
         return data.get(key, SETTING_DEFAULTS[key])
 
-    return vol.Schema(
-        {
-            vol.Required(
-                CONF_DAY_SETPOINT, default=setting(CONF_DAY_SETPOINT)
-            ): TEMPERATURE_SELECTOR,
-            vol.Required(
-                CONF_NIGHT_SETPOINT, default=setting(CONF_NIGHT_SETPOINT)
-            ): TEMPERATURE_SELECTOR,
-            vol.Required(
-                CONF_AWAY_SETPOINT, default=setting(CONF_AWAY_SETPOINT)
-            ): TEMPERATURE_SELECTOR,
-            vol.Required(
-                CONF_SOLAR_SETPOINT, default=setting(CONF_SOLAR_SETPOINT)
-            ): TEMPERATURE_SELECTOR,
-            vol.Required(
-                CONF_IDLE_SETPOINT, default=setting(CONF_IDLE_SETPOINT)
-            ): TEMPERATURE_SELECTOR,
-            vol.Required(
-                CONF_HYSTERESIS,
-                default=setting(CONF_HYSTERESIS),
-            ): NumberSelector(
-                NumberSelectorConfig(min=0, max=5, step=0.1, unit_of_measurement="°C")
-            ),
-            vol.Required(
-                CONF_OUTDOOR_THRESHOLD, default=setting(CONF_OUTDOOR_THRESHOLD)
-            ): NumberSelector(
-                NumberSelectorConfig(
-                    min=-5, max=10, step=0.5, unit_of_measurement=UnitOfTemperature.CELSIUS
-                )
-            ),
-            vol.Required(
-                CONF_PRODUCTION_THRESHOLD, default=setting(CONF_PRODUCTION_THRESHOLD)
-            ): NumberSelector(
-                NumberSelectorConfig(
-                    min=0, max=20000, step=50, mode=NumberSelectorMode.BOX, unit_of_measurement=UnitOfPower.WATT
-                )
-            ),
-            vol.Required(
-                CONF_HEAT_PUMP_RATE, default=setting(CONF_HEAT_PUMP_RATE)
-            ): NumberSelector(
-                NumberSelectorConfig(
-                    min=0, max=10, step=0.1, unit_of_measurement="°C/h"
-                )
-            ),
-            vol.Required(
-                CONF_BOILER_RATE, default=setting(CONF_BOILER_RATE)
-            ): NumberSelector(
-                NumberSelectorConfig(
-                    min=0, max=10, step=0.1, unit_of_measurement="°C/h"
-                )
-            ),
-            vol.Required(
-                CONF_SAFETY_MARGIN, default=setting(CONF_SAFETY_MARGIN)
-            ): NumberSelector(
-                NumberSelectorConfig(
-                    min=0, max=240, step=5, mode=NumberSelectorMode.BOX, unit_of_measurement="min"
-                )
-            ),
-            vol.Required(
-                CONF_DAY_START, default=setting(CONF_DAY_START)
-            ): TimeSelector(),
-            vol.Required(
-                CONF_NIGHT_START, default=setting(CONF_NIGHT_START)
-            ): TimeSelector(),
-            vol.Required(
-                CONF_RETURN_TIME, default=setting(CONF_RETURN_TIME)
-            ): TimeSelector(),
-            vol.Required(
-                CONF_SOLAR_START, default=setting(CONF_SOLAR_START)
-            ): TimeSelector(),
-            vol.Required(
-                CONF_SOLAR_END, default=setting(CONF_SOLAR_END)
-            ): TimeSelector(),
-        }
-    )
+    schema: dict[Any, Any] = {}
+    for key in SETTING_NUMBERS:
+        schema[vol.Required(key, default=setting(key))] = _number_selector(key)
+    for key in SETTING_TIMES:
+        schema[vol.Required(key, default=setting(key))] = TimeSelector()
+    return vol.Schema(schema)
 
 
 class HeatControllerConfigFlow(ConfigFlow, domain=DOMAIN):

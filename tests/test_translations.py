@@ -55,11 +55,27 @@ class TestTranslations(unittest.TestCase):
                 "heating_demand",
                 "day_period",
                 "solar_period",
+                "frost_protection",
             },
         )
         self.assertEqual(
             set(self.strings["entity"]["sensor"]),
             {"target_setpoint", "preheating_duration", "source"},
+        )
+        self.assertEqual(
+            set(self.strings["entity"]["number"]), set(const.SETTING_NUMBERS)
+        )
+        self.assertEqual(set(self.strings["entity"]["time"]), set(const.SETTING_TIMES))
+        self.assertEqual(
+            set(self.strings["entity"]["select"]), {"heat_source_override"}
+        )
+        self.assertEqual(set(self.strings["entity"]["datetime"]), {"away_until"})
+
+    def test_settings_split_covers_defaults(self):
+        """Numeric and time settings together cover every default."""
+        self.assertEqual(
+            set(const.SETTING_DEFAULTS),
+            set(const.SETTING_NUMBERS) | set(const.SETTING_TIMES),
         )
 
 

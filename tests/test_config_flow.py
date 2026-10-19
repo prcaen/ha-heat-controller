@@ -20,6 +20,7 @@ from custom_components.heat_controller import config_flow
 from custom_components.heat_controller.const import (
     CONF_ACCESSORY_FANS,
     CONF_BOILER_CLIMATE,
+    CONF_FROST_SETPOINT,
     CONF_IDLE_SETPOINT,
     CONF_OUTDOOR_THRESHOLD,
     SETTING_DEFAULTS,
@@ -78,6 +79,15 @@ class TestSchemas(unittest.TestCase):
             factory({**payload, CONF_OUTDOOR_THRESHOLD: -5.5})
         with self.assertRaises(vol.Invalid):
             factory({**payload, CONF_OUTDOOR_THRESHOLD: 10.5})
+
+    def test_frost_setpoint_default_and_bounds(self):
+        result = config_flow._settings_schema({})({})
+        self.assertEqual(as_number(result[CONF_FROST_SETPOINT]), 7.0)
+        factory = config_flow._settings_schema(dict(SETTING_DEFAULTS))
+        payload = dict(SETTING_DEFAULTS)
+        factory({**payload, CONF_FROST_SETPOINT: 15.0})
+        with self.assertRaises(vol.Invalid):
+            factory({**payload, CONF_FROST_SETPOINT: 15.5})
 
     def test_solenso_sensor_without_integration(self):
         hass = MagicMock()

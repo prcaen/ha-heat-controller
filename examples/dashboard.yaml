@@ -1,0 +1,47 @@
+# Example dashboard for the Heat Controller integration.
+#
+# Paste into a view (dashboard edit mode > Raw configuration editor) and
+# adjust the entity IDs: they depend on the device name ("Heating") and on
+# the entity names. Check them in Developer Tools > States.
+type: vertical-stack
+cards:
+  # Thermostat card on the boiler (Netatmo); for the heat pump use the
+  # climate entities directly, e.g. climate.salon_clim_gauche.
+  - type: thermostat
+    entity: climate.netatmo_smart_thermostat
+    name: Heating
+
+  # Absence: tap the date/time to pick the return moment, away mode follows
+  # (it ends by itself at that moment, with pre-heating before the return).
+  - type: entities
+    title: Absence
+    show_header_toggle: false
+    entities:
+      - entity: switch.heating_away_mode
+      - entity: datetime.heating_away_until
+
+  # Heat source: automatic changeover or forced heat pump / boiler.
+  - type: entities
+    title: Heat source
+    entities:
+      - entity: select.heating_heat_source_override
+      - entity: binary_sensor.heating_heat_pump_source
+      - entity: sensor.heating_heat_source
+
+  # Status and the main settings (all settings exist as number/time entities:
+  # thresholds, rates, margins, solar window, ...).
+  - type: entities
+    title: Settings
+    entities:
+      - entity: binary_sensor.heating_frost_protection
+      - entity: binary_sensor.heating_heating_demand
+      - entity: sensor.heating_target_setpoint
+      - entity: sensor.heating_pre_heat_duration
+      - entity: number.heating_day_setpoint
+      - entity: number.heating_night_setpoint
+      - entity: number.heating_away_setpoint
+      - entity: number.heating_idle_setpoint
+      - entity: number.heating_frost_setpoint
+      - entity: time.heating_day_start
+      - entity: time.heating_night_start
+      - entity: time.heating_return_time

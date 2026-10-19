@@ -28,6 +28,7 @@
           "away_setpoint": "Away setpoint (°C)",
           "solar_setpoint": "Solar setpoint (°C)",
           "idle_setpoint": "Idle setpoint (°C)",
+          "frost_setpoint": "Frost protection setpoint (°C)",
           "hysteresis": "Hysteresis (°C)",
           "outdoor_threshold": "Outdoor threshold for heat pump/boiler switch (°C)",
           "production_threshold": "Solar production threshold (W)",
@@ -75,6 +76,7 @@
           "away_setpoint": "Away setpoint (°C)",
           "solar_setpoint": "Solar setpoint (°C)",
           "idle_setpoint": "Idle setpoint (°C)",
+          "frost_setpoint": "Frost protection setpoint (°C)",
           "hysteresis": "Hysteresis (°C)",
           "outdoor_threshold": "Outdoor threshold for heat pump/boiler switch (°C)",
           "production_threshold": "Solar production threshold (W)",
@@ -103,12 +105,47 @@
       "preheating": { "name": "Pre-heating" },
       "heating_demand": { "name": "Heating demand" },
       "day_period": { "name": "Day period" },
-      "solar_period": { "name": "Solar period" }
+      "solar_period": { "name": "Solar period" },
+      "frost_protection": { "name": "Frost protection" }
     },
     "sensor": {
       "target_setpoint": { "name": "Target setpoint" },
       "preheating_duration": { "name": "Pre-heat duration" },
       "source": { "name": "Heat source" }
+    },
+    "select": {
+      "heat_source_override": {
+        "name": "Heat source override",
+        "state": {
+          "auto": "Automatic",
+          "heat_pump": "Heat pump",
+          "boiler": "Boiler"
+        }
+      }
+    },
+    "datetime": {
+      "away_until": { "name": "Away until" }
+    },
+    "number": {
+      "day_setpoint": { "name": "Day setpoint" },
+      "night_setpoint": { "name": "Night setpoint" },
+      "away_setpoint": { "name": "Away setpoint" },
+      "solar_setpoint": { "name": "Solar setpoint" },
+      "idle_setpoint": { "name": "Idle setpoint" },
+      "frost_setpoint": { "name": "Frost protection setpoint" },
+      "outdoor_threshold": { "name": "Heat pump/boiler switch threshold" },
+      "hysteresis": { "name": "Hysteresis" },
+      "production_threshold": { "name": "Solar production threshold" },
+      "heat_pump_rate": { "name": "Heat pump heat-up rate" },
+      "boiler_rate": { "name": "Boiler heat-up rate" },
+      "safety_margin": { "name": "Pre-heat safety margin" }
+    },
+    "time": {
+      "day_start": { "name": "Day period start" },
+      "night_start": { "name": "Night period start" },
+      "return_time": { "name": "Away return time" },
+      "solar_start": { "name": "Solar window start" },
+      "solar_end": { "name": "Solar window end" }
     }
   }
 }

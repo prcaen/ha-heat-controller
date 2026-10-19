@@ -12,17 +12,27 @@ It faithfully reproduces the original YAML automations:
 
 The solar production used for the solar period is the actual instantaneous
 power produced (central power sensor, e.g. Solenso), instead of a forecast.
+
+Added on top of the YAML automations: manual heat source override, frost
+protection (minimum setpoint), and an explicit absence end date/time (the
+away mode ends and preheats relative to it).
 """
 
 from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, time, timedelta
 from typing import Optional
 
 # Hysteresis (°C) around the outdoor changeover threshold.
 CHANGEOVER_HYSTERESIS = 0.5
+
+# Manual heat source override (select entity).
+SOURCE_AUTO = "auto"
+SOURCE_HEAT_PUMP = "heat_pump"
+SOURCE_BOILER = "boiler"
+SOURCE_OPTIONS = (SOURCE_AUTO, SOURCE_HEAT_PUMP, SOURCE_BOILER)
 
 
 def round_half_up(value: float) -> int:
@@ -51,6 +61,11 @@ def at_time(now: datetime, since_midnight: timedelta) -> datetime:
     return now.replace(hour=0, minute=0, second=0, microsecond=0) + since_midnight
 
 
+def time_of_day(since_midnight: timedelta) -> time:
+    """The time of day corresponding to a duration since midnight."""
+    return (datetime.min + since_midnight).time()
+
+
 @dataclass(frozen=True)
 class Settings:
     """Settings, already validated and converted."""
@@ -61,6 +76,7 @@ class Settings:
     away_setpoint: float = 12.0
     solar_setpoint: float = 22.0
     idle_setpoint: float = 12.0
+    frost_setpoint: float = 7.0
     hysteresis: float = 0.3
     production_threshold: float = 500.0
     heat_pump_rate: float = 1.0
@@ -86,6 +102,8 @@ class Inputs:
     heat_pump_source: bool = False
     preheating_flag: bool = False
     demand_flag: bool = False
+    forced_source: str = SOURCE_AUTO
+    away_until: Optional[datetime] = None
 
 
 @dataclass(frozen=True)
@@ -102,6 +120,7 @@ class Decision:
     heating_needed: bool
     should_use_heat_pump: bool
     changeover: bool  # the source must change now
+    frost_protection: bool  # indoor temperature at or below the frost setpoint
 
 
 def compute(settings: Settings, inputs: Inputs) -> Decision:
@@ -133,8 +152,11 @@ def compute(settings: Settings, inputs: Inputs) -> Decision:
     minutes = timedelta(minutes=preheating_minutes)
 
     # --- Absence and return -------------------------------------------------
+    # An explicit absence end (date + time) takes precedence over the daily
+    # return time.
     return_dt = at_time(now, settings.return_time)
-    return_passed = inputs.away_mode and now >= return_dt
+    away_end = inputs.away_until if inputs.away_until is not None else return_dt
+    return_passed = inputs.away_mode and now >= away_end
     away_mode_active = inputs.away_mode and not return_passed
 
     # --- Preheating ---------------------------------------------------------
@@ -144,9 +166,7 @@ def compute(settings: Settings, inputs: Inputs) -> Decision:
         and not in_day_period
         and now >= next_day - minutes
     )
-    return_preheating_start = (
-        away_mode_active and now >= return_dt - minutes
-    )
+    return_preheating_start = away_mode_active and now >= away_end - minutes
     preheating_ongoing = inputs.preheating_flag and not return_passed
     preheating = morning_preheating_start or return_preheating_start or (
         preheating_ongoing and (away_mode_active or not in_day_period)
@@ -164,26 +184,40 @@ def compute(settings: Settings, inputs: Inputs) -> Decision:
     else:
         target_setpoint = settings.night_setpoint
 
+    # --- Frost protection ---------------------------------------------------
+    # Never let the indoor temperature fall below the frost setpoint,
+    # whatever the schedule, away mode or low setpoints say.
+    frost_protection = inputs.indoor_temp <= settings.frost_setpoint
+    target_setpoint = max(target_setpoint, settings.frost_setpoint)
+
     # --- Heating demand with hysteresis ------------------------------------
-    heating_needed = (
-        inputs.demand_flag
-        and inputs.indoor_temp < target_setpoint + settings.hysteresis
-    ) or (
-        not inputs.demand_flag
-        and inputs.indoor_temp < target_setpoint - settings.hysteresis
-    )
+    if frost_protection:
+        heating_needed = True
+    else:
+        heating_needed = (
+            inputs.demand_flag
+            and inputs.indoor_temp < target_setpoint + settings.hysteresis
+        ) or (
+            not inputs.demand_flag
+            and inputs.indoor_temp < target_setpoint - settings.hysteresis
+        )
 
     # --- PAC / Boiler changeover (cf. 1st automation) -----------------------
-    if inputs.outdoor_temp is None:
+    if inputs.forced_source == SOURCE_HEAT_PUMP:
+        # Manual override: the heat pump is forced.
+        should_use_heat_pump = True
+    elif inputs.forced_source == SOURCE_BOILER:
+        # Manual override: the boiler is forced.
+        should_use_heat_pump = False
+    elif inputs.outdoor_temp is None:
         # Outdoor temperature unavailable: keep the current source.
         should_use_heat_pump = inputs.heat_pump_source
-        changeover = False
     else:
         threshold = settings.outdoor_threshold + (
             -CHANGEOVER_HYSTERESIS if inputs.heat_pump_source else CHANGEOVER_HYSTERESIS
         )
         should_use_heat_pump = inputs.outdoor_temp > threshold
-        changeover = should_use_heat_pump != inputs.heat_pump_source
+    changeover = should_use_heat_pump != inputs.heat_pump_source
 
     return Decision(
         in_day_period=in_day_period,
@@ -196,6 +230,7 @@ def compute(settings: Settings, inputs: Inputs) -> Decision:
         heating_needed=heating_needed,
         should_use_heat_pump=should_use_heat_pump,
         changeover=changeover,
+        frost_protection=frost_protection,
     )
 
 

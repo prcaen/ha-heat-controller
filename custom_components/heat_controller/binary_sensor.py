@@ -1,8 +1,8 @@
 """Binary state sensors for the heat controller.
 
 Reproduce the YAML input_boolean:
-heat pump source, preheating, heating demand, plus two calculated sensors
-(day period, solar period).
+heat pump source, preheating, heating demand, plus calculated sensors
+(day period, solar period, frost protection).
 """
 
 from __future__ import annotations
@@ -31,6 +31,7 @@ async def async_setup_entry(
             HeatRestorableBinarySensor(entry, shared, "heating_demand"),
             HeatComputedBinarySensor(entry, shared, "day_period"),
             HeatComputedBinarySensor(entry, shared, "solar_period"),
+            HeatComputedBinarySensor(entry, shared, "frost_protection"),
         ]
     )
 
@@ -64,16 +65,18 @@ class HeatRestorableBinarySensor(HeatControllerEntity, BinarySensorEntity, Resto
 
 
 class HeatComputedBinarySensor(HeatControllerEntity, BinarySensorEntity):
-    """Calculated period at each decision (day, solar)."""
+    """Calculated state at each decision (day, solar, frost)."""
+
+    _ICONS = {
+        "day_period": "mdi:weather-day-party-cloudy",
+        "solar_period": "mdi:weather-sunny",
+        "frost_protection": "mdi:snowflake-alert",
+    }
 
     def __init__(self, entry: ConfigEntry, shared: HeatState, key: str) -> None:
         super().__init__(entry, shared, key)
         self._attr_translation_key = key
-        self._attr_icon = (
-            "mdi:weather-sunny"
-            if key == "solar_period"
-            else "mdi:weather-day-party-cloudy"
-        )
+        self._attr_icon = self._ICONS[key]
 
     @property
     def available(self) -> bool:
@@ -86,4 +89,6 @@ class HeatComputedBinarySensor(HeatControllerEntity, BinarySensorEntity):
             return None
         if self._key == "day_period":
             return decision.in_day_period
-        return decision.in_solar_period
+        if self._key == "solar_period":
+            return decision.in_solar_period
+        return decision.frost_protection

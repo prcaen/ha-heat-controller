@@ -8,7 +8,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
 
-from .const import CONF_OUTDOOR_TEMP_SENSOR, DOMAIN, PLATFORMS
+from .const import CONF_OUTDOOR_TEMP_SENSOR, CONNECTION_KEYS, DOMAIN, PLATFORMS
 from .controller import HeatController
 from .state import HeatState
 
@@ -18,16 +18,22 @@ async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
     return True
 
 
+def _merged_config(entry: ConfigEntry) -> dict[str, Any]:
+    """Entry data (installation) completed by the entry options (settings).
+
+    Settings live in the entry options once the entry has been reconfigured;
+    the entry data keeps the installation description (and settings from
+    entries created before the options split).
+    """
+    return {**entry.data, **entry.options}
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if not entry.data.get(CONF_OUTDOOR_TEMP_SENSOR):
         raise ConfigEntryNotReady("Incomplete configuration")
 
     shared = HeatState()
-    # Settings live in the entry options once the entry has been reconfigured;
-    # the entry data keeps the installation description (and settings from
-    # entries created before the options split).
-    config = {**entry.data, **entry.options}
-    controller = HeatController(hass, entry, config, shared)
+    controller = HeatController(hass, entry, _merged_config(entry), shared)
     hass.data[DOMAIN][entry.entry_id] = {"shared": shared, "controller": controller}
 
     await controller.async_start()
@@ -45,4 +51,13 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 
 async def _async_update_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:
-    await hass.config_entries.async_reload(entry.entry_id)
+    """Apply new settings live; reload only on installation changes."""
+    data = hass.data.get(DOMAIN, {}).get(entry.entry_id)
+    if data is None:
+        return
+    controller: HeatController = data["controller"]
+    config = _merged_config(entry)
+    if any(config.get(key) != controller.config.get(key) for key in CONNECTION_KEYS):
+        await hass.config_entries.async_reload(entry.entry_id)
+        return
+    controller.update_config(config)

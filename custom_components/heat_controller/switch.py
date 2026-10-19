@@ -88,7 +88,9 @@ class HeatAwayModeSwitch(_HeatSwitch):
         self._controller.request_update()
 
     async def async_turn_off(self, **kwargs) -> None:
+        # Returning home: drop any pending absence end as well.
         self._shared.set_away_mode(False)
+        self._shared.set_away_until(None)
         self._controller.request_update()
 
     def _restore(self, value: bool) -> None:

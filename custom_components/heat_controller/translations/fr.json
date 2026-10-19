@@ -28,6 +28,7 @@
           "away_setpoint": "Consigne absence (°C)",
           "solar_setpoint": "Consigne solaire (°C)",
           "idle_setpoint": "Consigne hors besoin (°C)",
+          "frost_setpoint": "Consigne hors gel (°C)",
           "hysteresis": "Hystérésis (°C)",
           "outdoor_threshold": "Seuil extérieur de bascule PAC/chaudière (°C)",
           "production_threshold": "Seuil de production solaire (W)",
@@ -75,6 +76,7 @@
           "away_setpoint": "Consigne absence (°C)",
           "solar_setpoint": "Consigne solaire (°C)",
           "idle_setpoint": "Consigne hors besoin (°C)",
+          "frost_setpoint": "Consigne hors gel (°C)",
           "hysteresis": "Hystérésis (°C)",
           "outdoor_threshold": "Seuil extérieur de bascule PAC/chaudière (°C)",
           "production_threshold": "Seuil de production solaire (W)",
@@ -103,12 +105,47 @@
       "preheating": { "name": "Préchauffe" },
       "heating_demand": { "name": "Demande de chauffage" },
       "day_period": { "name": "Période jour" },
-      "solar_period": { "name": "Période solaire" }
+      "solar_period": { "name": "Période solaire" },
+      "frost_protection": { "name": "Hors gel" }
     },
     "sensor": {
       "target_setpoint": { "name": "Consigne cible" },
       "preheating_duration": { "name": "Durée de préchauffe" },
       "source": { "name": "Source de chaleur" }
+    },
+    "select": {
+      "heat_source_override": {
+        "name": "Forçage de la source",
+        "state": {
+          "auto": "Automatique",
+          "heat_pump": "Pompe à chaleur",
+          "boiler": "Chaudière"
+        }
+      }
+    },
+    "datetime": {
+      "away_until": { "name": "Absent jusqu'au" }
+    },
+    "number": {
+      "day_setpoint": { "name": "Consigne jour" },
+      "night_setpoint": { "name": "Consigne nuit" },
+      "away_setpoint": { "name": "Consigne absence" },
+      "solar_setpoint": { "name": "Consigne solaire" },
+      "idle_setpoint": { "name": "Consigne hors besoin" },
+      "frost_setpoint": { "name": "Consigne hors gel" },
+      "outdoor_threshold": { "name": "Seuil de bascule PAC/chaudière" },
+      "hysteresis": { "name": "Hystérésis" },
+      "production_threshold": { "name": "Seuil de production solaire" },
+      "heat_pump_rate": { "name": "Vitesse de montée PAC" },
+      "boiler_rate": { "name": "Vitesse de montée chaudière" },
+      "safety_margin": { "name": "Marge de sécurité de la préchauffe" }
+    },
+    "time": {
+      "day_start": { "name": "Début de la période jour" },
+      "night_start": { "name": "Début de la période nuit" },
+      "return_time": { "name": "Heure de retour en absence" },
+      "solar_start": { "name": "Début de la fenêtre solaire" },
+      "solar_end": { "name": "Fin de la fenêtre solaire" }
     }
   }
 }

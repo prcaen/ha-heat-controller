@@ -36,6 +36,7 @@ def settings(**kwargs) -> Settings:
         away_setpoint=12.0,
         solar_setpoint=22.0,
         idle_setpoint=12.0,
+        frost_setpoint=7.0,
         hysteresis=0.3,
         production_threshold=500.0,
         heat_pump_rate=1.0,
@@ -85,6 +86,9 @@ class TestSettingsDefaults(unittest.TestCase):
 
     def test_default_idle_setpoint(self):
         self.assertEqual(Settings().idle_setpoint, 12.0)
+
+    def test_default_frost_setpoint(self):
+        self.assertEqual(Settings().frost_setpoint, 7.0)
 
 
 class TestChangeover(unittest.TestCase):
@@ -312,6 +316,138 @@ class TestNoHeatingDemand(unittest.TestCase):
         self.assertTrue(d.away_mode_active)
         self.assertEqual(d.target_setpoint, 12.0)
         self.assertFalse(d.heating_needed)
+
+
+class TestManualOverride(unittest.TestCase):
+    """Manual heat source override (select entity)."""
+
+    def test_force_heat_pump(self):
+        s = settings()
+        # outdoor -10 °C would normally keep the boiler
+        d = compute(
+            s,
+            inputs(
+                datetime(2026, 1, 15, 12),
+                outdoor_temp=-10.0,
+                forced_source=logic.SOURCE_HEAT_PUMP,
+            ),
+        )
+        self.assertTrue(d.should_use_heat_pump)
+        self.assertTrue(d.changeover)
+
+    def test_force_boiler(self):
+        s = settings()
+        d = compute(
+            s,
+            inputs(
+                datetime(2026, 1, 15, 12),
+                outdoor_temp=15.0,
+                heat_pump_source=True,
+                forced_source=logic.SOURCE_BOILER,
+            ),
+        )
+        self.assertFalse(d.should_use_heat_pump)
+        self.assertTrue(d.changeover)
+
+    def test_auto_follows_the_threshold(self):
+        s = settings()
+        d = compute(s, inputs(datetime(2026, 1, 15, 12), outdoor_temp=-10.0))
+        self.assertFalse(d.should_use_heat_pump)
+        self.assertFalse(d.changeover)
+
+
+class TestFrostProtection(unittest.TestCase):
+    """Frost protection floors the setpoint and forces heating."""
+
+    def test_floor_on_low_setpoint(self):
+        s = settings(away_setpoint=5.0)
+        d = compute(
+            s,
+            inputs(
+                datetime(2026, 1, 15, 12),
+                indoor_temp=15.0,
+                away_mode=True,
+                away_until=datetime(2026, 1, 17, 18, 0),
+            ),
+        )
+        self.assertEqual(d.target_setpoint, 7.0)
+        self.assertFalse(d.frost_protection)
+
+    def test_forces_heating_below_setpoint(self):
+        s = settings(away_setpoint=5.0)
+        d = compute(
+            s,
+            inputs(
+                datetime(2026, 1, 15, 12),
+                indoor_temp=6.9,
+                away_mode=True,
+                away_until=datetime(2026, 1, 17, 18, 0),
+            ),
+        )
+        self.assertTrue(d.frost_protection)
+        self.assertTrue(d.heating_needed)
+        self.assertEqual(d.target_setpoint, 7.0)
+
+
+class TestAwayUntil(unittest.TestCase):
+    """Absence with an explicit end date/time (datetime entity)."""
+
+    def test_ends_the_absence(self):
+        s = settings()
+        d = compute(
+            s,
+            inputs(
+                datetime(2026, 1, 15, 14, 30),
+                away_mode=True,
+                away_until=datetime(2026, 1, 15, 14, 0),
+            ),
+        )
+        self.assertTrue(d.return_passed)
+        self.assertFalse(d.away_mode_active)
+        self.assertEqual(d.target_setpoint, 20.0)
+
+    def test_active_before_the_end(self):
+        s = settings()
+        d = compute(
+            s,
+            inputs(
+                datetime(2026, 1, 15, 14, 0),
+                away_mode=True,
+                away_until=datetime(2026, 1, 16, 18, 0),
+            ),
+        )
+        self.assertFalse(d.return_passed)
+        self.assertTrue(d.away_mode_active)
+        self.assertEqual(d.target_setpoint, 12.0)
+
+    def test_preheating_before_the_end(self):
+        s = settings()
+        # away end on Jan 16 18:00, 195 min of preheating -> from 14:45
+        d = compute(
+            s,
+            inputs(
+                datetime(2026, 1, 16, 14, 44),
+                indoor_temp=17.0,
+                away_mode=True,
+                away_until=datetime(2026, 1, 16, 18, 0),
+            ),
+        )
+        self.assertFalse(d.preheating)
+        d = compute(
+            s,
+            inputs(
+                datetime(2026, 1, 16, 14, 45),
+                indoor_temp=17.0,
+                away_mode=True,
+                away_until=datetime(2026, 1, 16, 18, 0),
+            ),
+        )
+        self.assertTrue(d.preheating)
+
+    def test_falls_back_to_the_daily_return_time(self):
+        s = settings()
+        d = compute(s, inputs(datetime(2026, 1, 15, 18, 30), away_mode=True))
+        self.assertTrue(d.return_passed)
 
 
 class TestTargetTemperature(unittest.TestCase):

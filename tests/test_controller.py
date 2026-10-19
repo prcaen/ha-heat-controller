@@ -7,12 +7,15 @@ is not installed (the CI integration job installs it).
 from __future__ import annotations
 
 import unittest
+from datetime import timedelta
 from unittest.mock import MagicMock, patch
 
 try:
     import homeassistant  # noqa: F401
 except ImportError:  # pragma: no cover
     raise unittest.SkipTest("homeassistant is not installed")
+
+from homeassistant.util import dt as dt_util
 
 from custom_components.heat_controller import controller as controller_module
 from custom_components.heat_controller.controller import (
@@ -134,6 +137,7 @@ def build(
     hass = MagicMock()
     hass.states = states
     hass.services = services
+    hass.async_create_task = lambda coro: coro.close()
 
     shared = HeatState()
     shared.set_active(True)
@@ -281,6 +285,42 @@ class TestControlPass(unittest.IsolatedAsyncioTestCase):
         shared.set_active(False)
         await controller._update_locked()
         self.assertIsNone(shared.decision)
+
+    async def test_manual_override_keeps_boiler(self):
+        controller, shared, services, _ = build(outdoor="8.0", indoor="19.0")
+        shared.set_forced_source("boiler")
+        controller._first_run = False
+        await controller._update_locked()
+        calls = summarise(services)
+
+        # Outdoor is high enough for the heat pump but the override wins.
+        self.assertFalse(shared.heat_pump_source)
+        self.assertIn(
+            ("climate", "set_temperature", "climate.boiler", None, 20.0), calls
+        )
+        self.assertFalse(any(call[2] == "climate.pac1" for call in calls))
+
+    async def test_update_config_applies_settings_live(self):
+        controller, shared, services, _ = build(outdoor="2.0", indoor="22.5")
+        controller.update_config({**controller.config, "idle_setpoint": 15.0})
+        controller._first_run = False
+        await controller._update_locked()
+        calls = summarise(services)
+
+        self.assertFalse(shared.demand)
+        self.assertIn(
+            ("climate", "set_temperature", "climate.boiler", None, 15.0), calls
+        )
+
+    async def test_passed_away_until_ends_away_mode(self):
+        controller, shared, _, _ = build(outdoor="2.0", indoor="22.5")
+        shared.set_away_mode(True)
+        shared.set_away_until(dt_util.now() - timedelta(minutes=1))
+        controller._first_run = False
+        await controller._update_locked()
+
+        self.assertFalse(shared.away_mode)
+        self.assertIsNone(shared.away_until)
 
 
 if __name__ == "__main__":

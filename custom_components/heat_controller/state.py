@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import logging
+from datetime import datetime
 from typing import Callable, Optional
 
 from homeassistant.core import callback
 
-from .logic import Decision
+from .logic import SOURCE_AUTO, SOURCE_OPTIONS, Decision
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -17,17 +18,20 @@ Subscriber = Callable[[], None]
 class HeatState:
     """Flags and last decision, shared between controller and entities.
 
-    Flags persist through the entities that carry them (RestoreEntity) :
-    heat pump source, preheating, demand, active, away mode — like the
-    input_boolean from the original YAML automations.
+    Flags persist through the entities that carry them (RestoreEntity):
+    heat pump source, preheating, demand, active, away mode, forced source
+    and absence end — like the input_boolean from the original YAML
+    automations.
     """
 
     def __init__(self) -> None:
         self.active: bool = False
         self.away_mode: bool = False
+        self.away_until: Optional[datetime] = None
         self.heat_pump_source: bool = False
         self.preheating: bool = False
         self.demand: bool = False
+        self.forced_source: str = SOURCE_AUTO
         self.decision: Optional[Decision] = None
         self._subscribers: list[Subscriber] = []
 
@@ -62,6 +66,11 @@ class HeatState:
         self._publish()
 
     @callback
+    def set_away_until(self, value: Optional[datetime]) -> None:
+        self.away_until = value
+        self._publish()
+
+    @callback
     def set_heat_pump_source(self, value: bool) -> None:
         self.heat_pump_source = bool(value)
         self._publish()
@@ -74,6 +83,11 @@ class HeatState:
     @callback
     def set_demand(self, value: bool) -> None:
         self.demand = bool(value)
+        self._publish()
+
+    @callback
+    def set_forced_source(self, value: str) -> None:
+        self.forced_source = value if value in SOURCE_OPTIONS else SOURCE_AUTO
         self._publish()
 
     @callback

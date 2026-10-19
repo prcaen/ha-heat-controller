@@ -37,6 +37,7 @@ from .const import (
     CONF_BOILER_RATE,
     CONF_DAY_SETPOINT,
     CONF_DAY_START,
+    CONF_FROST_SETPOINT,
     CONF_HEAT_PUMP_CLIMATES,
     CONF_HEAT_PUMP_FANS,
     CONF_HEAT_PUMP_RATE,
@@ -103,6 +104,7 @@ def settings_from_config(config: Mapping[str, Any]) -> Settings:
         away_setpoint=number(CONF_AWAY_SETPOINT),
         solar_setpoint=number(CONF_SOLAR_SETPOINT),
         idle_setpoint=number(CONF_IDLE_SETPOINT),
+        frost_setpoint=number(CONF_FROST_SETPOINT),
         hysteresis=number(CONF_HYSTERESIS),
         production_threshold=number(CONF_PRODUCTION_THRESHOLD),
         heat_pump_rate=number(CONF_HEAT_PUMP_RATE),
@@ -129,7 +131,8 @@ class HeatController:
         self.hass = hass
         self.entry_id = entry.entry_id
         self.shared = shared
-        self.settings = settings_from_config(config)
+        self.config: dict[str, Any] = dict(config)
+        self.settings = settings_from_config(self.config)
 
         self.outdoor_sensor: str = config.get(CONF_OUTDOOR_TEMP_SENSOR, "")
         self.indoor_sensor: str = config.get(CONF_INDOOR_TEMP_SENSOR, "")
@@ -182,6 +185,13 @@ class HeatController:
         self._cancel.clear()
 
     @callback
+    def update_config(self, config: Mapping[str, Any]) -> None:
+        """Apply new settings live, without reloading the entry."""
+        self.config = dict(config)
+        self.settings = settings_from_config(self.config)
+        self.request_update()
+
+    @callback
     def request_update(self) -> None:
         """Request a control pass (user action, setting change)."""
         self.hass.async_create_task(self.async_update())
@@ -223,6 +233,8 @@ class HeatController:
             heat_pump_source=self.shared.heat_pump_source,
             preheating_flag=self.shared.preheating,
             demand_flag=self.shared.demand,
+            forced_source=self.shared.forced_source,
+            away_until=self.shared.away_until,
         )
 
     async def async_update(self) -> None:
@@ -251,6 +263,7 @@ class HeatController:
         # Return time exceeded: end of away mode (as in YAML).
         if decision.return_passed and shared.away_mode:
             shared.set_away_mode(False)
+            shared.set_away_until(None)
         shared.set_preheating(decision.preheating)
         shared.set_demand(decision.heating_needed)
 

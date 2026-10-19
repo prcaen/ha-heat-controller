@@ -6,7 +6,7 @@ and controller construction.
 """
 
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -17,12 +17,17 @@ from custom_components.heat_controller import (  # noqa: E402
     binary_sensor,
     config_flow,
     controller,
+    datetime as datetime_platform,
     entity,
     logic,
+    number,
+    select,
     sensor,
     state,
     switch,
+    time as time_platform,
 )
+from homeassistant.util import dt as dt_util  # noqa: E402
 
 print("imports OK, domain =", hc.DOMAIN)
 
@@ -59,6 +64,22 @@ entry.data["heat_pump_fans"] = ["fan.g"]
 ctrl2 = controller.HeatController(hass, entry, entry.data, shared)
 assert ctrl2.heat_pump_fans == ["fan.g", None]
 print("pairing OK")
+
+# Settings entities: value mapping without a running HA
+mock_ctl = MagicMock()
+mock_ctl.settings = ctrl.settings
+mock_ctl.config = dict(entry.data)
+num = number.HeatSettingNumber(entry, shared, mock_ctl, "day_setpoint")
+assert num.native_value == 20.0
+assert num.native_unit_of_measurement == "°C"
+tim = time_platform.HeatSettingTime(entry, shared, mock_ctl, "day_start")
+assert tim.native_value.hour == 7
+sel = select.HeatSourceOverrideSelect(entry, shared, mock_ctl)
+assert sel.current_option == "auto"
+assert sel.options == ["auto", "heat_pump", "boiler"]
+moment = datetime_platform.HeatAwayUntilEntity(entry, shared, mock_ctl)
+assert moment.native_value is None
+print("settings entities OK")
 
 inputs = logic.Inputs(
     now=datetime(2026, 1, 15, 12, 0, 0),
@@ -142,6 +163,7 @@ async def run_pass():
     entry.data["night_start"] = "23:59:00"
     entry.data["solar_start"] = "00:00:00"
     entry.data["solar_end"] = "23:59:00"
+    entry.data["away_setpoint"] = 5.0
     shared = state.HeatState()
     shared.set_active(True)
     shared.set_heat_pump_source(False)
@@ -200,6 +222,37 @@ async def run_pass():
         for c in summary2
     )
     print("boiler pass OK")
+
+    # Third pass: manual override, force the boiler although it is warm
+    fake_states.set("sensor.ext", "8.0")
+    fake_states.set("sensor.int", "19.0")
+    fake_states.set("sensor.solenso_puissance", "0")
+    shared.set_forced_source("boiler")
+    fake_services.calls.clear()
+    await ctrl._update_locked()
+
+    summary3 = [(c[0], c[1], c[2]["entity_id"], c[2].get("hvac_mode"), c[2].get("temperature")) for c in fake_services.calls]
+    assert shared.heat_pump_source is False
+    assert not any(
+        c[2]["entity_id"] in ("climate.g", "climate.d") for c in fake_services.calls
+    )
+    assert ("climate", "set_temperature", "climate.netatmo", None, 20.0) in summary3
+    print("override pass OK")
+
+    # Fourth pass: frost protection, away mode with a low setpoint
+    shared.set_forced_source("auto")
+    shared.set_away_mode(True)
+    shared.set_away_until(dt_util.now() + timedelta(days=3))
+    fake_states.set("sensor.ext", "2.0")
+    fake_states.set("sensor.int", "6.5")
+    fake_services.calls.clear()
+    await ctrl._update_locked()
+
+    summary4 = [(c[0], c[1], c[2]["entity_id"], c[2].get("hvac_mode"), c[2].get("temperature")) for c in fake_services.calls]
+    assert shared.decision.frost_protection is True
+    assert shared.decision.target_setpoint == 7.0
+    assert ("climate", "set_temperature", "climate.netatmo", None, 7.0) in summary4
+    print("frost pass OK")
 
 
 async def _fast_sleep(_delay):
