@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Log a warning when a heat pump power fan does not exist or does not confirm ON within the wait delay: the climate unit is then deliberately left in its current mode, and the cause was previously invisible in the logs.
+
 ## 0.0.1 - 2026-10-18
 
 - Initial version.

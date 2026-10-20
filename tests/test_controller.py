@@ -56,12 +56,16 @@ class FakeServices:
     def __init__(self, states: FakeStates) -> None:
         self.calls: list[tuple[str, str, dict]] = []
         self._states = states
+        # Fans in this set accept fan.turn_on but never switch on,
+        # like a follower entity that ignores the command.
+        self.unresponsive_fans: set[str] = set()
 
     async def async_call(self, domain, service, data, blocking=True) -> None:
         self.calls.append((domain, service, dict(data)))
         entity_id = data["entity_id"]
         if domain == "fan" and service == "turn_on":
-            self._states.set(entity_id, "on")
+            if entity_id not in self.unresponsive_fans:
+                self._states.set(entity_id, "on")
         elif domain == "fan" and service == "turn_off":
             self._states.set(entity_id, "off")
         elif domain == "climate" and service == "set_hvac_mode":
@@ -275,6 +279,32 @@ class TestControlPass(unittest.IsolatedAsyncioTestCase):
         # Power fan is stopped when there is no heating need.
         self.assertIn(("fan", "turn_off", "fan.pac1", None, None), calls)
         self.assertNotIn(("fan", "turn_on", "fan.pac1", None, None), calls)
+
+    async def test_unresponsive_power_fan_blocks_mode_and_warns(self):
+        controller, shared, services, _ = build(
+            outdoor="8.0", indoor="19.0", heat_pump_source=True
+        )
+        services.unresponsive_fans = {"fan.pac1"}
+        controller._first_run = False
+        with self.assertLogs(
+            "custom_components.heat_controller.controller", level="WARNING"
+        ) as logs:
+            await controller._update_locked()
+        calls = summarise(services)
+
+        # The setpoint is still pushed to the climate unit...
+        self.assertIn(
+            ("climate", "set_temperature", "climate.pac1", None, 20.0), calls
+        )
+        # ...but the unit is never switched to heat while the power fan
+        # does not confirm ON, and a warning explains why.
+        self.assertFalse(
+            any(
+                call[1] == "set_hvac_mode" and call[2] == "climate.pac1"
+                for call in calls
+            )
+        )
+        self.assertTrue(any("fan.pac1" in line for line in logs.output))
 
     async def test_control_off_clears_decision(self):
         controller, shared, _, _ = build(outdoor="2.0", indoor="22.5")

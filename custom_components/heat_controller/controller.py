@@ -368,8 +368,29 @@ class HeatController:
             if fan:
                 fan_on = self._is_on(fan)
                 if heating_needed and heat_pump_source and not fan_on:
-                    await self._call("fan", "turn_on", fan)
-                    fan_on = await self._wait_fan_on(fan, FAN_WAIT_TIMEOUT_SECONDS)
+                    if self.hass.states.get(fan) is None:
+                        _LOGGER.warning(
+                            "Power fan %s does not exist in this instance; "
+                            "check the integration configuration. %s stays in "
+                            "its current mode",
+                            fan,
+                            clim,
+                        )
+                    else:
+                        await self._call("fan", "turn_on", fan)
+                        fan_on = await self._wait_fan_on(
+                            fan, FAN_WAIT_TIMEOUT_SECONDS
+                        )
+                        if not fan_on:
+                            _LOGGER.warning(
+                                "Power fan %s did not confirm ON within %s s; "
+                                "%s is not switched to heat. Verify the fan is "
+                                "the unit's real power relay and that it "
+                                "responds to fan.turn_on",
+                                fan,
+                                FAN_WAIT_TIMEOUT_SECONDS,
+                                clim,
+                            )
 
             # HVAC mode: heat (heat pump) or auto (boiler).
             if (
