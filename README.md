@@ -16,8 +16,9 @@ Forecast.Solar forecast.
   -5 °C to 10 °C), the boiler when it goes below, with a hysteresis of
   ±0.5 °C to avoid back-and-forth.
   Changeover sequence identical to YAML: boiler off, accessory fans on,
-  wait 15 s, heat pump climate units in `heat` mode (and the reverse for
-  the boiler).
+  wait 15 s, heat pump units powered through their switches (and the
+  reverse for the boiler: switches cut, the climate mode is never used
+  to switch a unit off).
 - **Day/Night/Away / Solar scheduling**: target setpoint according to the
   period (day, night, away, solar window), anticipated preheating
   proportional to the temperature difference and the active source's
@@ -100,8 +101,10 @@ Settings → Devices and services → **Add integration** →
    the Solenso integration is installed, the central's power sensor
    is pre-selected.
 2. **Controlled devices** : the boiler's climate (Netatmo), the heat pump's
-   climate units **in order**, their power fans **in the same order**
-   (optional), and the accessory fans (those for the changeover,
+   climate units **in order**, their power switches **in the same order**
+   (`switch.salon_clim_gauche`, `switch.salon_clim_droite`: each switch powers
+   the matching unit and is driven before any climate command), and the
+   accessory fans (those for the changeover,
    `fan.climate_series_accessory*` in the original YAML).
 3. **Settings** : day/night/away/solar/**idle**/**frost protection**
    setpoints, hysteresis, exterior changeover threshold, production
@@ -147,7 +150,7 @@ cards:
 | `sensor.power_production_now` (Forecast.Solar) | « Solar power production » sensor: **central's Solenso power** |
 | `climate.netatmo_smart_thermostat` | Boiler climate |
 | `climate.salon_clim_gauche`, `climate.salon_clim_droite` | Heat pump climate units |
-| `fan.clim_salon_gauche_puissance`, `fan.clim_salon_droite_puissance` | Power fans (same order) |
+| `switch.salon_clim_gauche`, `switch.salon_clim_droite` | Power switches (same order) |
 | `fan.climate_series_accessory`, `fan.climate_series_accessory_2` | Accessory fans |
 | `input_number.chauffage_*` | Settings screen or `number` entities |
 | `input_datetime.chauffage_heure_*` | Settings screen or `time` entities |
@@ -168,13 +171,14 @@ cards:
 - Heartbeat every minutes + sensor listening, instead of
   5/15 minutes : decisions are idempotent and protected by
   hysteresis, we just react faster.
-- When changing over to the boiler, the heat pump's power fans are also
-  turned off (the YAML only turned off the accessory fans) : nothing
+- When changing over to the boiler, the heat pump units are cut from their
+  power switches (the YAML only turned off the accessory fans) : nothing
   remains unnecessarily powered.
-- When there is no heating need, the thermostat is not turned off ; its
-  setpoint is reduced to the idle setpoint (12 °C default, adjustable) and
-  it stays on: heat pump climate units remain in `heat` mode (no cooling
-  risk), the boiler remains in `auto`.
+- When there is no heating need, the boiler thermostat is not turned off ;
+  its setpoint is reduced to the idle setpoint (12 °C default, adjustable)
+  and it stays on in `auto` mode. The heat pump units are simply powered
+  off through their switches: their climate mode is never used to switch
+  them off, and it is set to `heat` right after the switch is confirmed on.
 - Settings are applied live when changed from the settings screens or from
   the dashboard entities, without reloading the integration.
 - Manual source override, frost protection and the absence end date have no

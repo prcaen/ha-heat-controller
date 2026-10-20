@@ -2,7 +2,8 @@
 
 ## Unreleased
 
-- Log a warning when a heat pump power fan does not exist or does not confirm ON within the wait delay: the climate unit is then deliberately left in its current mode, and the cause was previously invisible in the logs.
+- **Breaking (configuration)**: heat pump units are now powered through `switch` entities (`heat_pump_switches`, paired by order with the climate units) instead of the former "power fans" (`heat_pump_fans`). The switch is turned on before any climate command and off when there is no heating need; the climate mode is never used to switch a unit off, and no idle setpoint is pushed to a powered-off unit. Reconfigure the entry to pick the switches (e.g. `switch.salon_clim_gauche`, `switch.salon_clim_droite`).
+- Log a warning when a heat pump power switch does not exist or does not confirm ON within the wait delay: the climate unit is then deliberately not driven, and the cause was previously invisible in the logs.
 
 ## 0.0.1 - 2026-10-18
 

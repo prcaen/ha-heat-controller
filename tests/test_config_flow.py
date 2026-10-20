@@ -59,7 +59,7 @@ class TestSchemas(unittest.TestCase):
             {
                 CONF_BOILER_CLIMATE,
                 "heat_pump_climates",
-                "heat_pump_fans",
+                "heat_pump_switches",
                 CONF_ACCESSORY_FANS,
             },
         )

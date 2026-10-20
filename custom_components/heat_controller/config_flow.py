@@ -26,7 +26,7 @@ from .const import (
     CONF_ACCESSORY_FANS,
     CONF_BOILER_CLIMATE,
     CONF_HEAT_PUMP_CLIMATES,
-    CONF_HEAT_PUMP_FANS,
+    CONF_HEAT_PUMP_SWITCHES,
     CONF_INDOOR_TEMP_SENSOR,
     CONF_OUTDOOR_TEMP_SENSOR,
     CONF_PRODUCTION_SENSOR,
@@ -111,8 +111,10 @@ def _devices_schema(data: dict[str, Any]) -> vol.Schema:
                 EntitySelectorConfig(domain="climate", multiple=True)
             ),
             vol.Optional(
-                CONF_HEAT_PUMP_FANS, default=data.get(CONF_HEAT_PUMP_FANS, [])
-            ): EntitySelector(EntitySelectorConfig(domain="fan", multiple=True)),
+                CONF_HEAT_PUMP_SWITCHES, default=data.get(CONF_HEAT_PUMP_SWITCHES, [])
+            ): EntitySelector(
+                EntitySelectorConfig(domain="switch", multiple=True)
+            ),
             vol.Optional(
                 CONF_ACCESSORY_FANS, default=data.get(CONF_ACCESSORY_FANS, [])
             ): EntitySelector(EntitySelectorConfig(domain="fan", multiple=True)),
@@ -164,9 +166,9 @@ class HeatControllerConfigFlow(ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
         if user_input is not None:
             climates = user_input.get(CONF_HEAT_PUMP_CLIMATES) or []
-            fans = user_input.get(CONF_HEAT_PUMP_FANS) or []
-            if fans and len(fans) != len(climates):
-                errors["base"] = "fan_count_mismatch"
+            switches = user_input.get(CONF_HEAT_PUMP_SWITCHES) or []
+            if switches and len(switches) != len(climates):
+                errors["base"] = "switch_count_mismatch"
             else:
                 self._data.update(user_input)
                 return await self.async_step_settings()
@@ -211,9 +213,9 @@ class HeatControllerOptionsFlow(OptionsFlow):
         errors: dict[str, str] = {}
         if user_input is not None:
             climates = user_input.get(CONF_HEAT_PUMP_CLIMATES) or []
-            fans = user_input.get(CONF_HEAT_PUMP_FANS) or []
-            if fans and len(fans) != len(climates):
-                errors["base"] = "fan_count_mismatch"
+            switches = user_input.get(CONF_HEAT_PUMP_SWITCHES) or []
+            if switches and len(switches) != len(climates):
+                errors["base"] = "switch_count_mismatch"
             else:
                 self._data.update(user_input)
                 return await self.async_step_settings()

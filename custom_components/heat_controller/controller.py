@@ -39,7 +39,7 @@ from .const import (
     CONF_DAY_START,
     CONF_FROST_SETPOINT,
     CONF_HEAT_PUMP_CLIMATES,
-    CONF_HEAT_PUMP_FANS,
+    CONF_HEAT_PUMP_SWITCHES,
     CONF_HEAT_PUMP_RATE,
     CONF_HYSTERESIS,
     CONF_IDLE_SETPOINT,
@@ -58,11 +58,11 @@ from .const import (
     SETTING_DEFAULTS,
     DEFAULT_INDOOR_TEMP,
     DEFAULT_PRODUCTION,
-    FAN_WAIT_TIMEOUT_SECONDS,
     HVAC_MODE_DELAY_SECONDS,
     POLL_INTERVAL_SECONDS,
     SERVICE_TIMEOUT_SECONDS,
     STARTUP_DELAY_SECONDS,
+    SWITCH_WAIT_TIMEOUT_SECONDS,
 )
 from .logic import Decision, Inputs, Settings, compute, parse_time, target_temperature
 from .state import HeatState
@@ -140,10 +140,10 @@ class HeatController:
 
         self.boiler_climate: str = config.get(CONF_BOILER_CLIMATE, "")
         self.heat_pump_climates: list[str] = list(config.get(CONF_HEAT_PUMP_CLIMATES, []))
-        heat_pump_fans: list[str] = list(config.get(CONF_HEAT_PUMP_FANS, []))
-        # Pairing by order: fan[i] powers climate[i] (None if missing).
-        self.heat_pump_fans: list[Optional[str]] = [
-            heat_pump_fans[i] if i < len(heat_pump_fans) else None
+        heat_pump_switches: list[str] = list(config.get(CONF_HEAT_PUMP_SWITCHES, []))
+        # Pairing by order: switch[i] powers climate[i] (None if missing).
+        self.heat_pump_switches: list[Optional[str]] = [
+            heat_pump_switches[i] if i < len(heat_pump_switches) else None
             for i in range(len(self.heat_pump_climates))
         ]
         self.accessory_fans: list[str] = list(config.get(CONF_ACCESSORY_FANS, []))
@@ -301,8 +301,8 @@ class HeatController:
     def _valid(state: Optional[State]) -> bool:
         return state is not None and state.state not in (STATE_UNAVAILABLE, STATE_UNKNOWN)
 
-    async def _wait_fan_on(self, entity_id: str, timeout: int) -> bool:
-        """Wait for the fan to turn on, like the YAML wait_template."""
+    async def _wait_switch_on(self, entity_id: str, timeout: int) -> bool:
+        """Wait for the power switch to turn on, like the YAML wait_template."""
         waited = 0.0
         while waited < timeout:
             if self._is_on(entity_id):
@@ -310,6 +310,36 @@ class HeatController:
             await asyncio.sleep(1)
             waited += 1
         return self._is_on(entity_id)
+
+    async def _power_on(self, switch: str, clim: str) -> bool:
+        """Power a heat pump unit on, before any climate command."""
+        if self._is_on(switch):
+            return True
+        if self.hass.states.get(switch) is None:
+            _LOGGER.warning(
+                "Power switch %s does not exist in this instance; "
+                "check the integration configuration. %s is not driven",
+                switch,
+                clim,
+            )
+            return False
+        await self._call("switch", "turn_on", switch)
+        if not await self._wait_switch_on(switch, SWITCH_WAIT_TIMEOUT_SECONDS):
+            _LOGGER.warning(
+                "Power switch %s did not confirm ON within %s s; "
+                "%s is not driven. Verify the switch is the unit's real "
+                "power relay and that it responds to switch.turn_on",
+                switch,
+                SWITCH_WAIT_TIMEOUT_SECONDS,
+                clim,
+            )
+            return False
+        return True
+
+    async def _power_off(self, switch: str) -> None:
+        """Power a heat pump unit off (its climate mode is never touched)."""
+        if self._is_on(switch):
+            await self._call("switch", "turn_off", switch)
 
     async def _apply_changeover(self, to_heat_pump: bool) -> None:
         """Reproduces « Heating - PAC/Boiler changeover »."""
@@ -320,19 +350,18 @@ class HeatController:
             for fan in self.accessory_fans:
                 await self._call("fan", "turn_on", fan)
             await asyncio.sleep(CHANGEOVER_FAN_DELAY_SECONDS)
-            for clim in self.heat_pump_climates:
-                await self._call("climate", "set_hvac_mode", clim, hvac_mode=HVAC_HEAT)
+            # The heat pump units are powered through their switches; the
+            # program pass run right after this one turns them on first,
+            # before any climate command.
             shared.set_heat_pump_source(True)
         else:
             _LOGGER.info("Changeover to the boiler (outdoor temperature too low)")
-            for clim in self.heat_pump_climates:
-                await self._call("climate", "set_hvac_mode", clim, hvac_mode=HVAC_OFF)
-            # Accessory fans (original YAML) and power fans: everything
-            # that powers the heat pump must turn off.
-            fans = dict.fromkeys(
-                [*self.accessory_fans, *(fan for fan in self.heat_pump_fans if fan)]
-            )
-            for fan in fans:
+            # Cut the power of the heat pump units; their climate mode is
+            # never used to switch them off.
+            for switch in self.heat_pump_switches:
+                if switch:
+                    await self._power_off(switch)
+            for fan in self.accessory_fans:
                 await self._call("fan", "turn_off", fan)
             await self._call("climate", "set_hvac_mode", self.boiler_climate, hvac_mode=HVAC_AUTO)
             shared.set_heat_pump_source(False)
@@ -351,7 +380,7 @@ class HeatController:
         heat_pump_source = self.shared.heat_pump_source
 
         pairs: list[tuple[str, Optional[str]]] = (
-            list(zip(self.heat_pump_climates, self.heat_pump_fans))
+            list(zip(self.heat_pump_climates, self.heat_pump_switches))
             if heat_pump_source
             else [(self.boiler_climate, None)]
         )
@@ -360,44 +389,23 @@ class HeatController:
         # idle); the boiler stays in "auto" like the original YAML.
         desired_mode = HVAC_HEAT if heat_pump_source else HVAC_AUTO
 
-        for clim, fan in pairs:
+        for clim, switch in pairs:
             state = self.hass.states.get(clim)
 
-            # Power fan supply before driving the climate unit.
-            fan_on = True
-            if fan:
-                fan_on = self._is_on(fan)
-                if heating_needed and heat_pump_source and not fan_on:
-                    if self.hass.states.get(fan) is None:
-                        _LOGGER.warning(
-                            "Power fan %s does not exist in this instance; "
-                            "check the integration configuration. %s stays in "
-                            "its current mode",
-                            fan,
-                            clim,
-                        )
-                    else:
-                        await self._call("fan", "turn_on", fan)
-                        fan_on = await self._wait_fan_on(
-                            fan, FAN_WAIT_TIMEOUT_SECONDS
-                        )
-                        if not fan_on:
-                            _LOGGER.warning(
-                                "Power fan %s did not confirm ON within %s s; "
-                                "%s is not switched to heat. Verify the fan is "
-                                "the unit's real power relay and that it "
-                                "responds to fan.turn_on",
-                                fan,
-                                FAN_WAIT_TIMEOUT_SECONDS,
-                                clim,
-                            )
+            # Heat pump units are powered through their switch: it must be
+            # on before any climate command, and off when there is no
+            # heating need (the climate mode is never used to switch the
+            # unit off).
+            if heat_pump_source and switch is not None:
+                if heating_needed:
+                    if not await self._power_on(switch, clim):
+                        continue
+                else:
+                    await self._power_off(switch)
+                    continue
 
             # HVAC mode: heat (heat pump) or auto (boiler).
-            if (
-                self._valid(state)
-                and state.state != desired_mode  # type: ignore[union-attr]
-                and (not heat_pump_source or fan is None or fan_on)
-            ):
+            if self._valid(state) and state.state != desired_mode:  # type: ignore[union-attr]
                 await self._call(
                     "climate", "set_hvac_mode", clim, hvac_mode=desired_mode
                 )
@@ -405,7 +413,8 @@ class HeatController:
                 state = self.hass.states.get(clim)
 
             # Setpoint: heating setpoint when there is a need, idle setpoint
-            # otherwise; the thermostat is never switched off.
+            # otherwise; a heat pump unit without a power switch keeps the
+            # original behavior (on in heat mode with the idle setpoint).
             if self._valid(state):
                 attributes = state.attributes if state else {}  # type: ignore[union-attr]
                 setpoint = (
@@ -422,10 +431,6 @@ class HeatController:
                 current = self._current_temperature(attributes)
                 if current != target:
                     await self._call("climate", "set_temperature", clim, temperature=target)
-
-            # Power fan shutdown when there is no need.
-            if fan and not heating_needed and heat_pump_source and self._is_on(fan):
-                await self._call("fan", "turn_off", fan)
 
     @staticmethod
     def _current_temperature(attributes: Mapping[str, Any]) -> float:

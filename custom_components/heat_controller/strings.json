@@ -12,11 +12,11 @@
       },
       "devices": {
         "title": "Controlled devices",
-        "description": "The boiler is driven through its climate entity. For the heat pump list the climate units and, in the same order, their power fans (optional). Accessory fans are switched on with the heat pump and off with the boiler.",
+        "description": "The boiler is driven through its climate entity. For the heat pump list the climate units and, in the same order, their power switches. A switch is turned on before any climate command and off when there is no heating need; the climate mode is never used to switch a unit off. Accessory fans are switched on with the heat pump and off with the boiler.",
         "data": {
           "boiler_climate": "Boiler (climate)",
           "heat_pump_climates": "Heat pump climate units (ordered)",
-          "heat_pump_fans": "Power fans (same order as climate units)",
+          "heat_pump_switches": "Power switches (same order as climate units)",
           "accessory_fans": "Accessory fans"
         }
       },
@@ -44,7 +44,7 @@
       }
     },
     "error": {
-      "fan_count_mismatch": "Provide either no fan or one per climate unit, in the same order."
+      "switch_count_mismatch": "Provide either no switch or one per climate unit, in the same order."
     }
   },
   "options": {
@@ -60,11 +60,11 @@
       },
       "devices": {
         "title": "Controlled devices",
-        "description": "The boiler is driven through its climate entity. For the heat pump list the climate units and, in the same order, their power fans (optional). Accessory fans are switched on with the heat pump and off with the boiler.",
+        "description": "The boiler is driven through its climate entity. For the heat pump list the climate units and, in the same order, their power switches. A switch is turned on before any climate command and off when there is no heating need; the climate mode is never used to switch a unit off. Accessory fans are switched on with the heat pump and off with the boiler.",
         "data": {
           "boiler_climate": "Boiler (climate)",
           "heat_pump_climates": "Heat pump climate units (ordered)",
-          "heat_pump_fans": "Power fans (same order as climate units)",
+          "heat_pump_switches": "Power switches (same order as climate units)",
           "accessory_fans": "Accessory fans"
         }
       },
@@ -92,7 +92,7 @@
       }
     },
     "error": {
-      "fan_count_mismatch": "Provide either no fan or one per climate unit, in the same order."
+      "switch_count_mismatch": "Provide either no switch or one per climate unit, in the same order."
     }
   },
   "entity": {

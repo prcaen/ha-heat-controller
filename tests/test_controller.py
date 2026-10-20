@@ -56,16 +56,20 @@ class FakeServices:
     def __init__(self, states: FakeStates) -> None:
         self.calls: list[tuple[str, str, dict]] = []
         self._states = states
-        # Fans in this set accept fan.turn_on but never switch on,
-        # like a follower entity that ignores the command.
-        self.unresponsive_fans: set[str] = set()
+        # Switches in this set accept switch.turn_on but never switch on,
+        # like a relay that ignores the command.
+        self.unresponsive_switches: set[str] = set()
 
     async def async_call(self, domain, service, data, blocking=True) -> None:
         self.calls.append((domain, service, dict(data)))
         entity_id = data["entity_id"]
-        if domain == "fan" and service == "turn_on":
-            if entity_id not in self.unresponsive_fans:
+        if domain == "switch" and service == "turn_on":
+            if entity_id not in self.unresponsive_switches:
                 self._states.set(entity_id, "on")
+        elif domain == "switch" and service == "turn_off":
+            self._states.set(entity_id, "off")
+        elif domain == "fan" and service == "turn_on":
+            self._states.set(entity_id, "on")
         elif domain == "fan" and service == "turn_off":
             self._states.set(entity_id, "off")
         elif domain == "climate" and service == "set_hvac_mode":
@@ -97,7 +101,7 @@ BASE_DATA = {
     "production_sensor": "sensor.solar",
     "boiler_climate": "climate.boiler",
     "heat_pump_climates": ["climate.pac1"],
-    "heat_pump_fans": ["fan.pac1"],
+    "heat_pump_switches": ["switch.pac1"],
     "accessory_fans": ["fan.acc"],
     # windows covering the whole day: time-independent tests
     "day_start": "00:00:00",
@@ -131,8 +135,8 @@ def build(
                 "temperature": 19,
             },
         )
-    for fan in ("fan.pac1", "fan.acc"):
-        states.set(fan, "off")
+    for entity in ("switch.pac1", "fan.acc"):
+        states.set(entity, "off")
 
     services = FakeServices(states)
     entry = MagicMock()
@@ -184,14 +188,14 @@ class TestSettingsFromConfig(unittest.TestCase):
 
 
 class TestWiring(unittest.TestCase):
-    """Fan pairing with the heat pump climate units."""
+    """Switch pairing with the heat pump climate units."""
 
-    def test_fan_pairing(self):
+    def test_switch_pairing(self):
         controller, _, _, _ = build()
-        self.assertEqual(controller.heat_pump_fans, ["fan.pac1"])
+        self.assertEqual(controller.heat_pump_switches, ["switch.pac1"])
 
         controller, _, _, _ = build({"heat_pump_climates": ["climate.a", "climate.b"]})
-        self.assertEqual(controller.heat_pump_fans, ["fan.pac1", None])
+        self.assertEqual(controller.heat_pump_switches, ["switch.pac1", None])
 
 
 class TestControlPass(unittest.IsolatedAsyncioTestCase):
@@ -210,19 +214,32 @@ class TestControlPass(unittest.IsolatedAsyncioTestCase):
         calls = summarise(services)
 
         self.assertTrue(shared.heat_pump_source)
-        # Changeover sequence: boiler off, accessory fan on, clim in heat.
+        # Changeover sequence: boiler off, accessory fan on.
         self.assertIn(
             ("climate", "set_hvac_mode", "climate.boiler", "off", None), calls
         )
         self.assertIn(("fan", "turn_on", "fan.acc", None, None), calls)
+        # Heating need: the power switch is turned on before any climate
+        # command, then the unit goes to heat and the solar setpoint (22)
+        # is pushed.
+        self.assertIn(("switch", "turn_on", "switch.pac1", None, None), calls)
         self.assertIn(
             ("climate", "set_hvac_mode", "climate.pac1", "heat", None), calls
         )
-        # Heating need: power fan on, solar setpoint (22) pushed.
-        self.assertIn(("fan", "turn_on", "fan.pac1", None, None), calls)
         self.assertIn(
             ("climate", "set_temperature", "climate.pac1", None, 22.0), calls
         )
+        switch_call = calls.index(("switch", "turn_on", "switch.pac1", None, None))
+        mode_calls = [
+            i for i, call in enumerate(calls)
+            if call[1] == "set_hvac_mode" and call[2] == "climate.pac1"
+        ]
+        self.assertTrue(all(i > switch_call for i in mode_calls))
+        temp_calls = [
+            i for i, call in enumerate(calls)
+            if call[1] == "set_temperature" and call[2] == "climate.pac1"
+        ]
+        self.assertTrue(all(i > switch_call for i in temp_calls))
 
     async def test_idle_boiler_pushes_configured_idle_setpoint(self):
         controller, shared, services, _ = build(
@@ -246,11 +263,11 @@ class TestControlPass(unittest.IsolatedAsyncioTestCase):
         )
         self.assertFalse(any(call[0] == "fan" for call in calls))
 
-    async def test_idle_heat_pump_stays_in_heat_mode(self):
+    async def test_idle_heat_pump_cut_from_power(self):
         controller, shared, services, states = build(
             outdoor="8.0", indoor="22.5", heat_pump_source=True
         )
-        # Steady idle state: the climate unit is in heat, its power fan on.
+        # Steady idle state: the climate unit is in heat, powered on.
         states.set(
             "climate.pac1",
             "heat",
@@ -261,30 +278,25 @@ class TestControlPass(unittest.IsolatedAsyncioTestCase):
                 "temperature": 19,
             },
         )
-        states.set("fan.pac1", "on")
+        states.set("switch.pac1", "on")
         controller._first_run = False
         await controller._update_locked()
         calls = summarise(services)
 
         self.assertTrue(shared.heat_pump_source)
         self.assertFalse(shared.demand)
-        # Heat pump climate units stay in heat (never off, never auto) with
-        # the idle setpoint.
-        self.assertFalse(
-            any(call[1] == "set_hvac_mode" and call[2] == "climate.pac1" for call in calls)
-        )
-        self.assertIn(
-            ("climate", "set_temperature", "climate.pac1", None, 12.0), calls
-        )
-        # Power fan is stopped when there is no heating need.
-        self.assertIn(("fan", "turn_off", "fan.pac1", None, None), calls)
-        self.assertNotIn(("fan", "turn_on", "fan.pac1", None, None), calls)
+        # The power switch is cut when there is no heating need...
+        self.assertIn(("switch", "turn_off", "switch.pac1", None, None), calls)
+        self.assertNotIn(("switch", "turn_on", "switch.pac1", None, None), calls)
+        # ...and the climate unit is not driven at all: its mode is never
+        # used to switch it off and no idle setpoint is pushed.
+        self.assertFalse(any(call[2] == "climate.pac1" for call in calls))
 
-    async def test_unresponsive_power_fan_blocks_mode_and_warns(self):
+    async def test_unresponsive_power_switch_blocks_climate_and_warns(self):
         controller, shared, services, _ = build(
             outdoor="8.0", indoor="19.0", heat_pump_source=True
         )
-        services.unresponsive_fans = {"fan.pac1"}
+        services.unresponsive_switches = {"switch.pac1"}
         controller._first_run = False
         with self.assertLogs(
             "custom_components.heat_controller.controller", level="WARNING"
@@ -292,19 +304,31 @@ class TestControlPass(unittest.IsolatedAsyncioTestCase):
             await controller._update_locked()
         calls = summarise(services)
 
-        # The setpoint is still pushed to the climate unit...
-        self.assertIn(
-            ("climate", "set_temperature", "climate.pac1", None, 20.0), calls
-        )
-        # ...but the unit is never switched to heat while the power fan
-        # does not confirm ON, and a warning explains why.
+        # The unit is never driven while the power switch does not confirm
+        # ON, and a warning explains why.
+        self.assertFalse(any(call[2] == "climate.pac1" for call in calls))
+        self.assertTrue(any("switch.pac1" in line for line in logs.output))
+
+    async def test_changeover_to_boiler_cuts_power_switch(self):
+        controller, shared, services, states = build(outdoor="2.0", indoor="19.0")
+        shared.set_heat_pump_source(True)
+        states.set("switch.pac1", "on")
+        controller._first_run = False
+        await controller._update_locked()
+        calls = summarise(services)
+
+        self.assertFalse(shared.heat_pump_source)
+        # The heat pump is stopped through its power switch only: its
+        # climate mode is never set to off.
+        self.assertIn(("switch", "turn_off", "switch.pac1", None, None), calls)
         self.assertFalse(
-            any(
-                call[1] == "set_hvac_mode" and call[2] == "climate.pac1"
-                for call in calls
-            )
+            any(call[1] == "set_hvac_mode" and call[2] == "climate.pac1" for call in calls)
         )
-        self.assertTrue(any("fan.pac1" in line for line in logs.output))
+        # Accessory fans are stopped, the boiler takes over in auto.
+        self.assertIn(("fan", "turn_off", "fan.acc", None, None), calls)
+        self.assertIn(
+            ("climate", "set_hvac_mode", "climate.boiler", "auto", None), calls
+        )
 
     async def test_control_off_clears_decision(self):
         controller, shared, _, _ = build(outdoor="2.0", indoor="22.5")

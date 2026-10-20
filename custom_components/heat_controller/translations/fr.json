@@ -12,11 +12,11 @@
       },
       "devices": {
         "title": "Appareils pilotés",
-        "description": "La chaudière est pilotée par son entité climate. Pour la PAC, listez les clims et, dans le même ordre, leur ventilateur de puissance (facultatif). Les ventilateurs accessoires sont allumés avec la PAC et coupés avec la chaudière.",
+        "description": "La chaudière est pilotée par son entité climate. Pour la PAC, listez les clims et, dans le même ordre, leurs interrupteurs de puissance. Un interrupteur est activé avant toute commande climate et coupé en l'absence de besoin de chauffage ; le mode climate n'est jamais utilisé pour éteindre une clim. Les ventilateurs accessoires sont allumés avec la PAC et coupés avec la chaudière.",
         "data": {
           "boiler_climate": "Chaudière",
           "heat_pump_climates": "Clims de la PAC (dans l'ordre)",
-          "heat_pump_fans": "Ventilateurs de puissance (même ordre que les clims)",
+          "heat_pump_switches": "Interrupteurs de puissance (même ordre que les clims)",
           "accessory_fans": "Ventilateurs accessoires"
         }
       },
@@ -44,7 +44,7 @@
       }
     },
     "error": {
-      "fan_count_mismatch": "Indiquez soit aucun ventilateur, soit un par clim, dans le même ordre."
+      "switch_count_mismatch": "Indiquez soit aucun interrupteur, soit un par clim, dans le même ordre."
     }
   },
   "options": {
@@ -60,11 +60,11 @@
       },
       "devices": {
         "title": "Appareils pilotés",
-        "description": "La chaudière est pilotée par son entité climate. Pour la PAC, listez les clims et, dans le même ordre, leur ventilateur de puissance (facultatif). Les ventilateurs accessoires sont allumés avec la PAC et coupés avec la chaudière.",
+        "description": "La chaudière est pilotée par son entité climate. Pour la PAC, listez les clims et, dans le même ordre, leurs interrupteurs de puissance. Un interrupteur est activé avant toute commande climate et coupé en l'absence de besoin de chauffage ; le mode climate n'est jamais utilisé pour éteindre une clim. Les ventilateurs accessoires sont allumés avec la PAC et coupés avec la chaudière.",
         "data": {
           "boiler_climate": "Chaudière (climate)",
           "heat_pump_climates": "Clims de la PAC (dans l'ordre)",
-          "heat_pump_fans": "Ventilateurs de puissance (même ordre que les clims)",
+          "heat_pump_switches": "Interrupteurs de puissance (même ordre que les clims)",
           "accessory_fans": "Ventilateurs accessoires"
         }
       },
@@ -92,7 +92,7 @@
       }
     },
     "error": {
-      "fan_count_mismatch": "Indiquez soit aucun ventilateur, soit un par clim, dans le même ordre."
+      "switch_count_mismatch": "Indiquez soit aucun interrupteur, soit un par clim, dans le même ordre."
     }
   },
   "entity": {

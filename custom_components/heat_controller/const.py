@@ -22,7 +22,7 @@ CONF_INDOOR_TEMP_SENSOR = "indoor_temp_sensor"
 CONF_PRODUCTION_SENSOR = "production_sensor"
 CONF_BOILER_CLIMATE = "boiler_climate"
 CONF_HEAT_PUMP_CLIMATES = "heat_pump_climates"
-CONF_HEAT_PUMP_FANS = "heat_pump_fans"
+CONF_HEAT_PUMP_SWITCHES = "heat_pump_switches"
 CONF_ACCESSORY_FANS = "accessory_fans"
 
 # --- Settings ----------------------------------------------------------------
@@ -76,7 +76,7 @@ CONNECTION_KEYS = (
     CONF_PRODUCTION_SENSOR,
     CONF_BOILER_CLIMATE,
     CONF_HEAT_PUMP_CLIMATES,
-    CONF_HEAT_PUMP_FANS,
+    CONF_HEAT_PUMP_SWITCHES,
     CONF_ACCESSORY_FANS,
 )
 
@@ -165,4 +165,4 @@ STARTUP_DELAY_SECONDS = 5  # wait after startup for states to restore
 SERVICE_TIMEOUT_SECONDS = 15  # max delay of a service call
 CHANGEOVER_FAN_DELAY_SECONDS = 15  # accessory fans -> heat pump clims delay (original YAML)
 HVAC_MODE_DELAY_SECONDS = 5  # delay after HVAC mode change (original YAML)
-FAN_WAIT_TIMEOUT_SECONDS = 20  # wait for a fan to turn on (original YAML)
+SWITCH_WAIT_TIMEOUT_SECONDS = 20  # wait for a power switch to turn on
