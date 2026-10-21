@@ -174,6 +174,11 @@ cards:
 - When changing over to the boiler, the heat pump units are cut from their
   power switches (the YAML only turned off the accessory fans) : nothing
   remains unnecessarily powered.
+- While the heat pump is the active source, the boiler's setpoint is
+  pushed down to the idle setpoint (12 °C default, adjustable) on every
+  control pass, in addition to the `off` mode set at changeover : a
+  boiler that ignores or loses the `off` mode cannot heat alongside the
+  heat pump.
 - When there is no heating need, the boiler thermostat is not turned off ;
   its setpoint is reduced to the idle setpoint (12 °C default, adjustable)
   and it stays on in `auto` mode. The heat pump units are simply powered

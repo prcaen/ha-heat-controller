@@ -93,9 +93,10 @@ def settings_from_config(config: Mapping[str, Any]) -> Settings:
             return float(SETTING_DEFAULTS[key])
 
     def moment(key: str) -> timedelta:
-        return parse_time(config.get(key, SETTING_DEFAULTS[key])) or parse_time(
-            SETTING_DEFAULTS[key]
-        )
+        # `parse_time` returns timedelta(0) for "00:00:00": falsy but valid,
+        # so only an actual parse failure falls back to the default.
+        parsed = parse_time(config.get(key, SETTING_DEFAULTS[key]))
+        return parsed if parsed is not None else parse_time(SETTING_DEFAULTS[key])
 
     return Settings(
         outdoor_threshold=number(CONF_OUTDOOR_THRESHOLD),
@@ -385,6 +386,13 @@ class HeatController:
             else [(self.boiler_climate, None)]
         )
 
+        # The heat pump heats: keep the boiler's setpoint at the idle value
+        # on every pass. It was set to "off" at changeover, but if the
+        # device ignores or loses that mode, the low setpoint keeps it
+        # from heating alongside the heat pump.
+        if heat_pump_source and self.boiler_climate:
+            await self._push_setpoint(self.boiler_climate, self.settings.idle_setpoint)
+
         # Heat pump climate units always stay in "heat" (no cooling risk when
         # idle); the boiler stays in "auto" like the original YAML.
         desired_mode = HVAC_HEAT if heat_pump_source else HVAC_AUTO
@@ -416,21 +424,28 @@ class HeatController:
             # otherwise; a heat pump unit without a power switch keeps the
             # original behavior (on in heat mode with the idle setpoint).
             if self._valid(state):
-                attributes = state.attributes if state else {}  # type: ignore[union-attr]
                 setpoint = (
                     decision.target_setpoint
                     if heating_needed
                     else self.settings.idle_setpoint
                 )
-                target = target_temperature(
-                    setpoint,
-                    step=float(attributes.get("target_temp_step") or 0.5),
-                    minimum=float(attributes.get("min_temp") or 5.0),
-                    maximum=float(attributes.get("max_temp") or 30.0),
-                )
-                current = self._current_temperature(attributes)
-                if current != target:
-                    await self._call("climate", "set_temperature", clim, temperature=target)
+                await self._push_setpoint(clim, setpoint)
+
+    async def _push_setpoint(self, clim: str, setpoint: float) -> None:
+        """Set a climate's temperature, clamped to its own bounds."""
+        state = self.hass.states.get(clim)
+        if not self._valid(state):
+            return
+        attributes = state.attributes if state else {}  # type: ignore[union-attr]
+        target = target_temperature(
+            setpoint,
+            step=float(attributes.get("target_temp_step") or 0.5),
+            minimum=float(attributes.get("min_temp") or 5.0),
+            maximum=float(attributes.get("max_temp") or 30.0),
+        )
+        current = self._current_temperature(attributes)
+        if current != target:
+            await self._call("climate", "set_temperature", clim, temperature=target)
 
     @staticmethod
     def _current_temperature(attributes: Mapping[str, Any]) -> float:

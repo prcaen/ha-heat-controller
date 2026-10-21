@@ -186,6 +186,15 @@ class TestSettingsFromConfig(unittest.TestCase):
         self.assertEqual(settings.idle_setpoint, 14.0)
         self.assertEqual(settings.day_setpoint, 20.0)  # invalid -> default
 
+    def test_midnight_times_are_not_replaced_by_defaults(self):
+        # timedelta(0) is falsy: "00:00:00" must still be honored.
+        settings = settings_from_config(
+            {"day_start": "00:00:00", "solar_start": "00:00:00", "night_start": "x"}
+        )
+        self.assertEqual(settings.day_start.total_seconds(), 0)
+        self.assertEqual(settings.solar_start.total_seconds(), 0)
+        self.assertEqual(settings.night_start.total_seconds(), 22 * 3600)
+
 
 class TestWiring(unittest.TestCase):
     """Switch pairing with the heat pump climate units."""
@@ -240,6 +249,54 @@ class TestControlPass(unittest.IsolatedAsyncioTestCase):
             if call[1] == "set_temperature" and call[2] == "climate.pac1"
         ]
         self.assertTrue(all(i > switch_call for i in temp_calls))
+        # The boiler also gets its setpoint pushed down to the idle value,
+        # so it cannot heat alongside the heat pump even if it does not
+        # respect the "off" mode set during the changeover.
+        self.assertIn(
+            ("climate", "set_temperature", "climate.boiler", None, 12.0), calls
+        )
+
+    async def test_heat_pump_source_keeps_boiler_at_idle_setpoint(self):
+        controller, shared, services, states = build(
+            {"idle_setpoint": 11}, outdoor="8.0", indoor="19.0", heat_pump_source=True
+        )
+        # Steady heat pump state: the boiler ignored the "off" mode from a
+        # previous changeover and still heats with its old setpoint.
+        states.set(
+            "climate.boiler",
+            "auto",
+            {
+                "target_temp_step": 0.5,
+                "min_temp": 5,
+                "max_temp": 30,
+                "temperature": 20,
+            },
+        )
+        states.set(
+            "climate.pac1",
+            "heat",
+            {
+                "target_temp_step": 0.5,
+                "min_temp": 5,
+                "max_temp": 30,
+                "temperature": 19,
+            },
+        )
+        states.set("switch.pac1", "on")
+        controller._first_run = False
+        await controller._update_locked()
+        calls = summarise(services)
+
+        # Every control pass re-asserts the configured idle setpoint on the
+        # boiler: no dual heating with the heat pump.
+        self.assertTrue(shared.heat_pump_source)
+        self.assertIn(
+            ("climate", "set_temperature", "climate.boiler", None, 11.0), calls
+        )
+        # The heat pump unit is driven normally.
+        self.assertIn(
+            ("climate", "set_temperature", "climate.pac1", None, 20.0), calls
+        )
 
     async def test_idle_boiler_pushes_configured_idle_setpoint(self):
         controller, shared, services, _ = build(

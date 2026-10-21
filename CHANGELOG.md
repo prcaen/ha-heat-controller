@@ -4,6 +4,8 @@
 
 - **Breaking (configuration)**: heat pump units are now powered through `switch` entities (`heat_pump_switches`, paired by order with the climate units) instead of the former "power fans" (`heat_pump_fans`). The switch is turned on before any climate command and off when there is no heating need; the climate mode is never used to switch a unit off, and no idle setpoint is pushed to a powered-off unit. Reconfigure the entry to pick the switches (e.g. `switch.salon_clim_gauche`, `switch.salon_clim_droite`).
 - Log a warning when a heat pump power switch does not exist or does not confirm ON within the wait delay: the climate unit is then deliberately not driven, and the cause was previously invisible in the logs.
+- While the heat pump is the active source, the boiler's setpoint is pushed down to the idle setpoint (12 °C default, adjustable) on every control pass, in addition to the `off` mode set at changeover: the boiler can no longer heat alongside the heat pump if it ignores or loses the `off` mode.
+- Fix: schedule times set to `00:00:00` were silently replaced by their default (e.g. the solar start fell back to 11:00).
 
 ## 0.0.1 - 2026-10-18
 
