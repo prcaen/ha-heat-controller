@@ -408,6 +408,21 @@ class HeatController:
                 if heating_needed:
                     if not await self._power_on(switch, clim):
                         continue
+                    # Safe start: re-read the state after the switch is
+                    # confirmed ON. A split climate often reports
+                    # "unavailable" while unpowered; if it does not come
+                    # back, the commands are skipped this cycle and
+                    # retried on the next pass.
+                    state = self.hass.states.get(clim)
+                    if not self._valid(state):
+                        _LOGGER.warning(
+                            "Climate %s is not available after power switch "
+                            "%s went on; commands are skipped this cycle and "
+                            "retried on the next pass",
+                            clim,
+                            switch,
+                        )
+                        continue
                 else:
                     await self._power_off(switch)
                     continue

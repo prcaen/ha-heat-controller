@@ -33,6 +33,14 @@ class FakeState:
         self.attributes = attributes or {}
 
 
+CLIMATE_ATTRIBUTES = {
+    "target_temp_step": 0.5,
+    "min_temp": 5,
+    "max_temp": 30,
+    "temperature": 19,
+}
+
+
 class FakeStates:
     """Minimal stand-in for hass.states."""
 
@@ -59,6 +67,10 @@ class FakeServices:
         # Switches in this set accept switch.turn_on but never switch on,
         # like a relay that ignores the command.
         self.unresponsive_switches: set[str] = set()
+        # switch entity -> climate entity that becomes available when the
+        # switch goes on (a split climate often reports "unavailable" while
+        # unpowered).
+        self.power_restores: dict[str, str] = {}
 
     async def async_call(self, domain, service, data, blocking=True) -> None:
         self.calls.append((domain, service, dict(data)))
@@ -66,6 +78,9 @@ class FakeServices:
         if domain == "switch" and service == "turn_on":
             if entity_id not in self.unresponsive_switches:
                 self._states.set(entity_id, "on")
+                climate = self.power_restores.get(entity_id)
+                if climate is not None:
+                    self._states.set(climate, "off", CLIMATE_ATTRIBUTES)
         elif domain == "switch" and service == "turn_off":
             self._states.set(entity_id, "off")
         elif domain == "fan" and service == "turn_on":
@@ -365,6 +380,47 @@ class TestControlPass(unittest.IsolatedAsyncioTestCase):
         # ON, and a warning explains why.
         self.assertFalse(any(call[2] == "climate.pac1" for call in calls))
         self.assertTrue(any("switch.pac1" in line for line in logs.output))
+
+    async def test_climate_unavailable_while_unpowered_recovers_after_power_on(self):
+        """A split climate often reports unavailable while unpowered."""
+        controller, shared, services, states = build(
+            outdoor="8.0", indoor="19.0", heat_pump_source=True
+        )
+        states.set("climate.pac1", "unavailable")
+        # The unit comes back when its power switch goes on.
+        services.power_restores = {"switch.pac1": "climate.pac1"}
+        controller._first_run = False
+        await controller._update_locked()
+        calls = summarise(services)
+
+        # The state is re-read after the switch confirms ON: the unit is
+        # driven normally in the same cycle.
+        self.assertIn(("switch", "turn_on", "switch.pac1", None, None), calls)
+        self.assertIn(
+            ("climate", "set_hvac_mode", "climate.pac1", "heat", None), calls
+        )
+        self.assertIn(
+            ("climate", "set_temperature", "climate.pac1", None, 20.0), calls
+        )
+
+    async def test_climate_still_unavailable_after_power_on_is_skipped(self):
+        controller, shared, services, states = build(
+            outdoor="8.0", indoor="19.0", heat_pump_source=True
+        )
+        states.set("climate.pac1", "unavailable")
+        # The switch turns on but the climate never comes back.
+        controller._first_run = False
+        with self.assertLogs(
+            "custom_components.heat_controller.controller", level="WARNING"
+        ) as logs:
+            await controller._update_locked()
+        calls = summarise(services)
+
+        self.assertIn(("switch", "turn_on", "switch.pac1", None, None), calls)
+        # No climate command is sent while the unit is unavailable; the
+        # next cycle retries it.
+        self.assertFalse(any(call[2] == "climate.pac1" for call in calls))
+        self.assertTrue(any("climate.pac1" in line for line in logs.output))
 
     async def test_changeover_to_boiler_cuts_power_switch(self):
         controller, shared, services, states = build(outdoor="2.0", indoor="19.0")

@@ -6,6 +6,7 @@
 - Log a warning when a heat pump power switch does not exist or does not confirm ON within the wait delay: the climate unit is then deliberately not driven, and the cause was previously invisible in the logs.
 - While the heat pump is the active source, the boiler's setpoint is pushed down to the idle setpoint (12 °C default, adjustable) on every control pass, in addition to the `off` mode set at changeover: the boiler can no longer heat alongside the heat pump if it ignores or loses the `off` mode.
 - Fix: schedule times set to `00:00:00` were silently replaced by their default (e.g. the solar start fell back to 11:00).
+- Safe split start: the climate state is re-read after the power switch confirms ON (a split climate often reports `unavailable` while unpowered); if the unit does not come back, its commands are skipped for the cycle and retried on the next pass with a warning.
 
 ## 0.0.1 - 2026-10-18
 
