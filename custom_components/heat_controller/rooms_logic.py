@@ -54,6 +54,12 @@ class RoomState:
     best_time: Optional[datetime] = None
     fallback: bool = False
     fallback_notify: bool = False
+    # Manual override and command tracking.
+    cmd_on: Optional[bool] = None  # last commanded state of the switches
+    cmd_time: Optional[datetime] = None
+    confirmed: bool = False  # the switches had followed the command
+    unresponsive_notified: bool = False
+    override_mode: Optional[str] = None  # mode during which the room is left alone
 
 
 @dataclass(frozen=True)
@@ -104,6 +110,7 @@ class RoomDecision:
     controllable: bool  # sensor and target known
     splits_allowed: bool  # splits may run (day + outdoor + override)
     want_splits: bool
+    left_alone: bool  # manual override: the room is not driven
     boiler_trigger_cold: bool  # below target - hysteresis (trigger rooms)
     source: str
 
@@ -201,6 +208,12 @@ def compute_house(
     for room in rooms:
         state = states.setdefault(room.id, RoomState(room))
         temp = state.temp
+        # A manual override only lasts until the next mode transition.
+        if state.override_mode is not None and state.override_mode != mode:
+            state.override_mode = None
+            state.cmd_on = None
+            state.confirmed = False
+        left_alone = state.override_mode is not None
         base_target = resolve_target(rooms, room)
         # Soft overheating: on a surplus, split rooms aim slightly
         # above their day target (day only, when the splits may run).
@@ -215,7 +228,7 @@ def compute_house(
         target = room_target(settings, mode, base_target)
         controllable = temp is not None and target is not None
 
-        if room.has_splits and controllable and allowed:
+        if room.has_splits and controllable and allowed and not left_alone:
             # Hysteresis regulation: start below target - hysteresis,
             # stop back at the target.
             if state.splits_on:
@@ -238,6 +251,7 @@ def compute_house(
                 controllable=controllable,
                 splits_allowed=allowed,
                 want_splits=want,
+                left_alone=left_alone,
                 boiler_trigger_cold=trigger_cold,
                 source=SOURCE_IDLE,
             )
@@ -288,6 +302,44 @@ def compute_house(
         solar_bonus=inputs.solar_bonus_active,
         now=inputs.now,
     )
+
+
+# Delay before a command that was never followed is reported as
+# unresponsive (the switch may legitimately take a while to switch).
+UNRESPONSIVE_GRACE = timedelta(minutes=2)
+
+
+def detect_manual(
+    state: RoomState,
+    actual_on: bool,
+    now: datetime,
+) -> Optional[str]:
+    """Watch the switches against the last command.
+
+    Returns "manual" when a split that had followed our command was
+    changed by someone else (the room is then left alone until the next
+    mode transition), "unresponsive" once when a command was never
+    followed, None otherwise.
+    """
+    if state.cmd_on is None or state.cmd_time is None:
+        return None
+    if actual_on == state.cmd_on:
+        state.confirmed = True
+        state.unresponsive_notified = False
+        return None
+    if now - state.cmd_time < UNRESPONSIVE_GRACE:
+        return None
+    if state.confirmed:
+        # It followed our command, then changed: manual action.
+        state.override_mode = state.mode
+        state.cmd_on = None
+        state.cmd_time = None
+        state.confirmed = False
+        return "manual"
+    if not state.unresponsive_notified:
+        state.unresponsive_notified = True
+        return "unresponsive"
+    return None
 
 
 def update_room_states(

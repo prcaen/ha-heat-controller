@@ -17,6 +17,7 @@ RoomState = rooms_logic.RoomState
 HouseInputs = rooms_logic.HouseInputs
 compute_house = rooms_logic.compute_house
 update_fallback = rooms_logic.update_fallback
+detect_manual = rooms_logic.detect_manual
 
 NOW = datetime(2026, 10, 21, 12, 0, 0)  # a Tuesday, within the day period
 
@@ -371,6 +372,55 @@ class TestBoilerFallback(unittest.TestCase):
         update_fallback(state, house.room("salon"), self.settings,
                         self.t0 + timedelta(minutes=200))
         self.assertFalse(state.fallback)
+
+
+class TestManualOverride(unittest.TestCase):
+    def setUp(self):
+        self.rooms = [room("salon", "Salon", "sensor.salon", target=19.5,
+                           thermostat_room=True, switches=("sw1",), climates=("cl1",))]
+        self.state = states_of(self.rooms, {"salon": 17.0})["salon"]
+        self.now = NOW
+
+    def test_followed_command_is_confirmed(self):
+        self.state.cmd_on = True
+        self.state.cmd_time = self.now
+        event = detect_manual(self.state, True, self.now + timedelta(minutes=3))
+        self.assertIsNone(event)
+        self.assertTrue(self.state.confirmed)
+
+    def test_change_after_confirmation_is_manual(self):
+        self.state.cmd_on = True
+        self.state.cmd_time = self.now
+        self.state.confirmed = True
+        later = self.now + timedelta(minutes=10)
+        event = detect_manual(self.state, False, later)
+        self.assertEqual(event, "manual")
+        self.assertEqual(self.state.override_mode, "day")
+        self.assertIsNone(self.state.cmd_on)
+        self.assertFalse(self.state.confirmed)
+
+    def test_command_never_followed_is_unresponsive_once(self):
+        self.state.cmd_on = True
+        self.state.cmd_time = self.now
+        later = self.now + timedelta(minutes=3)
+        self.assertEqual(detect_manual(self.state, False, later), "unresponsive")
+        self.assertIsNone(detect_manual(self.state, False, later + timedelta(minutes=1)))
+
+    def test_left_alone_room_is_not_regulated_until_the_transition(self):
+        self.state.override_mode = "day"
+        house = compute_house(settings(), house_inputs(), self.rooms,
+                              {"salon": self.state})
+        decision = house.room("salon")
+        self.assertTrue(decision.left_alone)
+        self.assertFalse(decision.want_splits)
+
+        # Night comes: the override clears and the splits are cut.
+        night = house_inputs(now=datetime(2026, 10, 21, 23, 0))
+        house = compute_house(settings(), night, self.rooms, {"salon": self.state})
+        decision = house.room("salon")
+        self.assertFalse(decision.left_alone)
+        self.assertFalse(decision.splits_allowed)
+        self.assertIsNone(self.state.override_mode)
 
 
 def tearDownModule():

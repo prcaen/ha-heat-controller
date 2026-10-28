@@ -681,6 +681,36 @@ class TestHybridRooms(unittest.IsolatedAsyncioTestCase):
             ("climate", "set_temperature", "climate.salon_gauche", None, 21.5), calls
         )
 
+    async def test_manual_split_change_leaves_the_room_alone(self):
+        controller, shared, services, states = build(
+            outdoor="8.0", subentries=self.rooms_subentries()
+        )
+        self.seed_room_states(states)
+        await controller._update_locked()  # splits on, command recorded
+        state = controller.room_states["salon"]
+        self.assertEqual(state.cmd_on, True)
+        # The switches confirm: the command is followed.
+        await controller._update_locked()
+        self.assertTrue(state.confirmed)
+
+        # Someone turns the splits off with the remote, well after the
+        # command: the room is left alone from the next pass on.
+        state.cmd_time = dt_util.now() - timedelta(minutes=5)
+        states.set("switch.salon_gauche", "off")
+        states.set("switch.salon_droite", "off")
+        calls_before = len(services.calls)
+        await controller._update_locked()
+        self.assertEqual(state.override_mode, "day")
+        await controller._update_locked()
+        calls = summarise(services)
+        # No switch command for the salon after the override.
+        self.assertFalse(
+            any(
+                call[0] == "switch" and call[2].startswith("switch.salon")
+                for call in calls[calls_before:]
+            )
+        )
+
     async def test_fallback_room_raises_the_boiler(self):
         controller, shared, services, states = build(
             {"fallback_minutes": 120}, outdoor="8.0", subentries=self.rooms_subentries()

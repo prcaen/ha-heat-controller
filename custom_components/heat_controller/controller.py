@@ -81,6 +81,7 @@ from .rooms_logic import (
     RoomDecision,
     RoomState,
     compute_house,
+    detect_manual,
     next_solar_bonus,
     resolve_target,
     update_fallback,
@@ -539,6 +540,21 @@ class HeatController:
             state.temp = _as_float(self.hass.states.get(room.sensor))
             state.splits_on = any(self._is_on(switch) for switch in room.switches)
             state.base_target = resolve_target(self.rooms, room)
+            # A split changed by someone else: leave the room alone until
+            # the next mode transition. A command never followed is
+            # reported once as unresponsive.
+            event = detect_manual(state, state.splits_on, dt_util.now())
+            if event == "manual":
+                _LOGGER.info(
+                    "The splits of room %s were changed manually; the room "
+                    "is left alone until the next mode transition",
+                    room.name,
+                )
+            elif event == "unresponsive":
+                _LOGGER.warning(
+                    "The splits of room %s are not following the commands",
+                    room.name,
+                )
         # Soft overheating: latched on the solar surplus (or, without a
         # consumption sensor, on the existing production threshold).
         self._solar_bonus = next_solar_bonus(
@@ -627,13 +643,25 @@ class HeatController:
         if not room.has_splits:
             return
         state = self.room_states[room.id]
+        now = dt_util.now()
 
         if not decision.splits_allowed:
             # Forced stop (night, away, cold outside): only through the
             # power switches, whatever the room sensor says.
             for switch in room.switches:
                 await self._power_off(switch)
+            if state.last_want is not False:
+                # New command: the switches must follow it (the
+                # confirmation is checked on the next passes).
+                state.cmd_on = False
+                state.cmd_time = now
+                state.confirmed = False
             state.last_want = False
+            return
+
+        if decision.left_alone:
+            # Manual override: the room is not driven.
+            _LOGGER.debug("Room %s left alone (manual override)", room.name)
             return
 
         if not decision.controllable:
@@ -644,6 +672,10 @@ class HeatController:
         if not decision.want_splits:
             for switch in room.switches:
                 await self._power_off(switch)
+            if state.last_want is not False:
+                state.cmd_on = False
+                state.cmd_time = now
+                state.confirmed = False
             state.last_want = False
             return
 
@@ -684,6 +716,12 @@ class HeatController:
                     fan,
                     oscillating=self.settings.split_fan_oscillating,
                 )
+        # New command only on the off -> on transition; the switches
+        # must follow it (checked on the next passes).
+        if state.last_want is not True:
+            state.cmd_on = True
+            state.cmd_time = now
+            state.confirmed = False
         state.last_want = True
 
     async def _apply_hybrid_boiler(self, house: HouseDecision) -> None:
