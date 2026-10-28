@@ -18,7 +18,7 @@ setpoint while there is a demand.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional
 
 from .logic import SOURCE_AUTO, SOURCE_BOILER, SOURCE_HEAT_PUMP, Settings, at_time
@@ -31,6 +31,9 @@ MODE_AWAY = "away"
 SOURCE_IDLE = "idle"
 SOURCE_SPLITS = "splits"
 SOURCE_BOILER_SOURCE = "boiler"
+
+# Minimum temperature rise (°C) counted as progress for the boiler fallback.
+PROGRESS_STEP = 0.2
 
 
 @dataclass
@@ -46,6 +49,11 @@ class RoomState:
     want_splits: bool = False  # regulation decision
     last_want: Optional[bool] = None  # last applied decision (fan commands)
     source: str = SOURCE_IDLE
+    # Boiler fallback: progress tracking of a running split.
+    best_temp: Optional[float] = None
+    best_time: Optional[datetime] = None
+    fallback: bool = False
+    fallback_notify: bool = False
 
 
 @dataclass(frozen=True)
@@ -112,6 +120,7 @@ class HouseDecision:
     boiler_setpoint: Optional[float] = None
     thermostat_room_target: Optional[float] = None
     solar_bonus: bool = False  # soft overheating active (this cycle)
+    now: Optional[datetime] = None  # instant of the decision
 
     def room(self, room_id: str) -> Optional[RoomDecision]:
         return next((d for d in self.rooms if d.room_id == room_id), None)
@@ -277,6 +286,7 @@ def compute_house(
         boiler_setpoint=setpoint,
         thermostat_room_target=normal,
         solar_bonus=inputs.solar_bonus_active,
+        now=inputs.now,
     )
 
 
@@ -305,3 +315,42 @@ def update_room_states(
             state.source = SOURCE_BOILER_SOURCE
         else:
             state.source = SOURCE_IDLE
+
+
+def update_fallback(
+    state: RoomState,
+    decision: RoomDecision,
+    settings: Settings,
+    now: datetime,
+) -> None:
+    """Track the progress of a running split; flag the room when it stalls.
+
+    The boiler takes over from a split that has not risen by
+    PROGRESS_STEP within the fallback delay while still below its
+    target; the flag clears when the target is reached (or the split
+    stops).
+    """
+    active = bool(
+        decision.splits_allowed
+        and decision.want_splits
+        and decision.temp is not None
+        and decision.target is not None
+        and decision.temp < decision.target
+    )
+    if not active:
+        state.best_temp = None
+        state.best_time = None
+        state.fallback = False
+        state.fallback_notify = False
+        return
+    assert decision.temp is not None and decision.target is not None
+    if state.best_temp is None or decision.temp > state.best_temp + PROGRESS_STEP:
+        state.best_temp = decision.temp
+        state.best_time = now
+    elif (
+        not state.fallback
+        and state.best_time is not None
+        and now - state.best_time >= timedelta(minutes=settings.fallback_minutes)
+        and decision.temp < decision.target - settings.hysteresis
+    ):
+        state.fallback = True

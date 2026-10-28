@@ -681,6 +681,38 @@ class TestHybridRooms(unittest.IsolatedAsyncioTestCase):
             ("climate", "set_temperature", "climate.salon_gauche", None, 21.5), calls
         )
 
+    async def test_fallback_room_raises_the_boiler(self):
+        controller, shared, services, states = build(
+            {"fallback_minutes": 120}, outdoor="8.0", subentries=self.rooms_subentries()
+        )
+        self.seed_room_states(states)
+        # The salon split has been running without progress and is flagged.
+        controller.room_states["salon"].fallback = True
+        with self.assertLogs(
+            "custom_components.heat_controller.controller", level="WARNING"
+        ) as logs:
+            await controller._update_locked()
+        calls = summarise(services)
+
+        self.assertTrue(shared.demand)
+        self.assertIn(
+            ("climate", "set_temperature", "climate.boiler", None, 21.0), calls
+        )
+        self.assertTrue(any("not reaching the target" in line for line in logs.output))
+        # The warning is emitted once, not at every pass.
+        states.set("sensor.salon_temp", "17.1")
+        await controller._update_locked()
+        # Target reached: the fallback clears and the boiler rests again
+        # (the flag is read at the start of a pass, so it takes one more).
+        states.set("sensor.salon_temp", "19.6")
+        await controller._update_locked()
+        self.assertFalse(controller.room_states["salon"].fallback)
+        await controller._update_locked()
+        calls = summarise(services)
+        self.assertIn(
+            ("climate", "set_temperature", "climate.boiler", None, 12.0), calls
+        )
+
     async def test_room_without_sensor_is_left_alone(self):
         controller, shared, services, states = build(
             outdoor="8.0", subentries=self.rooms_subentries()

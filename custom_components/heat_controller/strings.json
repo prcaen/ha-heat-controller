@@ -46,7 +46,8 @@
           "split_fan_preset": "Split fan preset",
           "split_fan_oscillating": "Split fan oscillation",
           "solar_bonus": "Solar surplus bonus (°C)",
-          "surplus_threshold": "Solar surplus threshold (W)"
+          "surplus_threshold": "Solar surplus threshold (W)",
+          "fallback_minutes": "Delay before the boiler takes over from a stalled split (min)"
         }
       }
     },
@@ -101,7 +102,8 @@
           "split_fan_preset": "Split fan preset",
           "split_fan_oscillating": "Split fan oscillation",
           "solar_bonus": "Solar surplus bonus (°C)",
-          "surplus_threshold": "Solar surplus threshold (W)"
+          "surplus_threshold": "Solar surplus threshold (W)",
+          "fallback_minutes": "Delay before the boiler takes over from a stalled split (min)"
         }
       }
     },
@@ -169,7 +171,8 @@
       "split_offset": { "name": "Split setpoint offset" },
       "boiler_demand_setpoint": { "name": "Boiler demand setpoint" },
       "solar_bonus": { "name": "Solar surplus bonus" },
-      "surplus_threshold": { "name": "Solar surplus threshold" }
+      "surplus_threshold": { "name": "Solar surplus threshold" },
+      "fallback_minutes": { "name": "Boiler fallback delay" }
     },
     "time": {
       "day_start": { "name": "Day period start" },

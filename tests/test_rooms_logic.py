@@ -16,6 +16,7 @@ RoomConfig = rooms_module.RoomConfig
 RoomState = rooms_logic.RoomState
 HouseInputs = rooms_logic.HouseInputs
 compute_house = rooms_logic.compute_house
+update_fallback = rooms_logic.update_fallback
 
 NOW = datetime(2026, 10, 21, 12, 0, 0)  # a Tuesday, within the day period
 
@@ -300,6 +301,76 @@ class TestSolarBonus(unittest.TestCase):
                              solar_bonus_active=True)
         house = compute_house(settings(), night, rooms, states)
         self.assertEqual(house.room("salon").target, 16.0)  # night setpoint
+
+
+class TestBoilerFallback(unittest.TestCase):
+    def setUp(self):
+        self.rooms = [room("salon", "Salon", "sensor.salon", target=19.5,
+                           thermostat_room=True, switches=("sw1",), climates=("cl1",))]
+        self.settings = settings(fallback_minutes=120)
+        self.t0 = NOW
+
+    def decision(self, states, temp):
+        states["salon"].temp = temp
+        states["salon"].splits_on = True
+        return compute_house(self.settings, house_inputs(), self.rooms, states)
+
+    def test_stalled_split_requests_the_boiler(self):
+        states = states_of(self.rooms, {"salon": 17.0})
+        # First pass: the split starts, the progress window opens.
+        house = self.decision(states, 17.0)
+        state = states["salon"]
+        update_fallback(state, house.room("salon"), self.settings, self.t0)
+        self.assertFalse(state.fallback)
+
+        # Two hours without 0.2 C of progress and still below target.
+        later = self.t0 + timedelta(minutes=121)
+        house = self.decision(states, 17.1)  # less than PROGRESS_STEP
+        update_fallback(state, house.room("salon"), self.settings, later)
+        self.assertTrue(state.fallback)
+
+        # The boiler demand includes the fallback rooms.
+        house = compute_house(
+            self.settings, house_inputs(), self.rooms, states,
+            fallback_demand=state.fallback,
+        )
+        self.assertTrue(house.boiler_demand)
+        self.assertEqual(house.boiler_setpoint, 21.0)
+
+    def test_progress_resets_the_window(self):
+        states = states_of(self.rooms, {"salon": 17.0})
+        house = self.decision(states, 17.0)
+        state = states["salon"]
+        update_fallback(state, house.room("salon"), self.settings, self.t0)
+        later = self.t0 + timedelta(minutes=90)
+        house = self.decision(states, 17.5)  # real progress
+        update_fallback(state, house.room("salon"), self.settings, later)
+        self.assertFalse(state.fallback)
+        # The window restarted at the last progress.
+        even_later = later + timedelta(minutes=100)
+        house = self.decision(states, 17.6)
+        update_fallback(state, house.room("salon"), self.settings, even_later)
+        self.assertFalse(state.fallback)
+
+    def test_target_reached_clears_the_fallback(self):
+        states = states_of(self.rooms, {"salon": 17.0})
+        house = self.decision(states, 17.0)
+        state = states["salon"]
+        state.fallback = True
+        state.fallback_notify = True
+        house = self.decision(states, 19.5)  # target reached
+        update_fallback(state, house.room("salon"), self.settings, self.t0)
+        self.assertFalse(state.fallback)
+        self.assertFalse(state.fallback_notify)
+
+    def test_no_fallback_when_the_split_is_not_running(self):
+        states = states_of(self.rooms, {"salon": 17.0})
+        states["salon"].splits_on = False
+        house = compute_house(self.settings, house_inputs(), self.rooms, states)
+        state = states["salon"]
+        update_fallback(state, house.room("salon"), self.settings,
+                        self.t0 + timedelta(minutes=200))
+        self.assertFalse(state.fallback)
 
 
 def tearDownModule():

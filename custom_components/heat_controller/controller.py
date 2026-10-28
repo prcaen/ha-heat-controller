@@ -63,6 +63,7 @@ from .const import (
     CONF_SPLIT_OFFSET,
     CONF_SOLAR_BONUS,
     CONF_SURPLUS_THRESHOLD,
+    CONF_FALLBACK_MINUTES,
     SETTING_DEFAULTS,
     DEFAULT_INDOOR_TEMP,
     DEFAULT_PRODUCTION,
@@ -82,6 +83,7 @@ from .rooms_logic import (
     compute_house,
     next_solar_bonus,
     resolve_target,
+    update_fallback,
     update_room_states,
 )
 from .state import HeatState
@@ -139,6 +141,7 @@ def settings_from_config(config: Mapping[str, Any]) -> Settings:
         boiler_demand_setpoint=number(CONF_BOILER_DEMAND_SETPOINT),
         solar_bonus=number(CONF_SOLAR_BONUS),
         surplus_threshold=number(CONF_SURPLUS_THRESHOLD),
+        fallback_minutes=number(CONF_FALLBACK_MINUTES),
         split_fan_preset=str(config.get(CONF_SPLIT_FAN_PRESET, SETTING_DEFAULTS[CONF_SPLIT_FAN_PRESET])),
         split_fan_oscillating=bool(
             config.get(CONF_SPLIT_FAN_OSCILLATING, SETTING_DEFAULTS[CONF_SPLIT_FAN_OSCILLATING])
@@ -558,6 +561,7 @@ class HeatController:
             self.rooms,
             self.room_states,
             trigger_demand=self._trigger_demand,
+            fallback_demand=any(state.fallback for state in self.room_states.values()),
         )
         self._trigger_demand = house.trigger_demand
 
@@ -582,6 +586,24 @@ class HeatController:
 
         boiler_heating = self._boiler_heating()
         update_room_states(house, self.room_states, boiler_heating)
+
+        # Stall detection: a running split that does not progress asks
+        # the boiler for help (from the next cycle on, until the target
+        # is reached again).
+        for decision in house.rooms:
+            state = self.room_states.get(decision.room_id)
+            if state is None:
+                continue
+            update_fallback(
+                state, decision, self.settings, house.now or dt_util.now()
+            )
+            if state.fallback and not state.fallback_notify:
+                state.fallback_notify = True
+                _LOGGER.warning(
+                    "The splits of room %s are not reaching the target: the "
+                    "boiler is asked to take over",
+                    state.config.name,
+                )
 
         for room, decision in zip(self.rooms, house.rooms):
             await self._apply_room(room, decision)

@@ -66,6 +66,7 @@ CONF_SPLIT_FAN_PRESET = "split_fan_preset"
 CONF_SPLIT_FAN_OSCILLATING = "split_fan_oscillating"
 CONF_SOLAR_BONUS = "solar_bonus"
 CONF_SURPLUS_THRESHOLD = "surplus_threshold"
+CONF_FALLBACK_MINUTES = "fallback_minutes"
 
 # Default values taken from the original YAML automations.
 DEFAULT_OUTDOOR_THRESHOLD = 3.0
@@ -92,6 +93,7 @@ DEFAULT_SPLIT_FAN_PRESET = "auto"
 DEFAULT_SPLIT_FAN_OSCILLATING = True
 DEFAULT_SOLAR_BONUS = 0.5
 DEFAULT_SURPLUS_THRESHOLD = 500.0
+DEFAULT_FALLBACK_MINUTES = 120
 
 SPLIT_FAN_PRESET_OPTIONS = ("low", "medium", "high", "auto")
 
@@ -138,6 +140,7 @@ SETTING_DEFAULTS = {
     CONF_SPLIT_FAN_OSCILLATING: DEFAULT_SPLIT_FAN_OSCILLATING,
     CONF_SOLAR_BONUS: DEFAULT_SOLAR_BONUS,
     CONF_SURPLUS_THRESHOLD: DEFAULT_SURPLUS_THRESHOLD,
+    CONF_FALLBACK_MINUTES: DEFAULT_FALLBACK_MINUTES,
 }
 
 # --- Settings entities -------------------------------------------------------
@@ -200,6 +203,10 @@ SETTING_NUMBERS: dict[str, dict[str, Any]] = {
     CONF_SURPLUS_THRESHOLD: {
         "min": 0.0, "max": 20000.0, "step": 50.0, "unit": "W",
         "device_class": "power", "mode": "box",
+    },
+    CONF_FALLBACK_MINUTES: {
+        "min": 10.0, "max": 480.0, "step": 5.0, "unit": "min",
+        "device_class": "duration", "mode": "box",
     },
 }
 

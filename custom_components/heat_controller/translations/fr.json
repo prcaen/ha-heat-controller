@@ -46,7 +46,8 @@
           "split_fan_preset": "Preset du ventilateur des splits",
           "split_fan_oscillating": "Oscillation du ventilateur des splits",
           "solar_bonus": "Bonus surplus solaire (°C)",
-          "surplus_threshold": "Seuil de surplus solaire (W)"
+          "surplus_threshold": "Seuil de surplus solaire (W)",
+          "fallback_minutes": "Délai avant que la chaudière prenne le relais d'un split bloqué (min)"
         }
       }
     },
@@ -101,7 +102,8 @@
           "split_fan_preset": "Preset du ventilateur des splits",
           "split_fan_oscillating": "Oscillation du ventilateur des splits",
           "solar_bonus": "Bonus surplus solaire (°C)",
-          "surplus_threshold": "Seuil de surplus solaire (W)"
+          "surplus_threshold": "Seuil de surplus solaire (W)",
+          "fallback_minutes": "Délai avant que la chaudière prenne le relais d'un split bloqué (min)"
         }
       }
     },
@@ -169,7 +171,8 @@
       "split_offset": { "name": "Décalage de consigne des splits" },
       "boiler_demand_setpoint": { "name": "Consigne de demande chaudière" },
       "solar_bonus": { "name": "Bonus surplus solaire" },
-      "surplus_threshold": { "name": "Seuil de surplus solaire" }
+      "surplus_threshold": { "name": "Seuil de surplus solaire" },
+      "fallback_minutes": { "name": "Délai de repli chaudière" }
     },
     "time": {
       "day_start": { "name": "Début de la période jour" },
