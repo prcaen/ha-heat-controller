@@ -58,7 +58,12 @@ class TestSchemas(unittest.TestCase):
         keys = schema_keys(config_flow._sensors_schema({}, None))
         self.assertEqual(
             keys,
-            {"outdoor_temp_sensor", "indoor_temp_sensor", "production_sensor"},
+            {
+                "outdoor_temp_sensor",
+                "indoor_temp_sensor",
+                "production_sensor",
+                "consumption_sensor",
+            },
         )
 
     def test_devices_schema_keys(self):

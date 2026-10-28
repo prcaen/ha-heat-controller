@@ -37,6 +37,7 @@ from .const import (
     CONF_BOILER_CLIMATE,
     CONF_BOILER_DEMAND_SETPOINT,
     CONF_BOILER_RATE,
+    CONF_CONSUMPTION_SENSOR,
     CONF_DAY_SETPOINT,
     CONF_DAY_START,
     CONF_FROST_SETPOINT,
@@ -60,6 +61,8 @@ from .const import (
     CONF_SPLIT_FAN_OSCILLATING,
     CONF_SPLIT_FAN_PRESET,
     CONF_SPLIT_OFFSET,
+    CONF_SOLAR_BONUS,
+    CONF_SURPLUS_THRESHOLD,
     SETTING_DEFAULTS,
     DEFAULT_INDOOR_TEMP,
     DEFAULT_PRODUCTION,
@@ -77,6 +80,7 @@ from .rooms_logic import (
     RoomDecision,
     RoomState,
     compute_house,
+    next_solar_bonus,
     resolve_target,
     update_room_states,
 )
@@ -133,6 +137,8 @@ def settings_from_config(config: Mapping[str, Any]) -> Settings:
         solar_end=moment(CONF_SOLAR_END),
         split_offset=number(CONF_SPLIT_OFFSET),
         boiler_demand_setpoint=number(CONF_BOILER_DEMAND_SETPOINT),
+        solar_bonus=number(CONF_SOLAR_BONUS),
+        surplus_threshold=number(CONF_SURPLUS_THRESHOLD),
         split_fan_preset=str(config.get(CONF_SPLIT_FAN_PRESET, SETTING_DEFAULTS[CONF_SPLIT_FAN_PRESET])),
         split_fan_oscillating=bool(
             config.get(CONF_SPLIT_FAN_OSCILLATING, SETTING_DEFAULTS[CONF_SPLIT_FAN_OSCILLATING])
@@ -159,6 +165,7 @@ class HeatController:
         self.outdoor_sensor: str = config.get(CONF_OUTDOOR_TEMP_SENSOR, "")
         self.indoor_sensor: str = config.get(CONF_INDOOR_TEMP_SENSOR, "")
         self.production_sensor: str = config.get(CONF_PRODUCTION_SENSOR, "")
+        self.consumption_sensor: str = config.get(CONF_CONSUMPTION_SENSOR, "")
 
         self.boiler_climate: str = config.get(CONF_BOILER_CLIMATE, "")
         self.heat_pump_climates: list[str] = list(config.get(CONF_HEAT_PUMP_CLIMATES, []))
@@ -180,6 +187,7 @@ class HeatController:
             room.id: RoomState(room) for room in self.rooms
         }
         self._trigger_demand = False  # latched boiler demand (trigger rooms)
+        self._solar_bonus = False  # latched soft overheating state
         # In hybrid mode the decisions and the virtual thermostat follow
         # the thermostat room, not the configured indoor sensor.
         thermostat_room = next((r for r in self.rooms if r.thermostat_room), None)
@@ -196,7 +204,12 @@ class HeatController:
         """Start listening and heartbeat, then first pass."""
         watched = [
             entity
-            for entity in (self.outdoor_sensor, self.indoor_sensor, self.production_sensor)
+            for entity in (
+                self.outdoor_sensor,
+                self.indoor_sensor,
+                self.production_sensor,
+                self.consumption_sensor,
+            )
             if entity
         ]
         watched.extend(room.sensor for room in self.rooms if room.sensor)
@@ -523,6 +536,16 @@ class HeatController:
             state.temp = _as_float(self.hass.states.get(room.sensor))
             state.splits_on = any(self._is_on(switch) for switch in room.switches)
             state.base_target = resolve_target(self.rooms, room)
+        # Soft overheating: latched on the solar surplus (or, without a
+        # consumption sensor, on the existing production threshold).
+        self._solar_bonus = next_solar_bonus(
+            self.settings,
+            _as_float(self.hass.states.get(self.production_sensor)),
+            _as_float(self.hass.states.get(self.consumption_sensor))
+            if self.consumption_sensor
+            else None,
+            self._solar_bonus,
+        )
         house = compute_house(
             self.settings,
             HouseInputs(
@@ -530,6 +553,7 @@ class HeatController:
                 outdoor_temp=_as_float(self.hass.states.get(self.outdoor_sensor)),
                 away_mode=shared.away_mode,
                 forced_source=shared.forced_source,
+                solar_bonus_active=self._solar_bonus,
             ),
             self.rooms,
             self.room_states,

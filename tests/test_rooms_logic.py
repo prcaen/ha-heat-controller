@@ -258,6 +258,50 @@ class TestSources(unittest.TestCase):
         self.assertEqual(states["salon"].source, "idle")
 
 
+class TestSolarBonus(unittest.TestCase):
+    def test_surplus_hysteresis_band(self):
+        s = settings(surplus_threshold=500.0)
+        next_bonus = rooms_logic.next_solar_bonus
+        # Surplus >= +threshold: bonus on.
+        self.assertTrue(next_bonus(s, 1500.0, 1000.0, False))
+        # Surplus between -threshold and +threshold: keep the previous state.
+        self.assertTrue(next_bonus(s, 1000.0, 1000.0, True))  # surplus 0
+        self.assertFalse(next_bonus(s, 1000.0, 1000.0, False))
+        # Surplus <= -threshold: bonus off.
+        self.assertFalse(next_bonus(s, 800.0, 1400.0, True))
+
+    def test_fallback_without_consumption_sensor(self):
+        s = settings(production_threshold=500.0)
+        next_bonus = rooms_logic.next_solar_bonus
+        self.assertTrue(next_bonus(s, 650.0, None, False))
+        self.assertFalse(next_bonus(s, 400.0, None, True))
+        self.assertFalse(next_bonus(s, None, None, True))
+
+    def test_bonus_raises_split_room_targets_only(self):
+        rooms = [
+            room("salon", "Salon", "sensor.salon", target=19.5,
+                 thermostat_room=True, switches=("sw1",), climates=("cl1",)),
+            room("cuisine", "Cuisine", "sensor.cuisine", follow_room="salon",
+                 boiler_trigger=True),
+        ]
+        states = states_of(rooms, {"salon": 19.0, "cuisine": 19.5})
+        inputs = house_inputs(solar_bonus_active=True)
+        house = compute_house(settings(), inputs, rooms, states)
+        self.assertEqual(house.room("salon").target, 20.0)  # 19.5 + 0.5
+        self.assertEqual(house.room("cuisine").target, 19.5)  # no split: no bonus
+
+    def test_no_bonus_at_night(self):
+        rooms = [
+            room("salon", "Salon", "sensor.salon", target=19.5,
+                 switches=("sw1",), climates=("cl1",)),
+        ]
+        states = states_of(rooms, {"salon": 15.0})
+        night = house_inputs(now=datetime(2026, 10, 21, 23, 0),
+                             solar_bonus_active=True)
+        house = compute_house(settings(), night, rooms, states)
+        self.assertEqual(house.room("salon").target, 16.0)  # night setpoint
+
+
 def tearDownModule():
     unload_pure()
 

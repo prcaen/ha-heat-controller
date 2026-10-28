@@ -648,6 +648,39 @@ class TestHybridRooms(unittest.IsolatedAsyncioTestCase):
             ("climate", "set_temperature", "climate.boiler", None, 19.5), calls
         )
 
+    async def test_solar_surplus_raises_the_split_setpoint(self):
+        controller, shared, services, states = build(
+            {
+                "consumption_sensor": "sensor.conso",
+                "surplus_threshold": 500.0,
+                "solar_bonus": 0.5,
+            },
+            outdoor="8.0",
+            production="1500.0",
+            subentries=self.rooms_subentries(),
+        )
+        self.seed_room_states(states)
+        states.set("sensor.conso", "1000.0")  # surplus = +500 W: bonus on
+        await controller._update_locked()
+        calls = summarise(services)
+
+        # Salon target 19.5 + 0.5 bonus, split setpoint = target + 2.
+        self.assertIn(
+            ("climate", "set_temperature", "climate.salon_gauche", None, 22.0), calls
+        )
+        # Below the surplus threshold, the bonus switches off (the
+        # production alone no longer lifts the setpoint).
+        states.set("sensor.conso", "1600.0")  # surplus = -100 W... still in band
+        await controller._update_locked()
+        self.assertTrue(controller._solar_bonus)  # band: keeps the state
+        states.set("sensor.conso", "2200.0")  # surplus = -700 W: off
+        await controller._update_locked()
+        self.assertFalse(controller._solar_bonus)
+        calls = summarise(services)
+        self.assertIn(
+            ("climate", "set_temperature", "climate.salon_gauche", None, 21.5), calls
+        )
+
     async def test_room_without_sensor_is_left_alone(self):
         controller, shared, services, states = build(
             outdoor="8.0", subentries=self.rooms_subentries()

@@ -56,6 +56,33 @@ class HouseInputs:
     outdoor_temp: Optional[float]  # None = unknown -> splits still allowed
     away_mode: bool
     forced_source: str = SOURCE_AUTO
+    production: Optional[float] = None  # W produced right now
+    consumption: Optional[float] = None  # W consumed right now (None = no sensor)
+    solar_bonus_active: bool = False  # latched soft overheating state
+
+
+def next_solar_bonus(
+    settings: Settings,
+    production: Optional[float],
+    consumption: Optional[float],
+    previous: bool,
+) -> bool:
+    """Soft overheating state, with a hysteresis band on the surplus.
+
+    With a consumption sensor: the bonus starts once the surplus
+    (production - consumption) reaches the threshold and stops only when
+    it falls to minus the threshold, so the splits' own consumption
+    cannot flip the mode. Without one, the existing production threshold
+    is used.
+    """
+    if consumption is None:
+        return production is not None and production >= settings.production_threshold
+    surplus = (production or 0.0) - consumption
+    if surplus >= settings.surplus_threshold:
+        return True
+    if surplus <= -settings.surplus_threshold:
+        return False
+    return previous
 
 
 @dataclass
@@ -84,6 +111,7 @@ class HouseDecision:
     trigger_demand: bool = False  # latched trigger demand for the next cycle
     boiler_setpoint: Optional[float] = None
     thermostat_room_target: Optional[float] = None
+    solar_bonus: bool = False  # soft overheating active (this cycle)
 
     def room(self, room_id: str) -> Optional[RoomDecision]:
         return next((d for d in self.rooms if d.room_id == room_id), None)
@@ -165,6 +193,16 @@ def compute_house(
         state = states.setdefault(room.id, RoomState(room))
         temp = state.temp
         base_target = resolve_target(rooms, room)
+        # Soft overheating: on a surplus, split rooms aim slightly
+        # above their day target (day only, when the splits may run).
+        if (
+            mode == MODE_DAY
+            and allowed
+            and inputs.solar_bonus_active
+            and room.has_splits
+            and base_target is not None
+        ):
+            base_target = base_target + settings.solar_bonus
         target = room_target(settings, mode, base_target)
         controllable = temp is not None and target is not None
 
@@ -238,6 +276,7 @@ def compute_house(
         trigger_demand=trigger_demand,
         boiler_setpoint=setpoint,
         thermostat_room_target=normal,
+        solar_bonus=inputs.solar_bonus_active,
     )
 
 

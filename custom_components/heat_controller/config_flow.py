@@ -33,6 +33,7 @@ from homeassistant.helpers.selector import (
 from .const import (
     CONF_ACCESSORY_FANS,
     CONF_BOILER_CLIMATE,
+    CONF_CONSUMPTION_SENSOR,
     CONF_HEAT_PUMP_CLIMATES,
     CONF_HEAT_PUMP_SWITCHES,
     CONF_INDOOR_TEMP_SENSOR,
@@ -112,6 +113,13 @@ def _sensors_schema(data: dict[str, Any], suggested_production: str | None) -> v
             vol.Required(
                 CONF_PRODUCTION_SENSOR,
                 default=data.get(CONF_PRODUCTION_SENSOR, suggested_production),
+            ): EntitySelector(
+                EntitySelectorConfig(domain="sensor", device_class="power")
+            ),
+            vol.Optional(
+                CONF_CONSUMPTION_SENSOR,
+                default=data.get(CONF_CONSUMPTION_SENSOR),
+                description={"suggested_value": data.get(CONF_CONSUMPTION_SENSOR)},
             ): EntitySelector(
                 EntitySelectorConfig(domain="sensor", device_class="power")
             ),

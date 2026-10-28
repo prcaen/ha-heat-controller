@@ -99,6 +99,8 @@ class Settings:
     boiler_demand_setpoint: float = 21.0
     split_fan_preset: str = "auto"
     split_fan_oscillating: bool = True
+    solar_bonus: float = 0.5
+    surplus_threshold: float = 500.0
 
 
 @dataclass(frozen=True)

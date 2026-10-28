@@ -7,7 +7,8 @@
         "data": {
           "outdoor_temp_sensor": "Température extérieure",
           "indoor_temp_sensor": "Température intérieure",
-          "production_sensor": "Production solaire (puissance instantanée)"
+          "production_sensor": "Production solaire (puissance instantanée)",
+          "consumption_sensor": "Consommation de la maison (puissance instantanée, optionnel)"
         }
       },
       "devices": {
@@ -43,7 +44,9 @@
           "split_offset": "Décalage de consigne des splits (°C)",
           "boiler_demand_setpoint": "Consigne de demande chaudière (°C)",
           "split_fan_preset": "Preset du ventilateur des splits",
-          "split_fan_oscillating": "Oscillation du ventilateur des splits"
+          "split_fan_oscillating": "Oscillation du ventilateur des splits",
+          "solar_bonus": "Bonus surplus solaire (°C)",
+          "surplus_threshold": "Seuil de surplus solaire (W)"
         }
       }
     },
@@ -59,7 +62,8 @@
         "data": {
           "outdoor_temp_sensor": "Température extérieure",
           "indoor_temp_sensor": "Température intérieure",
-          "production_sensor": "Production solaire (puissance instantanée)"
+          "production_sensor": "Production solaire (puissance instantanée)",
+          "consumption_sensor": "Consommation de la maison (puissance instantanée, optionnel)"
         }
       },
       "devices": {
@@ -95,7 +99,9 @@
           "split_offset": "Décalage de consigne des splits (°C)",
           "boiler_demand_setpoint": "Consigne de demande chaudière (°C)",
           "split_fan_preset": "Preset du ventilateur des splits",
-          "split_fan_oscillating": "Oscillation du ventilateur des splits"
+          "split_fan_oscillating": "Oscillation du ventilateur des splits",
+          "solar_bonus": "Bonus surplus solaire (°C)",
+          "surplus_threshold": "Seuil de surplus solaire (W)"
         }
       }
     },
@@ -161,7 +167,9 @@
       "boiler_rate": { "name": "Vitesse de montée chaudière" },
       "safety_margin": { "name": "Marge de sécurité de la préchauffe" },
       "split_offset": { "name": "Décalage de consigne des splits" },
-      "boiler_demand_setpoint": { "name": "Consigne de demande chaudière" }
+      "boiler_demand_setpoint": { "name": "Consigne de demande chaudière" },
+      "solar_bonus": { "name": "Bonus surplus solaire" },
+      "surplus_threshold": { "name": "Seuil de surplus solaire" }
     },
     "time": {
       "day_start": { "name": "Début de la période jour" },

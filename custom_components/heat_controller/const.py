@@ -20,6 +20,7 @@ PLATFORMS = [
 CONF_OUTDOOR_TEMP_SENSOR = "outdoor_temp_sensor"
 CONF_INDOOR_TEMP_SENSOR = "indoor_temp_sensor"
 CONF_PRODUCTION_SENSOR = "production_sensor"
+CONF_CONSUMPTION_SENSOR = "consumption_sensor"
 CONF_BOILER_CLIMATE = "boiler_climate"
 CONF_HEAT_PUMP_CLIMATES = "heat_pump_climates"
 CONF_HEAT_PUMP_SWITCHES = "heat_pump_switches"
@@ -63,6 +64,8 @@ CONF_SPLIT_OFFSET = "split_offset"
 CONF_BOILER_DEMAND_SETPOINT = "boiler_demand_setpoint"
 CONF_SPLIT_FAN_PRESET = "split_fan_preset"
 CONF_SPLIT_FAN_OSCILLATING = "split_fan_oscillating"
+CONF_SOLAR_BONUS = "solar_bonus"
+CONF_SURPLUS_THRESHOLD = "surplus_threshold"
 
 # Default values taken from the original YAML automations.
 DEFAULT_OUTDOOR_THRESHOLD = 3.0
@@ -87,6 +90,8 @@ DEFAULT_SPLIT_OFFSET = 2.0
 DEFAULT_BOILER_DEMAND_SETPOINT = 21.0
 DEFAULT_SPLIT_FAN_PRESET = "auto"
 DEFAULT_SPLIT_FAN_OSCILLATING = True
+DEFAULT_SOLAR_BONUS = 0.5
+DEFAULT_SURPLUS_THRESHOLD = 500.0
 
 SPLIT_FAN_PRESET_OPTIONS = ("low", "medium", "high", "auto")
 
@@ -100,6 +105,7 @@ CONNECTION_KEYS = (
     CONF_OUTDOOR_TEMP_SENSOR,
     CONF_INDOOR_TEMP_SENSOR,
     CONF_PRODUCTION_SENSOR,
+    CONF_CONSUMPTION_SENSOR,
     CONF_BOILER_CLIMATE,
     CONF_HEAT_PUMP_CLIMATES,
     CONF_HEAT_PUMP_SWITCHES,
@@ -130,6 +136,8 @@ SETTING_DEFAULTS = {
     CONF_BOILER_DEMAND_SETPOINT: DEFAULT_BOILER_DEMAND_SETPOINT,
     CONF_SPLIT_FAN_PRESET: DEFAULT_SPLIT_FAN_PRESET,
     CONF_SPLIT_FAN_OSCILLATING: DEFAULT_SPLIT_FAN_OSCILLATING,
+    CONF_SOLAR_BONUS: DEFAULT_SOLAR_BONUS,
+    CONF_SURPLUS_THRESHOLD: DEFAULT_SURPLUS_THRESHOLD,
 }
 
 # --- Settings entities -------------------------------------------------------
@@ -184,6 +192,14 @@ SETTING_NUMBERS: dict[str, dict[str, Any]] = {
     CONF_BOILER_DEMAND_SETPOINT: {
         "min": 10.0, "max": 30.0, "step": 0.5, "unit": "°C",
         "device_class": "temperature",
+    },
+    CONF_SOLAR_BONUS: {
+        "min": 0.0, "max": 3.0, "step": 0.5, "unit": "°C",
+        "device_class": "temperature",
+    },
+    CONF_SURPLUS_THRESHOLD: {
+        "min": 0.0, "max": 20000.0, "step": 50.0, "unit": "W",
+        "device_class": "power", "mode": "box",
     },
 }
 
