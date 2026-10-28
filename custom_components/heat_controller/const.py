@@ -25,6 +25,19 @@ CONF_HEAT_PUMP_CLIMATES = "heat_pump_climates"
 CONF_HEAT_PUMP_SWITCHES = "heat_pump_switches"
 CONF_ACCESSORY_FANS = "accessory_fans"
 
+# --- Rooms (config sub-entries) ----------------------------------------------
+
+SUBENTRY_ROOM = "room"
+CONF_ROOM_NAME = "name"
+CONF_ROOM_TEMP_SENSOR = "temperature_sensor"
+CONF_ROOM_TARGET = "target"
+CONF_ROOM_FOLLOW_ROOM = "follow_room"
+CONF_ROOM_BOILER_TRIGGER = "boiler_trigger"
+CONF_ROOM_THERMOSTAT_ROOM = "thermostat_room"
+CONF_ROOM_SWITCHES = "switches"
+CONF_ROOM_CLIMATES = "climates"
+CONF_ROOM_FANS = "fans"
+
 # --- Settings ----------------------------------------------------------------
 
 CONF_OUTDOOR_THRESHOLD = "outdoor_threshold"

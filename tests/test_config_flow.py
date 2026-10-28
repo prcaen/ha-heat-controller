@@ -23,6 +23,15 @@ from custom_components.heat_controller.const import (
     CONF_FROST_SETPOINT,
     CONF_IDLE_SETPOINT,
     CONF_OUTDOOR_THRESHOLD,
+    CONF_ROOM_BOILER_TRIGGER,
+    CONF_ROOM_CLIMATES,
+    CONF_ROOM_FANS,
+    CONF_ROOM_FOLLOW_ROOM,
+    CONF_ROOM_NAME,
+    CONF_ROOM_SWITCHES,
+    CONF_ROOM_TARGET,
+    CONF_ROOM_TEMP_SENSOR,
+    CONF_ROOM_THERMOSTAT_ROOM,
     SETTING_DEFAULTS,
 )
 
@@ -93,6 +102,65 @@ class TestSchemas(unittest.TestCase):
         hass = MagicMock()
         hass.config_entries.async_entries.return_value = []
         self.assertIsNone(config_flow._solenso_power_sensor(hass))
+
+    def test_room_schema_keys(self):
+        keys = schema_keys(config_flow._room_schema([("s1", "Salon")]))
+        self.assertEqual(
+            keys,
+            {
+                CONF_ROOM_NAME,
+                CONF_ROOM_TEMP_SENSOR,
+                CONF_ROOM_TARGET,
+                CONF_ROOM_FOLLOW_ROOM,
+                CONF_ROOM_BOILER_TRIGGER,
+                CONF_ROOM_THERMOSTAT_ROOM,
+                CONF_ROOM_SWITCHES,
+                CONF_ROOM_CLIMATES,
+                CONF_ROOM_FANS,
+            },
+        )
+        # No followable room yet: the follow selector is absent.
+        keys = schema_keys(config_flow._room_schema([]))
+        self.assertNotIn(CONF_ROOM_FOLLOW_ROOM, keys)
+
+    def test_validate_room_input(self):
+        valid = {
+            CONF_ROOM_NAME: "Salon",
+            CONF_ROOM_TEMP_SENSOR: "sensor.salon",
+            CONF_ROOM_TARGET: 19.5,
+        }
+        self.assertEqual(config_flow.validate_room_input(valid), {})
+        follow = {
+            CONF_ROOM_NAME: "Cuisine",
+            CONF_ROOM_TEMP_SENSOR: "sensor.cuisine",
+            CONF_ROOM_FOLLOW_ROOM: "s1",
+        }
+        self.assertEqual(config_flow.validate_room_input(follow), {})
+        # Neither a target nor a room to follow.
+        self.assertEqual(
+            config_flow.validate_room_input(
+                {CONF_ROOM_NAME: "X", CONF_ROOM_TEMP_SENSOR: "sensor.x"}
+            ),
+            {"base": "target_required"},
+        )
+        # Splits without a climate entity.
+        self.assertEqual(
+            config_flow.validate_room_input(
+                {**valid, CONF_ROOM_SWITCHES: ["switch.a"]}
+            ),
+            {"base": "climate_required"},
+        )
+
+
+class TestSubentrySupport(unittest.TestCase):
+    """Sub-entry types declared to Home Assistant."""
+
+    def test_room_subentry_supported(self):
+        supported = config_flow.HeatControllerConfigFlow.async_get_supported_subentry_types(
+            None
+        )
+        self.assertIn("room", supported)
+        self.assertIs(supported["room"], config_flow.RoomSubentryFlow)
 
 
 if __name__ == "__main__":

@@ -9,16 +9,24 @@ import voluptuous as vol
 from homeassistant.config_entries import (
     ConfigFlow,
     ConfigFlowResult,
+    ConfigSubentryFlow,
     OptionsFlow,
+    SubentryFlowResult,
 )
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.selector import (
+    BooleanSelector,
     EntitySelector,
     EntitySelectorConfig,
     NumberSelector,
     NumberSelectorConfig,
     NumberSelectorMode,
+    SelectOptionDict,
+    SelectSelector,
+    SelectSelectorConfig,
+    SelectSelectorMode,
+    TextSelector,
     TimeSelector,
 )
 
@@ -30,11 +38,21 @@ from .const import (
     CONF_INDOOR_TEMP_SENSOR,
     CONF_OUTDOOR_TEMP_SENSOR,
     CONF_PRODUCTION_SENSOR,
+    CONF_ROOM_BOILER_TRIGGER,
+    CONF_ROOM_CLIMATES,
+    CONF_ROOM_FANS,
+    CONF_ROOM_FOLLOW_ROOM,
+    CONF_ROOM_NAME,
+    CONF_ROOM_SWITCHES,
+    CONF_ROOM_TARGET,
+    CONF_ROOM_TEMP_SENSOR,
+    CONF_ROOM_THERMOSTAT_ROOM,
     CONNECTION_KEYS,
     DOMAIN,
     SETTING_DEFAULTS,
     SETTING_NUMBERS,
     SETTING_TIMES,
+    SUBENTRY_ROOM,
 )
 
 
@@ -122,6 +140,54 @@ def _devices_schema(data: dict[str, Any]) -> vol.Schema:
     )
 
 
+def _room_schema(other_rooms: list[tuple[str, str]], exclude_id: str | None = None) -> vol.Schema:
+    """Room sub-entry form; `other_rooms` are the followable rooms."""
+    follow_options = [
+        SelectOptionDict(value=sub_id, label=label)
+        for sub_id, label in other_rooms
+        if sub_id != exclude_id
+    ]
+    fields: dict[Any, Any] = {
+        vol.Required(CONF_ROOM_NAME): TextSelector(),
+        vol.Required(CONF_ROOM_TEMP_SENSOR): EntitySelector(
+            EntitySelectorConfig(domain="sensor", device_class="temperature")
+        ),
+        vol.Optional(CONF_ROOM_TARGET): NumberSelector(
+            NumberSelectorConfig(min=5.0, max=30.0, step=0.5, unit_of_measurement="°C")
+        ),
+    }
+    if follow_options:
+        fields[vol.Optional(CONF_ROOM_FOLLOW_ROOM)] = SelectSelector(
+            SelectSelectorConfig(options=follow_options, mode=SelectSelectorMode.DROPDOWN)
+        )
+    fields.update(
+        {
+            vol.Required(CONF_ROOM_BOILER_TRIGGER, default=False): BooleanSelector(),
+            vol.Required(CONF_ROOM_THERMOSTAT_ROOM, default=False): BooleanSelector(),
+            vol.Optional(CONF_ROOM_SWITCHES): EntitySelector(
+                EntitySelectorConfig(domain="switch", multiple=True)
+            ),
+            vol.Optional(CONF_ROOM_CLIMATES): EntitySelector(
+                EntitySelectorConfig(domain="climate", multiple=True)
+            ),
+            vol.Optional(CONF_ROOM_FANS): EntitySelector(
+                EntitySelectorConfig(domain="fan", multiple=True)
+            ),
+        }
+    )
+    return vol.Schema(fields)
+
+
+def validate_room_input(user_input: dict[str, Any]) -> dict[str, str]:
+    """Validation errors of a room form, empty when the input is valid."""
+    errors: dict[str, str] = {}
+    if user_input.get(CONF_ROOM_TARGET) is None and not user_input.get(CONF_ROOM_FOLLOW_ROOM):
+        errors["base"] = "target_required"
+    elif user_input.get(CONF_ROOM_SWITCHES) and not user_input.get(CONF_ROOM_CLIMATES):
+        errors["base"] = "climate_required"
+    return errors
+
+
 def _settings_schema(data: dict[str, Any]) -> vol.Schema:
     def setting(key: str) -> Any:
         return data.get(key, SETTING_DEFAULTS[key])
@@ -148,6 +214,14 @@ class HeatControllerConfigFlow(ConfigFlow, domain=DOMAIN):
         config_entry,
     ) -> HeatControllerOptionsFlow:
         return HeatControllerOptionsFlow()
+
+    @classmethod
+    @callback
+    def async_get_supported_subentry_types(
+        cls, config_entry
+    ) -> dict[str, type[ConfigSubentryFlow]]:
+        """Rooms are configured as sub-entries of the entry."""
+        return {SUBENTRY_ROOM: RoomSubentryFlow}
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         errors: dict[str, str] = {}
@@ -241,4 +315,52 @@ class HeatControllerOptionsFlow(OptionsFlow):
         return self.async_show_form(
             step_id="settings",
             data_schema=_settings_schema(self._data),
+        )
+
+class RoomSubentryFlow(ConfigSubentryFlow):
+    """Add or edit a room sub-entry."""
+
+    def _other_rooms(self, exclude_id: str | None = None) -> list[tuple[str, str]]:
+        entry = self._get_entry()
+        return [
+            (subentry_id, subentry.title)
+            for subentry_id, subentry in entry.subentries.items()
+            if subentry.subentry_type == SUBENTRY_ROOM
+        ]
+
+    async def async_step_user(self, user_input: dict[str, Any] | None = None) -> SubentryFlowResult:
+        """Add a room."""
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            errors = validate_room_input(user_input)
+            if not errors:
+                return self.async_create_entry(
+                    title=user_input[CONF_ROOM_NAME], data=user_input
+                )
+        schema = _room_schema(self._other_rooms())
+        if user_input is not None:
+            schema = self.add_suggested_values_to_schema(schema, user_input)
+        return self.async_show_form(step_id="user", data_schema=schema, errors=errors)
+
+    async def async_step_reconfigure(
+        self, user_input: dict[str, Any] | None = None
+    ) -> SubentryFlowResult:
+        """Edit a room."""
+        subentry = self._get_reconfigure_subentry()
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            errors = validate_room_input(user_input)
+            if not errors:
+                return self.async_update_and_abort(
+                    self._get_entry(),
+                    subentry,
+                    title=user_input[CONF_ROOM_NAME],
+                    data=user_input,
+                )
+        schema = _room_schema(self._other_rooms(), exclude_id=subentry.subentry_id)
+        schema = self.add_suggested_values_to_schema(
+            schema, user_input or dict(subentry.data)
+        )
+        return self.async_show_form(
+            step_id="reconfigure", data_schema=schema, errors=errors
         )

@@ -10,6 +10,7 @@ from homeassistant.exceptions import ConfigEntryNotReady
 
 from .const import CONF_OUTDOOR_TEMP_SENSOR, CONNECTION_KEYS, DOMAIN, PLATFORMS
 from .controller import HeatController
+from .rooms import rooms_from_subentries, rooms_signature
 from .state import HeatState
 
 
@@ -51,13 +52,24 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 
 async def _async_update_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:
-    """Apply new settings live; reload only on installation changes."""
+    """Apply new settings live; reload on installation changes.
+
+    Sub-entry changes (rooms added, edited or removed) also fire this
+    listener: the rooms are structural, so they reload the entry like the
+    connection keys.
+    """
     data = hass.data.get(DOMAIN, {}).get(entry.entry_id)
     if data is None:
         return
     controller: HeatController = data["controller"]
     config = _merged_config(entry)
-    if any(config.get(key) != controller.config.get(key) for key in CONNECTION_KEYS):
+    rooms_changed = (
+        rooms_signature(rooms_from_subentries(entry.subentries))
+        != controller.rooms_signature
+    )
+    if rooms_changed or any(
+        config.get(key) != controller.config.get(key) for key in CONNECTION_KEYS
+    ):
         await hass.config_entries.async_reload(entry.entry_id)
         return
     controller.update_config(config)

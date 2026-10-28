@@ -150,5 +150,60 @@
       "solar_start": { "name": "Solar window start" },
       "solar_end": { "name": "Solar window end" }
     }
+  },
+  "config_subentries": {
+    "room": {
+      "initiate_flow": { "user": "Add room", "reconfigure": "Edit room" },
+      "entry_type": "Room",
+      "step": {
+        "user": {
+          "title": "New room",
+          "data": {
+            "name": "Room name",
+            "temperature_sensor": "Room temperature sensor",
+            "target": "Day target (°C)",
+            "follow_room": "Or: same target as another room",
+            "boiler_trigger": "This room can request the boiler",
+            "thermostat_room": "The boiler thermostat is in this room",
+            "switches": "Split power switches",
+            "climates": "Split climate entities",
+            "fans": "Split fan entities"
+          },
+          "data_description": {
+            "target": "Leave empty if the room follows another room.",
+            "boiler_trigger": "The boiler thermostat is raised while this room is below its target.",
+            "switches": "Used to turn the splits on (first) and off.",
+            "climates": "Used for mode and temperature, never to turn off.",
+            "fans": "Used for the preset mode and the oscillation."
+          }
+        },
+        "reconfigure": {
+          "title": "Edit room",
+          "data": {
+            "name": "Room name",
+            "temperature_sensor": "Room temperature sensor",
+            "target": "Day target (°C)",
+            "follow_room": "Or: same target as another room",
+            "boiler_trigger": "This room can request the boiler",
+            "thermostat_room": "The boiler thermostat is in this room",
+            "switches": "Split power switches",
+            "climates": "Split climate entities",
+            "fans": "Split fan entities"
+          },
+          "data_description": {
+            "target": "Leave empty if the room follows another room.",
+            "boiler_trigger": "The boiler thermostat is raised while this room is below its target.",
+            "switches": "Used to turn the splits on (first) and off.",
+            "climates": "Used for mode and temperature, never to turn off.",
+            "fans": "Used for the preset mode and the oscillation."
+          }
+        }
+      },
+      "error": {
+        "target_required": "Set a target temperature or pick the room to follow.",
+        "climate_required": "Splits need at least one climate entity."
+      },
+      "abort": { "reconfigure_successful": "Room updated." }
+    }
   }
 }

@@ -65,6 +65,7 @@ from .const import (
     SWITCH_WAIT_TIMEOUT_SECONDS,
 )
 from .logic import Decision, Inputs, Settings, compute, parse_time, target_temperature
+from .rooms import RoomConfig, rooms_from_subentries, rooms_signature
 from .state import HeatState
 
 _LOGGER = logging.getLogger(__name__)
@@ -149,6 +150,13 @@ class HeatController:
         ]
         self.accessory_fans: list[str] = list(config.get(CONF_ACCESSORY_FANS, []))
 
+        # Rooms (config sub-entries): when present, the hybrid multi-room
+        # regulation replaces the single-zone changeover.
+        self.rooms: list[RoomConfig] = rooms_from_subentries(
+            getattr(entry, "subentries", None)
+        )
+        self.rooms_signature: tuple = rooms_signature(self.rooms)
+
         self._lock = asyncio.Lock()
         self._cancel: list[Callable] = []
         self._first_run = True
@@ -162,6 +170,7 @@ class HeatController:
             for entity in (self.outdoor_sensor, self.indoor_sensor, self.production_sensor)
             if entity
         ]
+        watched.extend(room.sensor for room in self.rooms if room.sensor)
         self._cancel.append(
             async_track_state_change_event(self.hass, watched, self._on_state_change)
         )

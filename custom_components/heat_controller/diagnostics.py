@@ -58,6 +58,7 @@ async def async_get_config_entry_diagnostics(
 
     diagnostics.update(
         {
+            "rooms": _serialize([asdict(room) for room in controller.rooms]),
             "flags": {
                 "active": shared.active,
                 "away_mode": shared.away_mode,

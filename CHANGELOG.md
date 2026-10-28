@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **Rooms (config sub-entries)**: rooms can now be added to the entry (« Add room » on the integration page, Home Assistant 2025.3+): name, temperature sensor, day target or a room to follow, a boiler-trigger flag (the room may request the boiler), the thermostat-room flag (the boiler thermostat lives in this room) and the splits that heat it (power switches, climate entities, fans). Editing or removing a room reloads the integration. Entries without rooms keep the existing single-zone behaviour. The hybrid multi-room regulation itself lands with the next releases.
+
 - **Breaking (configuration)**: heat pump units are now powered through `switch` entities (`heat_pump_switches`, paired by order with the climate units) instead of the former "power fans" (`heat_pump_fans`). The switch is turned on before any climate command and off when there is no heating need; the climate mode is never used to switch a unit off, and no idle setpoint is pushed to a powered-off unit. Reconfigure the entry to pick the switches (e.g. `switch.salon_clim_gauche`, `switch.salon_clim_droite`).
 - Log a warning when a heat pump power switch does not exist or does not confirm ON within the wait delay: the climate unit is then deliberately not driven, and the cause was previously invisible in the logs.
 - While the heat pump is the active source, the boiler's setpoint is pushed down to the idle setpoint (12 °C default, adjustable) on every control pass, in addition to the `off` mode set at changeover: the boiler can no longer heat alongside the heat pump if it ignores or loses the `off` mode.

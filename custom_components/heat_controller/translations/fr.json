@@ -150,5 +150,60 @@
       "solar_start": { "name": "Début de la fenêtre solaire" },
       "solar_end": { "name": "Fin de la fenêtre solaire" }
     }
+  },
+  "config_subentries": {
+    "room": {
+      "initiate_flow": { "user": "Ajouter une pièce", "reconfigure": "Modifier la pièce" },
+      "entry_type": "Pièce",
+      "step": {
+        "user": {
+          "title": "Nouvelle pièce",
+          "data": {
+            "name": "Nom de la pièce",
+            "temperature_sensor": "Capteur de température de la pièce",
+            "target": "Consigne jour (°C)",
+            "follow_room": "Ou : même consigne qu'une autre pièce",
+            "boiler_trigger": "Cette pièce peut demander la chaudière",
+            "thermostat_room": "Le thermostat de la chaudière est dans cette pièce",
+            "switches": "Interrupteurs d'alimentation des splits",
+            "climates": "Entités climate des splits",
+            "fans": "Entités fan des splits"
+          },
+          "data_description": {
+            "target": "Laisser vide si la pièce suit une autre pièce.",
+            "boiler_trigger": "Le thermostat de la chaudière est relevé tant que cette pièce est en dessous de sa consigne.",
+            "switches": "Utilisés pour allumer les splits (en premier) et les éteindre.",
+            "climates": "Utilisés pour le mode et la température, jamais pour éteindre.",
+            "fans": "Utilisés pour le preset et l'oscillation."
+          }
+        },
+        "reconfigure": {
+          "title": "Modifier la pièce",
+          "data": {
+            "name": "Nom de la pièce",
+            "temperature_sensor": "Capteur de température de la pièce",
+            "target": "Consigne jour (°C)",
+            "follow_room": "Ou : même consigne qu'une autre pièce",
+            "boiler_trigger": "Cette pièce peut demander la chaudière",
+            "thermostat_room": "Le thermostat de la chaudière est dans cette pièce",
+            "switches": "Interrupteurs d'alimentation des splits",
+            "climates": "Entités climate des splits",
+            "fans": "Entités fan des splits"
+          },
+          "data_description": {
+            "target": "Laisser vide si la pièce suit une autre pièce.",
+            "boiler_trigger": "Le thermostat de la chaudière est relevé tant que cette pièce est en dessous de sa consigne.",
+            "switches": "Utilisés pour allumer les splits (en premier) et les éteindre.",
+            "climates": "Utilisés pour le mode et la température, jamais pour éteindre.",
+            "fans": "Utilisés pour le preset et l'oscillation."
+          }
+        }
+      },
+      "error": {
+        "target_required": "Définir une consigne ou choisir la pièce à suivre.",
+        "climate_required": "Les splits ont besoin d'au moins une entité climate."
+      },
+      "abort": { "reconfigure_successful": "Pièce mise à jour." }
+    }
   }
 }
