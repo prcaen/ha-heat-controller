@@ -39,7 +39,11 @@
           "night_start": "Heure de début de la période nuit",
           "return_time": "Heure de retour en mode absence",
           "solar_start": "Début de la fenêtre solaire",
-          "solar_end": "Fin de la fenêtre solaire"
+          "solar_end": "Fin de la fenêtre solaire",
+          "split_offset": "Décalage de consigne des splits (°C)",
+          "boiler_demand_setpoint": "Consigne de demande chaudière (°C)",
+          "split_fan_preset": "Preset du ventilateur des splits",
+          "split_fan_oscillating": "Oscillation du ventilateur des splits"
         }
       }
     },
@@ -87,7 +91,11 @@
           "night_start": "Heure de début de la période nuit",
           "return_time": "Heure de retour en mode absence",
           "solar_start": "Début de la fenêtre solaire",
-          "solar_end": "Fin de la fenêtre solaire"
+          "solar_end": "Fin de la fenêtre solaire",
+          "split_offset": "Décalage de consigne des splits (°C)",
+          "boiler_demand_setpoint": "Consigne de demande chaudière (°C)",
+          "split_fan_preset": "Preset du ventilateur des splits",
+          "split_fan_oscillating": "Oscillation du ventilateur des splits"
         }
       }
     },
@@ -98,7 +106,8 @@
   "entity": {
     "switch": {
       "active": { "name": "Pilotage actif", "state": { "on": "Actif", "off": "Inactif" } },
-      "away_mode": { "name": "Mode absence", "state": { "on": "Absent", "off": "Présent" } }
+      "away_mode": { "name": "Mode absence", "state": { "on": "Absent", "off": "Présent" } },
+      "split_fan_oscillating": { "name": "Oscillation du ventilateur des splits" }
     },
     "climate": {
       "thermostat": { "name": "Thermostat" }
@@ -124,6 +133,15 @@
           "heat_pump": "Pompe à chaleur",
           "boiler": "Chaudière"
         }
+      },
+      "split_fan_preset": {
+        "name": "Preset du ventilateur des splits",
+        "state": {
+          "low": "Faible",
+          "medium": "Moyen",
+          "high": "Élevé",
+          "auto": "Auto"
+        }
       }
     },
     "datetime": {
@@ -141,7 +159,9 @@
       "production_threshold": { "name": "Seuil de production solaire" },
       "heat_pump_rate": { "name": "Vitesse de montée PAC" },
       "boiler_rate": { "name": "Vitesse de montée chaudière" },
-      "safety_margin": { "name": "Marge de sécurité de la préchauffe" }
+      "safety_margin": { "name": "Marge de sécurité de la préchauffe" },
+      "split_offset": { "name": "Décalage de consigne des splits" },
+      "boiler_demand_setpoint": { "name": "Consigne de demande chaudière" }
     },
     "time": {
       "day_start": { "name": "Début de la période jour" },

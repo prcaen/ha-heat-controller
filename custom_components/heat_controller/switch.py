@@ -9,8 +9,9 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.restore_state import RestoreEntity
 
+from .const import SETTING_BOOLEANS
 from .controller import HeatController
-from .entity import HeatControllerEntity
+from .entity import HeatControllerEntity, HeatSettingEntity
 from .state import HeatState
 
 
@@ -27,6 +28,7 @@ async def async_setup_entry(
             HeatActiveSwitch(entry, shared, controller),
             HeatAwayModeSwitch(entry, shared, controller),
         ]
+        + [HeatSettingSwitch(entry, shared, controller, key) for key in SETTING_BOOLEANS]
     )
 
 
@@ -95,3 +97,29 @@ class HeatAwayModeSwitch(_HeatSwitch):
 
     def _restore(self, value: bool) -> None:
         self._shared.set_away_mode(value)
+
+
+class HeatSettingSwitch(HeatSettingEntity, SwitchEntity):
+    """A boolean setting (e.g. the split fan oscillation), applied live."""
+
+    _attr_icon = "mdi:fan"
+
+    def __init__(
+        self,
+        entry: ConfigEntry,
+        shared: HeatState,
+        controller: HeatController,
+        key: str,
+    ) -> None:
+        super().__init__(entry, shared, controller, key)
+        self._attr_translation_key = key
+
+    @property
+    def is_on(self) -> bool:
+        return bool(self._current_value())
+
+    async def async_turn_on(self, **kwargs) -> None:
+        self._apply_setting(True)
+
+    async def async_turn_off(self, **kwargs) -> None:
+        self._apply_setting(False)

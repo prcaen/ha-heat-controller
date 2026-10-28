@@ -58,6 +58,12 @@ CONF_RETURN_TIME = "return_time"
 CONF_SOLAR_START = "solar_start"
 CONF_SOLAR_END = "solar_end"
 
+# Hybrid (multi-room) settings.
+CONF_SPLIT_OFFSET = "split_offset"
+CONF_BOILER_DEMAND_SETPOINT = "boiler_demand_setpoint"
+CONF_SPLIT_FAN_PRESET = "split_fan_preset"
+CONF_SPLIT_FAN_OSCILLATING = "split_fan_oscillating"
+
 # Default values taken from the original YAML automations.
 DEFAULT_OUTDOOR_THRESHOLD = 3.0
 DEFAULT_DAY_SETPOINT = 20.0
@@ -76,6 +82,13 @@ DEFAULT_NIGHT_START = "22:00:00"
 DEFAULT_RETURN_TIME = "18:00:00"
 DEFAULT_SOLAR_START = "11:00:00"
 DEFAULT_SOLAR_END = "15:00:00"
+
+DEFAULT_SPLIT_OFFSET = 2.0
+DEFAULT_BOILER_DEMAND_SETPOINT = 21.0
+DEFAULT_SPLIT_FAN_PRESET = "auto"
+DEFAULT_SPLIT_FAN_OSCILLATING = True
+
+SPLIT_FAN_PRESET_OPTIONS = ("low", "medium", "high", "auto")
 
 DEFAULT_INDOOR_TEMP = 19.0  # fallback if the indoor sensor is silent
 DEFAULT_PRODUCTION = 0.0  # fallback if the production sensor is silent
@@ -113,6 +126,10 @@ SETTING_DEFAULTS = {
     CONF_RETURN_TIME: DEFAULT_RETURN_TIME,
     CONF_SOLAR_START: DEFAULT_SOLAR_START,
     CONF_SOLAR_END: DEFAULT_SOLAR_END,
+    CONF_SPLIT_OFFSET: DEFAULT_SPLIT_OFFSET,
+    CONF_BOILER_DEMAND_SETPOINT: DEFAULT_BOILER_DEMAND_SETPOINT,
+    CONF_SPLIT_FAN_PRESET: DEFAULT_SPLIT_FAN_PRESET,
+    CONF_SPLIT_FAN_OSCILLATING: DEFAULT_SPLIT_FAN_OSCILLATING,
 }
 
 # --- Settings entities -------------------------------------------------------
@@ -160,6 +177,24 @@ SETTING_NUMBERS: dict[str, dict[str, Any]] = {
         "min": 0.0, "max": 240.0, "step": 5.0, "unit": "min",
         "device_class": "duration", "mode": "box",
     },
+    CONF_SPLIT_OFFSET: {
+        "min": 0.0, "max": 10.0, "step": 0.5, "unit": "°C",
+        "device_class": "temperature",
+    },
+    CONF_BOILER_DEMAND_SETPOINT: {
+        "min": 10.0, "max": 30.0, "step": 0.5, "unit": "°C",
+        "device_class": "temperature",
+    },
+}
+
+# String settings exposed as `select` entities.
+SETTING_SELECTS: dict[str, dict[str, Any]] = {
+    CONF_SPLIT_FAN_PRESET: {"options": list(SPLIT_FAN_PRESET_OPTIONS)},
+}
+
+# Boolean settings exposed as `switch` entities.
+SETTING_BOOLEANS: dict[str, dict[str, Any]] = {
+    CONF_SPLIT_FAN_OSCILLATING: {},
 }
 
 # Time settings exposed as `time` entities.

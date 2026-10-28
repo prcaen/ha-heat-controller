@@ -126,12 +126,23 @@ BASE_DATA = {
 }
 
 
+class FakeSubentry:
+    """Minimal stand-in for a config sub-entry."""
+
+    def __init__(self, subentry_id: str, title: str, data: dict) -> None:
+        self.subentry_id = subentry_id
+        self.subentry_type = "room"
+        self.title = title
+        self.data = data
+
+
 def build(
     entry_data: dict | None = None,
     outdoor: str = "2.0",
     indoor: str = "19.0",
     production: str = "0.0",
     heat_pump_source: bool = False,
+    subentries: dict[str, FakeSubentry] | None = None,
 ):
     """Build a controller wired to fake states and services."""
     data = {**BASE_DATA, **(entry_data or {})}
@@ -140,16 +151,7 @@ def build(
     states.set("sensor.int", indoor)
     states.set("sensor.solar", production)
     for climate in ("climate.boiler", "climate.pac1"):
-        states.set(
-            climate,
-            "off",
-            {
-                "target_temp_step": 0.5,
-                "min_temp": 5,
-                "max_temp": 30,
-                "temperature": 19,
-            },
-        )
+        states.set(climate, "off", dict(CLIMATE_ATTRIBUTES))
     for entity in ("switch.pac1", "fan.acc"):
         states.set(entity, "off")
 
@@ -157,6 +159,7 @@ def build(
     entry = MagicMock()
     entry.entry_id = "test"
     entry.data = data
+    entry.subentries = subentries or {}
     hass = MagicMock()
     hass.states = states
     hass.services = services
@@ -488,6 +491,191 @@ class TestControlPass(unittest.IsolatedAsyncioTestCase):
 
         self.assertFalse(shared.away_mode)
         self.assertIsNone(shared.away_until)
+
+
+class TestHybridRooms(unittest.IsolatedAsyncioTestCase):
+    """Hybrid multi-room regulation with room sub-entries."""
+
+    def setUp(self):
+        patcher = patch.object(controller_module.asyncio, "sleep", _fast_sleep)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    @staticmethod
+    def rooms_subentries():
+        return {
+            "salon": FakeSubentry("salon", "Salon", {
+                "name": "Salon",
+                "temperature_sensor": "sensor.salon_temp",
+                "target": 19.5,
+                "boiler_trigger": False,
+                "thermostat_room": True,
+                "switches": ["switch.salon_gauche", "switch.salon_droite"],
+                "climates": ["climate.salon_gauche", "climate.salon_droite"],
+                "fans": ["fan.salon_gauche", "fan.salon_droite"],
+            }),
+            "cuisine": FakeSubentry("cuisine", "Cuisine", {
+                "name": "Cuisine",
+                "temperature_sensor": "sensor.cuisine_temp",
+                "follow_room": "salon",
+                "boiler_trigger": True,
+                "thermostat_room": False,
+            }),
+        }
+
+    @staticmethod
+    def seed_room_states(states):
+        states.set("sensor.salon_temp", "17.0")
+        states.set("sensor.cuisine_temp", "19.5")
+        for entity in ("switch.salon_gauche", "switch.salon_droite"):
+            states.set(entity, "off")
+        for entity in ("climate.salon_gauche", "climate.salon_droite"):
+            states.set(entity, "off", dict(CLIMATE_ATTRIBUTES))
+        for entity in ("fan.salon_gauche", "fan.salon_droite"):
+            states.set(entity, "off")
+
+    async def test_mild_day_splits_regulate_and_boiler_rests(self):
+        controller, shared, services, states = build(
+            outdoor="8.0", subentries=self.rooms_subentries()
+        )
+        self.seed_room_states(states)
+        await controller._update_locked()
+        calls = summarise(services)
+
+        self.assertTrue(shared.heat_pump_source)  # splits mode
+        self.assertTrue(shared.demand)
+        # Salon is cold (17 < 19.5 - 0.3): its splits start, switch first.
+        self.assertIn(("switch", "turn_on", "switch.salon_gauche", None, None), calls)
+        self.assertIn(("switch", "turn_on", "switch.salon_droite", None, None), calls)
+        self.assertIn(
+            ("climate", "set_hvac_mode", "climate.salon_gauche", "heat", None), calls
+        )
+        # Split setpoint = target + offset (19.5 + 2 = 21.5).
+        self.assertIn(
+            ("climate", "set_temperature", "climate.salon_gauche", None, 21.5), calls
+        )
+        # Fan preset and oscillation on start.
+        self.assertIn(
+            ("fan", "set_preset_mode", "fan.salon_gauche", None, None)
+            or self._preset_call(services, "fan.salon_gauche"),
+            calls,
+        )
+        self.assertTrue(
+            any(
+                call[0] == "fan" and call[1] == "oscillate"
+                for call in services.calls
+            )
+        )
+        # Cuisine is at target: the boiler rests at the idle setpoint.
+        self.assertIn(
+            ("climate", "set_hvac_mode", "climate.boiler", "auto", None), calls
+        )
+        self.assertIn(
+            ("climate", "set_temperature", "climate.boiler", None, 12.0), calls
+        )
+        # Accessory fans follow the splits mode.
+        self.assertIn(("fan", "turn_on", "fan.acc", None, None), calls)
+
+    @staticmethod
+    def _preset_call(services, fan):
+        for call in services.calls:
+            if call[0] == "fan" and call[1] == "set_preset_mode" and call[2]["entity_id"] == fan:
+                return (call[0], call[1], call[2]["entity_id"], None, None)
+        return None
+
+    async def test_trigger_room_raises_the_boiler(self):
+        controller, shared, services, states = build(
+            outdoor="8.0", subentries=self.rooms_subentries()
+        )
+        self.seed_room_states(states)
+        states.set("sensor.cuisine_temp", "18.0")
+        await controller._update_locked()
+        calls = summarise(services)
+
+        self.assertTrue(shared.demand)
+        self.assertIn(
+            ("climate", "set_temperature", "climate.boiler", None, 21.0), calls
+        )
+        # The demand latches through the passes.
+        states.set("sensor.cuisine_temp", "19.4")
+        await controller._update_locked()
+        self.assertTrue(controller._trigger_demand)
+        states.set("sensor.cuisine_temp", "19.5")
+        await controller._update_locked()
+        self.assertFalse(controller._trigger_demand)
+        calls = summarise(services)
+        self.assertIn(
+            ("climate", "set_temperature", "climate.boiler", None, 12.0), calls
+        )
+
+    async def test_night_forces_the_splits_off(self):
+        # day_start after night_start: the day period is always over.
+        controller, shared, services, states = build(
+            {"day_start": "23:00:00", "night_start": "22:00:00"},
+            outdoor="8.0",
+            subentries=self.rooms_subentries(),
+        )
+        self.seed_room_states(states)
+        states.set("switch.salon_gauche", "on")
+        states.set("switch.salon_droite", "on")
+        states.set("fan.acc", "on")  # boiler mode must stop it
+        await controller._update_locked()
+        calls = summarise(services)
+
+        self.assertFalse(shared.heat_pump_source)
+        self.assertIn(("switch", "turn_off", "switch.salon_gauche", None, None), calls)
+        self.assertIn(("switch", "turn_off", "switch.salon_droite", None, None), calls)
+        # Boiler follows the thermostat room at the night setpoint.
+        self.assertIn(
+            ("climate", "set_temperature", "climate.boiler", None, 16.0), calls
+        )
+        # Accessory fans off with the boiler mode.
+        self.assertIn(("fan", "turn_off", "fan.acc", None, None), calls)
+
+    async def test_cold_outside_splits_off_boiler_normal(self):
+        controller, shared, services, states = build(
+            outdoor="1.0", subentries=self.rooms_subentries()
+        )
+        self.seed_room_states(states)
+        await controller._update_locked()
+        calls = summarise(services)
+
+        self.assertFalse(shared.heat_pump_source)
+        self.assertFalse(
+            any(call[0] == "switch" and call[1] == "turn_on" for call in calls)
+        )
+        self.assertIn(
+            ("climate", "set_temperature", "climate.boiler", None, 19.5), calls
+        )
+
+    async def test_room_without_sensor_is_left_alone(self):
+        controller, shared, services, states = build(
+            outdoor="8.0", subentries=self.rooms_subentries()
+        )
+        self.seed_room_states(states)
+        states.set("sensor.salon_temp", "unavailable")
+        await controller._update_locked()
+        calls = summarise(services)
+
+        # Splits untouched, boiler rests (cuisine is at target).
+        self.assertFalse(
+            any(call[2] in ("switch.salon_gauche", "climate.salon_gauche") for call in calls)
+        )
+        self.assertIn(
+            ("climate", "set_temperature", "climate.boiler", None, 12.0), calls
+        )
+
+    async def test_thermostat_room_drives_the_global_decision(self):
+        controller, shared, services, states = build(
+            outdoor="8.0", subentries=self.rooms_subentries()
+        )
+        self.seed_room_states(states)
+        await controller._update_locked()
+
+        # The virtual thermostat follows the salon, not the configured
+        # indoor sensor.
+        self.assertEqual(controller.indoor_sensor, "sensor.salon_temp")
+        self.assertEqual(shared.decision.target_setpoint, 19.5)
 
 
 if __name__ == "__main__":

@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from dataclasses import replace
 from datetime import timedelta
 from typing import Any, Callable, Mapping, Optional
 
@@ -34,6 +35,7 @@ from .const import (
     CONF_ACCESSORY_FANS,
     CONF_AWAY_SETPOINT,
     CONF_BOILER_CLIMATE,
+    CONF_BOILER_DEMAND_SETPOINT,
     CONF_BOILER_RATE,
     CONF_DAY_SETPOINT,
     CONF_DAY_START,
@@ -55,6 +57,9 @@ from .const import (
     CONF_SOLAR_END,
     CONF_SOLAR_SETPOINT,
     CONF_SOLAR_START,
+    CONF_SPLIT_FAN_OSCILLATING,
+    CONF_SPLIT_FAN_PRESET,
+    CONF_SPLIT_OFFSET,
     SETTING_DEFAULTS,
     DEFAULT_INDOOR_TEMP,
     DEFAULT_PRODUCTION,
@@ -66,6 +71,15 @@ from .const import (
 )
 from .logic import Decision, Inputs, Settings, compute, parse_time, target_temperature
 from .rooms import RoomConfig, rooms_from_subentries, rooms_signature
+from .rooms_logic import (
+    HouseDecision,
+    HouseInputs,
+    RoomDecision,
+    RoomState,
+    compute_house,
+    resolve_target,
+    update_room_states,
+)
 from .state import HeatState
 
 _LOGGER = logging.getLogger(__name__)
@@ -117,6 +131,12 @@ def settings_from_config(config: Mapping[str, Any]) -> Settings:
         return_time=moment(CONF_RETURN_TIME),
         solar_start=moment(CONF_SOLAR_START),
         solar_end=moment(CONF_SOLAR_END),
+        split_offset=number(CONF_SPLIT_OFFSET),
+        boiler_demand_setpoint=number(CONF_BOILER_DEMAND_SETPOINT),
+        split_fan_preset=str(config.get(CONF_SPLIT_FAN_PRESET, SETTING_DEFAULTS[CONF_SPLIT_FAN_PRESET])),
+        split_fan_oscillating=bool(
+            config.get(CONF_SPLIT_FAN_OSCILLATING, SETTING_DEFAULTS[CONF_SPLIT_FAN_OSCILLATING])
+        ),
     )
 
 
@@ -156,6 +176,15 @@ class HeatController:
             getattr(entry, "subentries", None)
         )
         self.rooms_signature: tuple = rooms_signature(self.rooms)
+        self.room_states: dict[str, RoomState] = {
+            room.id: RoomState(room) for room in self.rooms
+        }
+        self._trigger_demand = False  # latched boiler demand (trigger rooms)
+        # In hybrid mode the decisions and the virtual thermostat follow
+        # the thermostat room, not the configured indoor sensor.
+        thermostat_room = next((r for r in self.rooms if r.thermostat_room), None)
+        if thermostat_room is not None:
+            self.indoor_sensor = thermostat_room.sensor
 
         self._lock = asyncio.Lock()
         self._cancel: list[Callable] = []
@@ -276,6 +305,11 @@ class HeatController:
             shared.set_away_until(None)
         shared.set_preheating(decision.preheating)
         shared.set_demand(decision.heating_needed)
+
+        if self.rooms:
+            # Hybrid multi-room regulation.
+            await self._update_rooms(decision)
+            return
 
         # PAC / Boiler changeover (or reapplication on first pass).
         if decision.changeover:
@@ -477,3 +511,147 @@ class HeatController:
             return float(attributes.get("temperature") or 0)
         except (TypeError, ValueError):
             return 0.0
+
+    # --- Hybrid multi-room regulation ----------------------------------------
+
+    async def _update_rooms(self, base: Decision) -> None:
+        """One hybrid pass: rooms first, then the boiler."""
+        shared = self.shared
+        # Observe the rooms: temperatures and actual switch states.
+        for room in self.rooms:
+            state = self.room_states.setdefault(room.id, RoomState(room))
+            state.temp = _as_float(self.hass.states.get(room.sensor))
+            state.splits_on = any(self._is_on(switch) for switch in room.switches)
+            state.base_target = resolve_target(self.rooms, room)
+        house = compute_house(
+            self.settings,
+            HouseInputs(
+                now=dt_util.now(),
+                outdoor_temp=_as_float(self.hass.states.get(self.outdoor_sensor)),
+                away_mode=shared.away_mode,
+                forced_source=shared.forced_source,
+            ),
+            self.rooms,
+            self.room_states,
+            trigger_demand=self._trigger_demand,
+        )
+        self._trigger_demand = house.trigger_demand
+
+        # The global decision keeps feeding the existing entities, with
+        # the hybrid result overriding the single-zone fields.
+        heating_needed = house.boiler_demand or any(
+            decision.want_splits for decision in house.rooms
+        )
+        merged = replace(
+            base,
+            target_setpoint=(
+                house.thermostat_room_target
+                if house.thermostat_room_target is not None
+                else base.target_setpoint
+            ),
+            heating_needed=heating_needed,
+            should_use_heat_pump=house.splits_allowed,
+            changeover=house.splits_allowed != shared.heat_pump_source,
+        )
+        shared.set_decision(merged)
+        shared.set_demand(heating_needed)
+
+        boiler_heating = self._boiler_heating()
+        update_room_states(house, self.room_states, boiler_heating)
+
+        for room, decision in zip(self.rooms, house.rooms):
+            await self._apply_room(room, decision)
+
+        await self._apply_hybrid_boiler(house)
+        # Accessory fans follow the active source, as in the single-zone
+        # changeover: on with the splits, off with the boiler.
+        await self._enforce_accessory_fans(house.splits_allowed)
+
+        shared.set_heat_pump_source(house.splits_allowed)
+
+    def _boiler_heating(self) -> bool:
+        state = self.hass.states.get(self.boiler_climate)
+        return (
+            state is not None
+            and state.attributes.get("hvac_action") == "heating"
+        )
+
+    async def _apply_room(self, room: RoomConfig, decision: RoomDecision) -> None:
+        """Apply the splits decision of one room."""
+        if not room.has_splits:
+            return
+        state = self.room_states[room.id]
+
+        if not decision.splits_allowed:
+            # Forced stop (night, away, cold outside): only through the
+            # power switches, whatever the room sensor says.
+            for switch in room.switches:
+                await self._power_off(switch)
+            state.last_want = False
+            return
+
+        if not decision.controllable:
+            # Sensor unavailable: the room is simply ignored.
+            _LOGGER.debug("Room %s ignored: no usable sensor or target", room.name)
+            return
+
+        if not decision.want_splits:
+            for switch in room.switches:
+                await self._power_off(switch)
+            state.last_want = False
+            return
+
+        # Safe start: every power switch must confirm ON, and every
+        # climate entity must be available, before any command.
+        for switch in room.switches:
+            if not await self._power_on(switch, room.name):
+                return  # retried on the next pass
+        if any(not self._valid(self.hass.states.get(clim)) for clim in room.climates):
+            _LOGGER.warning(
+                "A climate entity of room %s is not available after the "
+                "splits went on; commands are skipped this cycle and "
+                "retried on the next pass",
+                room.name,
+            )
+            return
+
+        for clim in room.climates:
+            climate_state = self.hass.states.get(clim)
+            if climate_state is not None and climate_state.state != HVAC_HEAT:
+                await self._call("climate", "set_hvac_mode", clim, hvac_mode=HVAC_HEAT)
+                await asyncio.sleep(HVAC_MODE_DELAY_SECONDS)
+            setpoint = (decision.target or 0.0) + self.settings.split_offset
+            await self._push_setpoint(clim, setpoint)
+
+        # Fan preset and oscillation are (re)applied on each start.
+        if state.last_want is not True:
+            for fan in room.fans:
+                await self._call(
+                    "fan",
+                    "set_preset_mode",
+                    fan,
+                    preset_mode=self.settings.split_fan_preset,
+                )
+                await self._call(
+                    "fan",
+                    "oscillate",
+                    fan,
+                    oscillating=self.settings.split_fan_oscillating,
+                )
+        state.last_want = True
+
+    async def _apply_hybrid_boiler(self, house: HouseDecision) -> None:
+        """Drive the boiler thermostat: rest setpoint, or demand."""
+        if not self.boiler_climate or house.boiler_setpoint is None:
+            return
+        state = self.hass.states.get(self.boiler_climate)
+        if not self._valid(state):
+            return
+        # The boiler stays in auto in hybrid mode: it must be able to
+        # answer a demand from a trigger room at any time.
+        if state is not None and state.state != HVAC_AUTO:
+            await self._call(
+                "climate", "set_hvac_mode", self.boiler_climate, hvac_mode=HVAC_AUTO
+            )
+            await asyncio.sleep(HVAC_MODE_DELAY_SECONDS)
+        await self._push_setpoint(self.boiler_climate, house.boiler_setpoint)

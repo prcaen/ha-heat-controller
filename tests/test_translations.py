@@ -46,7 +46,10 @@ class TestTranslations(unittest.TestCase):
                 self.assertIn(key, data, f"{section} settings missing {key}")
 
     def test_entity_keys(self):
-        self.assertEqual(set(self.strings["entity"]["switch"]), {"active", "away_mode"})
+        self.assertEqual(
+            set(self.strings["entity"]["switch"]),
+            {"active", "away_mode"} | set(const.SETTING_BOOLEANS),
+        )
         self.assertEqual(
             set(self.strings["entity"]["binary_sensor"]),
             {
@@ -67,16 +70,20 @@ class TestTranslations(unittest.TestCase):
         )
         self.assertEqual(set(self.strings["entity"]["time"]), set(const.SETTING_TIMES))
         self.assertEqual(
-            set(self.strings["entity"]["select"]), {"heat_source_override"}
+            set(self.strings["entity"]["select"]),
+            {"heat_source_override"} | set(const.SETTING_SELECTS),
         )
         self.assertEqual(set(self.strings["entity"]["datetime"]), {"away_until"})
         self.assertEqual(set(self.strings["entity"]["climate"]), {"thermostat"})
 
     def test_settings_split_covers_defaults(self):
-        """Numeric and time settings together cover every default."""
+        """All settings together cover every default."""
         self.assertEqual(
             set(const.SETTING_DEFAULTS),
-            set(const.SETTING_NUMBERS) | set(const.SETTING_TIMES),
+            set(const.SETTING_NUMBERS)
+            | set(const.SETTING_TIMES)
+            | set(const.SETTING_SELECTS)
+            | set(const.SETTING_BOOLEANS),
         )
 
 

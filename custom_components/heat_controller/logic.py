@@ -94,6 +94,11 @@ class Settings:
     return_time: timedelta = timedelta(hours=18)
     solar_start: timedelta = timedelta(hours=11)
     solar_end: timedelta = timedelta(hours=15)
+    # Hybrid (multi-room) regulation.
+    split_offset: float = 2.0
+    boiler_demand_setpoint: float = 21.0
+    split_fan_preset: str = "auto"
+    split_fan_oscillating: bool = True
 
 
 @dataclass(frozen=True)

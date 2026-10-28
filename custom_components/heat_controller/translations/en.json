@@ -39,7 +39,11 @@
           "night_start": "Night period start time",
           "return_time": "Return time in away mode",
           "solar_start": "Solar window start",
-          "solar_end": "Solar window end"
+          "solar_end": "Solar window end",
+          "split_offset": "Split setpoint offset (°C)",
+          "boiler_demand_setpoint": "Boiler demand setpoint (°C)",
+          "split_fan_preset": "Split fan preset",
+          "split_fan_oscillating": "Split fan oscillation"
         }
       }
     },
@@ -87,7 +91,11 @@
           "night_start": "Night period start time",
           "return_time": "Return time in away mode",
           "solar_start": "Solar window start",
-          "solar_end": "Solar window end"
+          "solar_end": "Solar window end",
+          "split_offset": "Split setpoint offset (°C)",
+          "boiler_demand_setpoint": "Boiler demand setpoint (°C)",
+          "split_fan_preset": "Split fan preset",
+          "split_fan_oscillating": "Split fan oscillation"
         }
       }
     },
@@ -98,7 +106,8 @@
   "entity": {
     "switch": {
       "active": { "name": "Heating control", "state": { "on": "Active", "off": "Inactive" } },
-      "away_mode": { "name": "Away mode", "state": { "on": "Away", "off": "Home" } }
+      "away_mode": { "name": "Away mode", "state": { "on": "Away", "off": "Home" } },
+      "split_fan_oscillating": { "name": "Split fan oscillation" }
     },
     "climate": {
       "thermostat": { "name": "Thermostat" }
@@ -124,6 +133,15 @@
           "heat_pump": "Heat pump",
           "boiler": "Boiler"
         }
+      },
+      "split_fan_preset": {
+        "name": "Split fan preset",
+        "state": {
+          "low": "Low",
+          "medium": "Medium",
+          "high": "High",
+          "auto": "Auto"
+        }
       }
     },
     "datetime": {
@@ -141,7 +159,9 @@
       "production_threshold": { "name": "Solar production threshold" },
       "heat_pump_rate": { "name": "Heat pump heat-up rate" },
       "boiler_rate": { "name": "Boiler heat-up rate" },
-      "safety_margin": { "name": "Pre-heat safety margin" }
+      "safety_margin": { "name": "Pre-heat safety margin" },
+      "split_offset": { "name": "Split setpoint offset" },
+      "boiler_demand_setpoint": { "name": "Boiler demand setpoint" }
     },
     "time": {
       "day_start": { "name": "Day period start" },

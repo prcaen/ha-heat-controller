@@ -49,8 +49,10 @@ from .const import (
     CONF_ROOM_THERMOSTAT_ROOM,
     CONNECTION_KEYS,
     DOMAIN,
+    SETTING_BOOLEANS,
     SETTING_DEFAULTS,
     SETTING_NUMBERS,
+    SETTING_SELECTS,
     SETTING_TIMES,
     SUBENTRY_ROOM,
 )
@@ -197,6 +199,12 @@ def _settings_schema(data: dict[str, Any]) -> vol.Schema:
         schema[vol.Required(key, default=setting(key))] = _number_selector(key)
     for key in SETTING_TIMES:
         schema[vol.Required(key, default=setting(key))] = TimeSelector()
+    for key, spec in SETTING_SELECTS.items():
+        schema[vol.Required(key, default=setting(key))] = SelectSelector(
+            SelectSelectorConfig(options=spec["options"], mode=SelectSelectorMode.DROPDOWN)
+        )
+    for key in SETTING_BOOLEANS:
+        schema[vol.Required(key, default=setting(key))] = BooleanSelector()
     return vol.Schema(schema)
 
 
