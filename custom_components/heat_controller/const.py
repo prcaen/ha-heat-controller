@@ -71,6 +71,7 @@ CONF_MIN_CYCLE_MINUTES = "min_cycle_minutes"
 CONF_INITIAL_PREHEAT_MINUTES = "initial_preheat_minutes"
 CONF_MAX_PREHEAT_MINUTES = "max_preheat_minutes"
 CONF_WEATHER_ENTITY = "weather_entity"
+CONF_NOTIFY_SERVICE = "notify_service"
 
 # Default values taken from the original YAML automations.
 DEFAULT_OUTDOOR_THRESHOLD = 3.0
@@ -152,6 +153,7 @@ SETTING_DEFAULTS = {
     CONF_INITIAL_PREHEAT_MINUTES: DEFAULT_INITIAL_PREHEAT_MINUTES,
     CONF_MAX_PREHEAT_MINUTES: DEFAULT_MAX_PREHEAT_MINUTES,
     CONF_WEATHER_ENTITY: "",
+    CONF_NOTIFY_SERVICE: "",
 }
 
 # --- Settings entities -------------------------------------------------------
@@ -236,6 +238,11 @@ SETTING_NUMBERS: dict[str, dict[str, Any]] = {
 # Entity settings: configured in the flow, no dashboard entity.
 SETTING_ENTITIES: dict[str, dict[str, Any]] = {
     CONF_WEATHER_ENTITY: {"domain": "weather"},
+}
+
+# Free-text settings: configured in the flow, no dashboard entity.
+SETTING_TEXTS: dict[str, dict[str, Any]] = {
+    CONF_NOTIFY_SERVICE: {},
 }
 
 # String settings exposed as `select` entities.

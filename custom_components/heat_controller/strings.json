@@ -51,7 +51,8 @@
           "min_cycle_minutes": "Minimum split run/stop time (min)",
           "initial_preheat_minutes": "Pre-heating duration before a rate is learned (min)",
           "max_preheat_minutes": "Maximum pre-heating duration (min)",
-          "weather_entity": "Weather entity (forecast, optional)"
+          "weather_entity": "Weather entity (forecast, optional)",
+          "notify_service": "Notification service (optional, e.g. notify.mobile_app_phone)"
         }
       }
     },
@@ -111,7 +112,8 @@
           "min_cycle_minutes": "Minimum split run/stop time (min)",
           "initial_preheat_minutes": "Pre-heating duration before a rate is learned (min)",
           "max_preheat_minutes": "Maximum pre-heating duration (min)",
-          "weather_entity": "Weather entity (forecast, optional)"
+          "weather_entity": "Weather entity (forecast, optional)",
+          "notify_service": "Notification service (optional, e.g. notify.mobile_app_phone)"
         }
       }
     },

@@ -69,6 +69,7 @@ from .const import (
     CONF_INITIAL_PREHEAT_MINUTES,
     CONF_MAX_PREHEAT_MINUTES,
     CONF_WEATHER_ENTITY,
+    CONF_NOTIFY_SERVICE,
     DOMAIN,
     SETTING_DEFAULTS,
     DEFAULT_INDOOR_TEMP,
@@ -112,6 +113,26 @@ HVAC_AUTO = "auto"
 
 STORAGE_VERSION = 1  # learned heating rates
 FORECAST_CACHE_MINUTES = 30
+
+NOTIFICATION_TITLE = "Heat Controller"
+NOTIFICATIONS: dict[str, dict[str, str]] = {
+    "en": {
+        "away_start": "Away mode enabled. Planned return: {when}.",
+        "away_start_open": "Away mode enabled (no return planned).",
+        "away_end": "Away mode ended. Back to the normal schedule.",
+        "fallback": "The splits in {room} are not reaching the target: "
+        "the boiler takes over.",
+        "unresponsive": "The splits in {room} are not responding.",
+    },
+    "fr": {
+        "away_start": "Mode absence activé. Retour prévu : {when}.",
+        "away_start_open": "Mode absence activé (aucun retour prévu).",
+        "away_end": "Mode absence terminé. Retour au planning normal.",
+        "fallback": "Les splits de {room} n'atteignent pas la cible : "
+        "la chaudière prend le relais.",
+        "unresponsive": "Le split de {room} ne répond pas.",
+    },
+}
 
 
 def _as_float(state: Optional[State], default: Optional[float] = None) -> Optional[float]:
@@ -222,6 +243,7 @@ class HeatController:
         self._lock = asyncio.Lock()
         self._cancel: list[Callable] = []
         self._first_run = True
+        self._away_last = shared.away_mode  # no away notification on startup
         # Learned heating rates: persisted store + forecast cache.
         self._store = None  # created in async_start (needs a real hass)
         self._forecast_temp: Optional[float] = None
@@ -339,6 +361,18 @@ class HeatController:
             if shared.decision is not None:
                 shared.set_decision(None)
             return
+
+        # Away mode start/end notifications (whatever triggered them).
+        if shared.away_mode != self._away_last:
+            if shared.away_mode:
+                if shared.away_until is not None:
+                    when = dt_util.as_local(shared.away_until).strftime("%d/%m %H:%M")
+                    await self._notify("away_start", when=when)
+                else:
+                    await self._notify("away_start_open")
+            else:
+                await self._notify("away_end")
+            self._away_last = shared.away_mode
 
         decision = compute(self.settings, self._snapshot_inputs())
         shared.set_decision(decision)
@@ -585,6 +619,7 @@ class HeatController:
                     "The splits of room %s are not following the commands",
                     room.name,
                 )
+                await self._notify("unresponsive", room=room.name)
         # Soft overheating: latched on the solar surplus (or, without a
         # consumption sensor, on the existing production threshold).
         self._solar_bonus = next_solar_bonus(
@@ -664,6 +699,7 @@ class HeatController:
                     "boiler is asked to take over",
                     state.config.name,
                 )
+                await self._notify("fallback", room=state.config.name)
             # Heating rate learning (splits or boiler heating the room).
             if update_learning(
                 state,
@@ -759,6 +795,24 @@ class HeatController:
                 self._forecast_temp = sum(temps) / len(temps)
                 break
         return self._forecast_temp
+
+    async def _notify(self, key: str, **kwargs: Any) -> None:
+        """Send a notification through the configured notify service."""
+        service = str(self.config.get(CONF_NOTIFY_SERVICE, "") or "")
+        if not service:
+            return
+        language = str(getattr(self.hass.config, "language", "en") or "en")
+        catalog = NOTIFICATIONS.get("fr" if language.startswith("fr") else "en")
+        message = catalog[key].format(**kwargs)
+        try:
+            await self.hass.services.async_call(
+                "notify",
+                service.removeprefix("notify."),
+                {"title": NOTIFICATION_TITLE, "message": message},
+                blocking=True,
+            )
+        except Exception:  # noqa: BLE001 - missing service or entity
+            _LOGGER.warning("Could not send the %s notification", key, exc_info=True)
 
     async def _apply_room(self, room: RoomConfig, decision: RoomDecision) -> None:
         """Apply the splits decision of one room."""

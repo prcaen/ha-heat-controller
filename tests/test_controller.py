@@ -74,6 +74,8 @@ class FakeServices:
 
     async def async_call(self, domain, service, data, blocking=True) -> None:
         self.calls.append((domain, service, dict(data)))
+        if domain == "notify":
+            return  # notifications have no entity_id
         entity_id = data["entity_id"]
         if domain == "switch" and service == "turn_on":
             if entity_id not in self.unresponsive_switches:
@@ -771,6 +773,53 @@ class TestHybridRooms(unittest.IsolatedAsyncioTestCase):
         self.assertIn(
             ("climate", "set_temperature", "climate.boiler", None, 12.0), calls
         )
+
+    async def test_notifications_are_sent_through_the_configured_service(self):
+        controller, shared, services, states = build(
+            {"notify_service": "notify.mobile_app_phone", "fallback_minutes": 120},
+            outdoor="8.0",
+            subentries=self.rooms_subentries(),
+        )
+        self.seed_room_states(states)
+
+        def notify_calls():
+            return [call for call in services.calls if call[0] == "notify"]
+
+        # A stalled split asks the boiler: fallback notification.
+        controller.room_states["salon"].fallback = True
+        await controller._update_locked()
+        fallback_calls = [
+            c for c in notify_calls() if "boiler takes over" in c[2]["message"]
+        ]
+        self.assertEqual(len(fallback_calls), 1)
+        self.assertEqual(fallback_calls[0][1], "mobile_app_phone")
+        self.assertEqual(fallback_calls[0][2]["title"], "Heat Controller")
+
+        # Away mode turns on with a planned return: one notification.
+        shared.set_away_mode(True)
+        shared.set_away_until(dt_util.now() + timedelta(hours=8))
+        await controller._update_locked()
+        self.assertEqual(len(notify_calls()), 2)
+        self.assertIn("Planned return", notify_calls()[1][2]["message"])
+
+        # Away mode ends: another one.
+        shared.set_away_mode(False)
+        shared.set_away_until(None)
+        await controller._update_locked()
+        self.assertEqual(len(notify_calls()), 3)
+        self.assertIn("ended", notify_calls()[2][2]["message"])
+
+    async def test_no_notification_without_a_configured_service(self):
+        controller, shared, services, states = build(
+            outdoor="8.0", subentries=self.rooms_subentries()
+        )
+        self.seed_room_states(states)
+        await controller._update_locked()
+        shared.set_away_mode(True)
+        await controller._update_locked()
+        shared.set_away_mode(False)
+        await controller._update_locked()
+        self.assertFalse(any(call[0] == "notify" for call in services.calls))
 
     async def test_room_without_sensor_is_left_alone(self):
         controller, shared, services, states = build(

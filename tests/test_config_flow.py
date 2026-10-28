@@ -80,8 +80,9 @@ class TestSchemas(unittest.TestCase):
 
     def test_settings_schema_defaults(self):
         result = config_flow._settings_schema({})({})
+        optional = set(config_flow.SETTING_ENTITIES) | set(config_flow.SETTING_TEXTS)
         for key, value in SETTING_DEFAULTS.items():
-            if key in config_flow.SETTING_ENTITIES:
+            if key in optional:
                 continue  # optional: absent when left empty
             self.assertEqual(as_number(result[key]), as_number(value), key)
         self.assertEqual(as_number(result[CONF_IDLE_SETPOINT]), 12.0)

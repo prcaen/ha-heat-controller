@@ -55,6 +55,7 @@ from .const import (
     SETTING_ENTITIES,
     SETTING_NUMBERS,
     SETTING_SELECTS,
+    SETTING_TEXTS,
     SETTING_TIMES,
     SUBENTRY_ROOM,
 )
@@ -217,6 +218,10 @@ def _settings_schema(data: dict[str, Any]) -> vol.Schema:
     for key, spec in SETTING_ENTITIES.items():
         schema[vol.Optional(key, description={"suggested_value": setting(key)})] = (
             EntitySelector(EntitySelectorConfig(domain=spec["domain"]))
+        )
+    for key in SETTING_TEXTS:
+        schema[vol.Optional(key, description={"suggested_value": setting(key)})] = (
+            TextSelector()
         )
     return vol.Schema(schema)
 

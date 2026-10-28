@@ -51,7 +51,8 @@
           "min_cycle_minutes": "Durée minimale de marche/arrêt des splits (min)",
           "initial_preheat_minutes": "Durée de préchauffe avant qu'une vitesse soit apprise (min)",
           "max_preheat_minutes": "Durée maximale de préchauffe (min)",
-          "weather_entity": "Entité météo (prévisions, optionnel)"
+          "weather_entity": "Entité météo (prévisions, optionnel)",
+          "notify_service": "Service de notification (optionnel, ex. notify.mobile_app_telephone)"
         }
       }
     },
@@ -111,7 +112,8 @@
           "min_cycle_minutes": "Durée minimale de marche/arrêt des splits (min)",
           "initial_preheat_minutes": "Durée de préchauffe avant qu'une vitesse soit apprise (min)",
           "max_preheat_minutes": "Durée maximale de préchauffe (min)",
-          "weather_entity": "Entité météo (prévisions, optionnel)"
+          "weather_entity": "Entité météo (prévisions, optionnel)",
+          "notify_service": "Service de notification (optionnel, ex. notify.mobile_app_telephone)"
         }
       }
     },
