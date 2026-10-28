@@ -136,12 +136,17 @@
       "heating_demand": { "name": "Demande de chauffage" },
       "day_period": { "name": "Période jour" },
       "solar_period": { "name": "Période solaire" },
-      "frost_protection": { "name": "Hors gel" }
+      "frost_protection": { "name": "Hors gel" },
+      "boiler_demand": { "name": "Demande chaudière" }
     },
     "sensor": {
       "target_setpoint": { "name": "Consigne cible" },
       "preheating_duration": { "name": "Durée de préchauffe" },
-      "source": { "name": "Source de chaleur" }
+      "source": { "name": "Source de chaleur" },
+      "mode": {
+        "name": "Mode",
+        "state": { "day": "Jour", "night": "Nuit", "away": "Absence" }
+      }
     },
     "select": {
       "heat_source_override": {

@@ -59,11 +59,12 @@ class TestTranslations(unittest.TestCase):
                 "day_period",
                 "solar_period",
                 "frost_protection",
+                "boiler_demand",
             },
         )
         self.assertEqual(
             set(self.strings["entity"]["sensor"]),
-            {"target_setpoint", "preheating_duration", "source"},
+            {"target_setpoint", "preheating_duration", "source", "mode"},
         )
         self.assertEqual(
             set(self.strings["entity"]["number"]), set(const.SETTING_NUMBERS)

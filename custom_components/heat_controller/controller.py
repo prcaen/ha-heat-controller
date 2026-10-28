@@ -360,6 +360,8 @@ class HeatController:
             # Control disabled: no decision is valid any more.
             if shared.decision is not None:
                 shared.set_decision(None)
+            if shared.house is not None:
+                shared.set_house(None)
             return
 
         # Away mode start/end notifications (whatever triggered them).
@@ -388,6 +390,10 @@ class HeatController:
             # Hybrid multi-room regulation.
             await self._update_rooms(decision)
             return
+
+        # Single-zone regulation: no house decision.
+        if shared.house is not None:
+            shared.set_house(None)
 
         # PAC / Boiler changeover (or reapplication on first pass).
         if decision.changeover:
@@ -622,13 +628,14 @@ class HeatController:
                 await self._notify("unresponsive", room=room.name)
         # Soft overheating: latched on the solar surplus (or, without a
         # consumption sensor, on the existing production threshold).
-        self._solar_bonus = next_solar_bonus(
-            self.settings,
-            _as_float(self.hass.states.get(self.production_sensor)),
+        production = _as_float(self.hass.states.get(self.production_sensor))
+        consumption = (
             _as_float(self.hass.states.get(self.consumption_sensor))
             if self.consumption_sensor
-            else None,
-            self._solar_bonus,
+            else None
+        )
+        self._solar_bonus = next_solar_bonus(
+            self.settings, production, consumption, self._solar_bonus
         )
         house = compute_house(
             self.settings,
@@ -638,6 +645,8 @@ class HeatController:
                 away_mode=shared.away_mode,
                 forced_source=shared.forced_source,
                 solar_bonus_active=self._solar_bonus,
+                production=production,
+                consumption=consumption,
                 away_end=shared.away_until or (
                     at_time(dt_util.now(), self.settings.return_time)
                     if shared.away_mode
@@ -651,6 +660,7 @@ class HeatController:
             fallback_demand=any(state.fallback for state in self.room_states.values()),
         )
         self._trigger_demand = house.trigger_demand
+        shared.set_house(house)
 
         # The global decision keeps feeding the existing entities, with
         # the hybrid result overriding the single-zone fields.

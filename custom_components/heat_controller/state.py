@@ -9,6 +9,7 @@ from typing import Callable, Optional
 from homeassistant.core import callback
 
 from .logic import SOURCE_AUTO, SOURCE_OPTIONS, Decision
+from .rooms_logic import HouseDecision
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -33,6 +34,7 @@ class HeatState:
         self.demand: bool = False
         self.forced_source: str = SOURCE_AUTO
         self.decision: Optional[Decision] = None
+        self.house: Optional[HouseDecision] = None
         self._subscribers: list[Subscriber] = []
 
     @callback
@@ -93,4 +95,10 @@ class HeatState:
     @callback
     def set_decision(self, decision: Optional[Decision]) -> None:
         self.decision = decision
+        self._publish()
+
+    @callback
+    def set_house(self, house: Optional[HouseDecision]) -> None:
+        """Latest hybrid decision (None outside the multi-room mode)."""
+        self.house = house
         self._publish()

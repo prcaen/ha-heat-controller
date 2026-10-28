@@ -14,6 +14,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.restore_state import RestoreEntity
 
+from .controller import HeatController
 from .entity import HeatControllerEntity
 from .state import HeatState
 
@@ -24,16 +25,18 @@ async def async_setup_entry(
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
     shared: HeatState = hass.data["heat_controller"][entry.entry_id]["shared"]
-    async_add_entities(
-        [
-            HeatRestorableBinarySensor(entry, shared, "heat_pump_source"),
-            HeatRestorableBinarySensor(entry, shared, "preheating"),
-            HeatRestorableBinarySensor(entry, shared, "heating_demand"),
-            HeatComputedBinarySensor(entry, shared, "day_period"),
-            HeatComputedBinarySensor(entry, shared, "solar_period"),
-            HeatComputedBinarySensor(entry, shared, "frost_protection"),
-        ]
-    )
+    controller: HeatController = hass.data["heat_controller"][entry.entry_id]["controller"]
+    entities: list = [
+        HeatRestorableBinarySensor(entry, shared, "heat_pump_source"),
+        HeatRestorableBinarySensor(entry, shared, "preheating"),
+        HeatRestorableBinarySensor(entry, shared, "heating_demand"),
+        HeatComputedBinarySensor(entry, shared, "day_period"),
+        HeatComputedBinarySensor(entry, shared, "solar_period"),
+        HeatComputedBinarySensor(entry, shared, "frost_protection"),
+    ]
+    if controller.rooms:
+        entities.append(HeatBoilerDemandSensor(entry, shared))
+    async_add_entities(entities)
 
 
 class HeatRestorableBinarySensor(HeatControllerEntity, BinarySensorEntity, RestoreEntity):
@@ -92,3 +95,22 @@ class HeatComputedBinarySensor(HeatControllerEntity, BinarySensorEntity):
         if self._key == "solar_period":
             return decision.in_solar_period
         return decision.frost_protection
+
+
+class HeatBoilerDemandSensor(HeatControllerEntity, BinarySensorEntity):
+    """Boiler demand in multi-room mode (trigger room or stalled split)."""
+
+    _attr_translation_key = "boiler_demand"
+    _attr_icon = "mdi:radiator"
+
+    def __init__(self, entry: ConfigEntry, shared: HeatState) -> None:
+        super().__init__(entry, shared, "boiler_demand")
+
+    @property
+    def available(self) -> bool:
+        return self._shared.house is not None
+
+    @property
+    def is_on(self) -> bool | None:
+        house = self._shared.house
+        return house.boiler_demand if house else None

@@ -136,12 +136,17 @@
       "heating_demand": { "name": "Heating demand" },
       "day_period": { "name": "Day period" },
       "solar_period": { "name": "Solar period" },
-      "frost_protection": { "name": "Frost protection" }
+      "frost_protection": { "name": "Frost protection" },
+      "boiler_demand": { "name": "Boiler demand" }
     },
     "sensor": {
       "target_setpoint": { "name": "Target setpoint" },
       "preheating_duration": { "name": "Pre-heat duration" },
-      "source": { "name": "Heat source" }
+      "source": { "name": "Heat source" },
+      "mode": {
+        "name": "Mode",
+        "state": { "day": "Day", "night": "Night", "away": "Away" }
+      }
     },
     "select": {
       "heat_source_override": {

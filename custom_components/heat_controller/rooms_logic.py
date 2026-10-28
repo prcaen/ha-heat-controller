@@ -140,6 +140,8 @@ class HouseDecision:
     thermostat_room_target: Optional[float] = None
     solar_bonus: bool = False  # soft overheating active (this cycle)
     now: Optional[datetime] = None  # instant of the decision
+    production: Optional[float] = None  # W produced (for the mode sensor)
+    consumption: Optional[float] = None  # W consumed (for the mode sensor)
 
     def room(self, room_id: str) -> Optional[RoomDecision]:
         return next((d for d in self.rooms if d.room_id == room_id), None)
@@ -402,6 +404,8 @@ def compute_house(
         thermostat_room_target=normal,
         solar_bonus=inputs.solar_bonus_active,
         now=inputs.now,
+        production=inputs.production,
+        consumption=inputs.consumption,
     )
 
 
