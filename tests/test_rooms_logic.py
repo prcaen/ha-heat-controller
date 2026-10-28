@@ -423,6 +423,53 @@ class TestManualOverride(unittest.TestCase):
         self.assertIsNone(self.state.override_mode)
 
 
+class TestMinCycle(unittest.TestCase):
+    def setUp(self):
+        self.rooms = [room("salon", "Salon", "sensor.salon", target=19.5,
+                           thermostat_room=True, switches=("sw1",), climates=("cl1",))]
+
+    def test_recent_change_keeps_the_split_in_its_current_state(self):
+        s = settings(min_cycle_minutes=5)
+        # Split running since a minute, room now at target: keep it on.
+        states = states_of(self.rooms, {"salon": 19.6})
+        states["salon"].splits_on = True
+        states["salon"].last_change = NOW - timedelta(minutes=1)
+        house = compute_house(s, house_inputs(), self.rooms, states)
+        self.assertTrue(house.room("salon").want_splits)
+
+        # Split stopped a minute ago, room cold: keep it off.
+        states["salon"].splits_on = False
+        states["salon"].temp = 18.0
+        house = compute_house(s, house_inputs(), self.rooms, states)
+        self.assertFalse(house.room("salon").want_splits)
+
+    def test_change_after_the_minimum_time_is_applied(self):
+        s = settings(min_cycle_minutes=5)
+        states = states_of(self.rooms, {"salon": 19.6})
+        states["salon"].splits_on = True
+        states["salon"].last_change = NOW - timedelta(minutes=6)
+        house = compute_house(s, house_inputs(), self.rooms, states)
+        self.assertFalse(house.room("salon").want_splits)
+
+    def test_forced_stop_ignores_the_minimum_time(self):
+        s = settings(min_cycle_minutes=60)
+        states = states_of(self.rooms, {"salon": 17.0})
+        states["salon"].splits_on = True
+        states["salon"].last_change = NOW - timedelta(minutes=1)
+        cold = house_inputs(outdoor_temp=0.0)
+        house = compute_house(s, cold, self.rooms, states)
+        self.assertFalse(house.room("salon").splits_allowed)
+        self.assertFalse(house.room("salon").want_splits)
+
+    def test_zero_minimum_time_changes_immediately(self):
+        s = settings(min_cycle_minutes=0)
+        states = states_of(self.rooms, {"salon": 19.6})
+        states["salon"].splits_on = True
+        states["salon"].last_change = NOW
+        house = compute_house(s, house_inputs(), self.rooms, states)
+        self.assertFalse(house.room("salon").want_splits)
+
+
 def tearDownModule():
     unload_pure()
 

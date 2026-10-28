@@ -681,6 +681,35 @@ class TestHybridRooms(unittest.IsolatedAsyncioTestCase):
             ("climate", "set_temperature", "climate.salon_gauche", None, 21.5), calls
         )
 
+    async def test_minimum_cycle_time_blocks_a_quick_stop(self):
+        controller, shared, services, states = build(
+            {"min_cycle_minutes": 5}, outdoor="8.0", subentries=self.rooms_subentries()
+        )
+        self.seed_room_states(states)
+        await controller._update_locked()  # splits start
+        state = controller.room_states["salon"]
+
+        # Target reached one minute after the start: the split keeps
+        # running (minimum run time).
+        states.set("sensor.salon_temp", "19.6")
+        state.last_change = dt_util.now() - timedelta(minutes=1)
+        calls_before = len(services.calls)
+        await controller._update_locked()
+        self.assertFalse(
+            any(
+                call[0] == "switch" and call[1] == "turn_off"
+                for call in services.calls[calls_before:]
+            )
+        )
+
+        # Six minutes later: the split stops.
+        state.last_change = dt_util.now() - timedelta(minutes=6)
+        await controller._update_locked()
+        self.assertIn(
+            ("switch", "turn_off", "switch.salon_gauche", None, None),
+            summarise(services),
+        )
+
     async def test_manual_split_change_leaves_the_room_alone(self):
         controller, shared, services, states = build(
             outdoor="8.0", subentries=self.rooms_subentries()

@@ -60,6 +60,7 @@ class RoomState:
     confirmed: bool = False  # the switches had followed the command
     unresponsive_notified: bool = False
     override_mode: Optional[str] = None  # mode during which the room is left alone
+    last_change: Optional[datetime] = None  # when the switches last changed state
 
 
 @dataclass(frozen=True)
@@ -235,6 +236,15 @@ def compute_house(
                 want = temp < target
             else:
                 want = temp < target - settings.hysteresis
+            # Compressor protection: a non-forced change of state waits
+            # for the minimum run/stop time since the last change.
+            if (
+                want != state.splits_on
+                and state.last_change is not None
+                and (inputs.now - state.last_change)
+                < timedelta(minutes=settings.min_cycle_minutes)
+            ):
+                want = state.splits_on
         else:
             want = False
 

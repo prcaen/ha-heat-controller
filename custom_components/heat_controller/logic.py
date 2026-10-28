@@ -102,6 +102,7 @@ class Settings:
     solar_bonus: float = 0.5
     surplus_threshold: float = 500.0
     fallback_minutes: float = 120.0
+    min_cycle_minutes: float = 5.0
 
 
 @dataclass(frozen=True)

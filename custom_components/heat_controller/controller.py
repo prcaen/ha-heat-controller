@@ -64,6 +64,7 @@ from .const import (
     CONF_SOLAR_BONUS,
     CONF_SURPLUS_THRESHOLD,
     CONF_FALLBACK_MINUTES,
+    CONF_MIN_CYCLE_MINUTES,
     SETTING_DEFAULTS,
     DEFAULT_INDOOR_TEMP,
     DEFAULT_PRODUCTION,
@@ -143,6 +144,7 @@ def settings_from_config(config: Mapping[str, Any]) -> Settings:
         solar_bonus=number(CONF_SOLAR_BONUS),
         surplus_threshold=number(CONF_SURPLUS_THRESHOLD),
         fallback_minutes=number(CONF_FALLBACK_MINUTES),
+        min_cycle_minutes=number(CONF_MIN_CYCLE_MINUTES),
         split_fan_preset=str(config.get(CONF_SPLIT_FAN_PRESET, SETTING_DEFAULTS[CONF_SPLIT_FAN_PRESET])),
         split_fan_oscillating=bool(
             config.get(CONF_SPLIT_FAN_OSCILLATING, SETTING_DEFAULTS[CONF_SPLIT_FAN_OSCILLATING])
@@ -538,7 +540,10 @@ class HeatController:
         for room in self.rooms:
             state = self.room_states.setdefault(room.id, RoomState(room))
             state.temp = _as_float(self.hass.states.get(room.sensor))
-            state.splits_on = any(self._is_on(switch) for switch in room.switches)
+            actual_on = any(self._is_on(switch) for switch in room.switches)
+            if state.splits_on != actual_on:
+                state.last_change = dt_util.now()  # for the minimum run/stop time
+            state.splits_on = actual_on
             state.base_target = resolve_target(self.rooms, room)
             # A split changed by someone else: leave the room alone until
             # the next mode transition. A command never followed is
