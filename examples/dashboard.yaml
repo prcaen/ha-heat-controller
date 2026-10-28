@@ -32,6 +32,20 @@ cards:
       - entity: binary_sensor.heating_heat_pump_source
       - entity: sensor.heating_heat_source
 
+  # Multi-room mode (when rooms are configured on the entry): global mode
+  # with the solar surplus as attributes, boiler demand, and per room the
+  # heat source, the learned heating rate and the next pre-heating.
+  # Duplicate the per-room block for each room sub-entry (entity names
+  # follow the room names, e.g. sensor.salon_heat_source).
+  - type: entities
+    title: Hybrid regulation
+    entities:
+      - entity: sensor.heating_mode
+      - entity: binary_sensor.heating_boiler_demand
+      - entity: sensor.salon_heat_source
+      - entity: sensor.salon_learned_heating_rate
+      - entity: sensor.salon_next_pre_heating
+
   # Status and the main settings (all settings exist as number/time entities:
   # thresholds, rates, margins, solar window, ...).
   - type: entities

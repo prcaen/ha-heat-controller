@@ -70,6 +70,18 @@ Forecast.Solar forecast.
 | `number.heating_*` (12 entities) | number | `input_number.chauffage_*` |
 | `time.heating_*` (5 entities) | time | `input_datetime.chauffage_heure_*` |
 
+With rooms configured (multi-room mode, see below) the integration also
+creates:
+
+| Entity | Type | Purpose |
+|---|---|---|
+| `sensor.heating_mode` | sensor | `day` / `night` / `away`, with the solar surplus, the boiler setpoint and the splits state as attributes |
+| `binary_sensor.heating_boiler_demand` | binary_sensor | a trigger room (or a stalled split) is asking the boiler |
+| `sensor.<room>_heat_source` | sensor | per room: `idle` / `splits` / `boiler`, with the room's target, pre-heating and override state |
+| `sensor.<room>_learned_heating_rate` | sensor | per room: learned heating speed (°C/h) |
+| `sensor.<room>_next_pre_heating` | sensor | per room: when the next pre-heating starts |
+| `number.heating_*`, `select.heating_*`, `switch.heating_*` | — | the hybrid settings (split offset, boiler demand setpoint, surplus threshold and bonus, fallback delay, minimum run/stop time, fan preset and oscillation, ...) |
+
 Flags (heat pump source, preheating, demand, active, away mode, forced
 source, absence end) persist across restarts, like the original
 `input_boolean` entities.
@@ -97,7 +109,8 @@ Settings → Devices and services → **Add integration** →
 **Heat Controller**. Three screens :
 
 1. **Sensors** : outdoor temperature, indoor temperature, and
-   instantaneous solar power production (power sensor). If
+   instantaneous solar power production (power sensor), plus the optional
+   house consumption power sensor (for the solar surplus). If
    the Solenso integration is installed, the central's power sensor
    is pre-selected.
 2. **Controlled devices** : the boiler's climate (Netatmo), the heat pump's
@@ -116,6 +129,53 @@ dashboard through the `number`/`time` entities; settings are stored in the
 integration options and applied without reloading. Diagnostics (settings,
 flags, last decision and sensor readings) can be downloaded from the entry
 page.
+
+## Rooms and hybrid regulation (multi-room mode)
+
+With Home Assistant 2025.3 or newer, rooms can be added to the entry
+(« Add room » on the integration page, editable afterwards). A room has:
+a name, its temperature sensor, a day target (or the target of another
+room, e.g. the bathrooms following the living room), a **boiler
+trigger** flag (the room may request the boiler when it is too cold),
+the **thermostat room** flag (the boiler thermostat lives in this
+room — usually the living room) and the splits that heat it: power
+switches (the only way to turn a split off), climate entities and fan
+entities.
+
+Once rooms exist, the hybrid regulation replaces the single-zone
+changeover:
+
+- **Mild day** (outdoor at or above the threshold, or sensor
+  unavailable): the splits regulate each room — start below
+  target − hysteresis, stop at the target, setpoint = target +
+  offset. The boiler rests at the idle setpoint and rises to the
+  demand setpoint while a trigger room is below its target, until all
+  of them recover.
+- **Solar surplus**: on a production surplus (production −
+  consumption above the threshold, or above the production threshold
+  without a consumption sensor) the split rooms aim slightly above
+  their target, with a ±threshold hysteresis band so the splits' own
+  consumption cannot flip the mode.
+- **Cold day, night or absence**: the splits are off and the boiler
+  follows the thermostat room's effective target (raised to the
+  demand setpoint while a room still asks for heat). The splits
+  pre-heat their rooms before the day period and before a planned
+  return; on a cold night the boiler takes the day target during the
+  pre-heating.
+- **Safety nets**: a running split that does not progress by 0.2 °C
+  for the fallback delay (2 h default) asks the boiler; a split
+  changed by hand leaves its room alone until the next mode
+  transition; non-forced state changes wait for the minimum run/stop
+  time; commands are sent only once the switches confirm ON and the
+  climate entities are available.
+- **Learning**: each room's heating speed is learned from the
+  observed sessions and persisted; the pre-heating duration is
+  (target − current) / rate, adjusted with the weather forecast when
+  a weather entity is configured.
+- **Notifications**: an optional notify service receives the away
+  start/end, the unresponsive splits and the boiler takeovers.
+
+Entries without rooms keep the original single-zone behaviour.
 
 ### Dashboard
 
