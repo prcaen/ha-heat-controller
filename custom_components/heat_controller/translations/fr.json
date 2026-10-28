@@ -48,7 +48,10 @@
           "solar_bonus": "Bonus surplus solaire (°C)",
           "surplus_threshold": "Seuil de surplus solaire (W)",
           "fallback_minutes": "Délai avant que la chaudière prenne le relais d'un split bloqué (min)",
-          "min_cycle_minutes": "Durée minimale de marche/arrêt des splits (min)"
+          "min_cycle_minutes": "Durée minimale de marche/arrêt des splits (min)",
+          "initial_preheat_minutes": "Durée de préchauffe avant qu'une vitesse soit apprise (min)",
+          "max_preheat_minutes": "Durée maximale de préchauffe (min)",
+          "weather_entity": "Entité météo (prévisions, optionnel)"
         }
       }
     },
@@ -105,7 +108,10 @@
           "solar_bonus": "Bonus surplus solaire (°C)",
           "surplus_threshold": "Seuil de surplus solaire (W)",
           "fallback_minutes": "Délai avant que la chaudière prenne le relais d'un split bloqué (min)",
-          "min_cycle_minutes": "Durée minimale de marche/arrêt des splits (min)"
+          "min_cycle_minutes": "Durée minimale de marche/arrêt des splits (min)",
+          "initial_preheat_minutes": "Durée de préchauffe avant qu'une vitesse soit apprise (min)",
+          "max_preheat_minutes": "Durée maximale de préchauffe (min)",
+          "weather_entity": "Entité météo (prévisions, optionnel)"
         }
       }
     },
@@ -175,7 +181,9 @@
       "solar_bonus": { "name": "Bonus surplus solaire" },
       "surplus_threshold": { "name": "Seuil de surplus solaire" },
       "fallback_minutes": { "name": "Délai de repli chaudière" },
-      "min_cycle_minutes": { "name": "Durée minimale de marche/arrêt des splits" }
+      "min_cycle_minutes": { "name": "Durée minimale de marche/arrêt des splits" },
+      "initial_preheat_minutes": { "name": "Durée de préchauffe initiale" },
+      "max_preheat_minutes": { "name": "Durée maximale de préchauffe" }
     },
     "time": {
       "day_start": { "name": "Début de la période jour" },

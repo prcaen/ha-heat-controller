@@ -81,12 +81,15 @@ class TestSchemas(unittest.TestCase):
     def test_settings_schema_defaults(self):
         result = config_flow._settings_schema({})({})
         for key, value in SETTING_DEFAULTS.items():
+            if key in config_flow.SETTING_ENTITIES:
+                continue  # optional: absent when left empty
             self.assertEqual(as_number(result[key]), as_number(value), key)
         self.assertEqual(as_number(result[CONF_IDLE_SETPOINT]), 12.0)
 
     def test_outdoor_threshold_bounds(self):
+        entity_keys = set(config_flow.SETTING_ENTITIES)
         factory = config_flow._settings_schema(dict(SETTING_DEFAULTS))
-        payload = dict(SETTING_DEFAULTS)
+        payload = {k: v for k, v in SETTING_DEFAULTS.items() if k not in entity_keys}
         factory({**payload, CONF_OUTDOOR_THRESHOLD: -5.0})
         factory({**payload, CONF_OUTDOOR_THRESHOLD: 10.0})
         with self.assertRaises(vol.Invalid):
@@ -97,8 +100,9 @@ class TestSchemas(unittest.TestCase):
     def test_frost_setpoint_default_and_bounds(self):
         result = config_flow._settings_schema({})({})
         self.assertEqual(as_number(result[CONF_FROST_SETPOINT]), 7.0)
+        entity_keys = set(config_flow.SETTING_ENTITIES)
         factory = config_flow._settings_schema(dict(SETTING_DEFAULTS))
-        payload = dict(SETTING_DEFAULTS)
+        payload = {k: v for k, v in SETTING_DEFAULTS.items() if k not in entity_keys}
         factory({**payload, CONF_FROST_SETPOINT: 15.0})
         with self.assertRaises(vol.Invalid):
             factory({**payload, CONF_FROST_SETPOINT: 15.5})

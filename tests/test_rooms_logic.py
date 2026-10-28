@@ -18,6 +18,7 @@ HouseInputs = rooms_logic.HouseInputs
 compute_house = rooms_logic.compute_house
 update_fallback = rooms_logic.update_fallback
 detect_manual = rooms_logic.detect_manual
+update_learning = rooms_logic.update_learning
 
 NOW = datetime(2026, 10, 21, 12, 0, 0)  # a Tuesday, within the day period
 
@@ -468,6 +469,149 @@ class TestMinCycle(unittest.TestCase):
         states["salon"].last_change = NOW
         house = compute_house(s, house_inputs(), self.rooms, states)
         self.assertFalse(house.room("salon").want_splits)
+
+
+class TestLearning(unittest.TestCase):
+    def setUp(self):
+        self.rooms = [room("salon", "Salon", "sensor.salon", target=19.5,
+                           thermostat_room=True, switches=("sw1",), climates=("cl1",))]
+        self.state = states_of(self.rooms, {"salon": 17.0})["salon"]
+        self.settings = settings()
+
+    def decision(self, temp, splits_on=True):
+        self.state.temp = temp
+        self.state.splits_on = splits_on
+        house = compute_house(self.settings, house_inputs(), self.rooms,
+                              {"salon": self.state})
+        return house.room("salon")
+
+    def test_session_produces_a_rate(self):
+        decision = self.decision(17.0)
+        update_learning(self.state, decision, NOW, 5.0, False)
+        self.assertIsNotNone(self.state.session)
+
+        # The room warms up over an hour, then the session ends.
+        later = NOW + timedelta(hours=1)
+        decision = self.decision(18.4)
+        learned = update_learning(self.state, decision, later, 5.0, False)
+        self.assertFalse(learned)  # session still ongoing
+        # Heating stops: the session is finalized.
+        decision = self.decision(18.5, splits_on=False)
+        learned = update_learning(self.state, decision, later, 5.0, False)
+        self.assertTrue(learned)
+        self.assertAlmostEqual(self.state.rate, 1.4, places=3)
+        self.assertEqual(self.state.ref_outdoor, 5.0)
+
+    def test_short_session_is_ignored(self):
+        decision = self.decision(17.0)
+        update_learning(self.state, decision, NOW, 5.0, False)
+        later = NOW + timedelta(minutes=10)  # below the minimum
+        decision = self.decision(17.6, splits_on=False)
+        learned = update_learning(self.state, decision, later, 5.0, False)
+        self.assertFalse(learned)
+        self.assertIsNone(self.state.rate)
+
+    def test_rate_is_smoothed(self):
+        self.state.rate = 1.0
+        self.state.session = {
+            "t0": NOW, "temp0": 17.0, "t": NOW + timedelta(hours=1),
+            "temp": 19.0, "outdoor": 5.0,
+        }
+        # Finalize directly: a 2 C/h sample with alpha 0.3.
+        learned = rooms_logic.finalize_session(self.state)
+        self.assertTrue(learned)
+        self.assertAlmostEqual(self.state.rate, 1.0 * 0.7 + 2.0 * 0.3, places=3)
+        self.assertAlmostEqual(self.state.ref_outdoor, 5.0, places=3)
+
+
+class TestPreheat(unittest.TestCase):
+    def setUp(self):
+        self.rooms = [room("salon", "Salon", "sensor.salon", target=19.5,
+                           thermostat_room=True, switches=("sw1",), climates=("cl1",))]
+
+    def test_fixed_duration_until_a_rate_is_learned(self):
+        s = settings(initial_preheat_minutes=60, max_preheat_minutes=180)
+        state = states_of(self.rooms, {"salon": 17.0})["salon"]
+        minutes = rooms_logic.preheat_duration(s, state, 19.5, None)
+        self.assertEqual(minutes, 60)
+
+    def test_learned_rate_gives_the_duration(self):
+        s = settings(initial_preheat_minutes=60, max_preheat_minutes=180)
+        state = states_of(self.rooms, {"salon": 17.0})["salon"]
+        state.rate = 1.0  # 1 C/h: 2.5 C gap -> 150 min
+        state.ref_outdoor = 5.0
+        minutes = rooms_logic.preheat_duration(s, state, 19.5, None)
+        self.assertAlmostEqual(minutes, 150.0, places=3)
+
+    def test_weather_factor_extends_the_duration_when_colder(self):
+        s = settings(initial_preheat_minutes=60, max_preheat_minutes=1000)
+        state = states_of(self.rooms, {"salon": 17.0})["salon"]
+        state.rate = 1.0
+        state.ref_outdoor = 5.0
+        # Forecast 10 C colder than when the rate was learned: +30 %.
+        minutes = rooms_logic.preheat_duration(s, state, 19.5, -5.0)
+        self.assertAlmostEqual(minutes, 150.0 * 1.3, places=3)
+        # ...but the factor is clamped.
+        minutes = rooms_logic.preheat_duration(s, state, 19.5, -100.0)
+        self.assertAlmostEqual(minutes, 150.0 * rooms_logic.WEATHER_FACTOR_MAX, places=3)
+
+    def test_duration_is_capped(self):
+        s = settings(initial_preheat_minutes=60, max_preheat_minutes=100)
+        state = states_of(self.rooms, {"salon": 10.0})["salon"]
+        state.rate = 0.1
+        minutes = rooms_logic.preheat_duration(s, state, 19.5, None)
+        self.assertEqual(minutes, 100)
+
+    def test_preheat_before_the_day_period(self):
+        s = settings(initial_preheat_minutes=60)
+        state = states_of(self.rooms, {"salon": 17.0})["salon"]
+        # 05:00, day starts at 07:00, 60 min of pre-heating: not yet.
+        inputs = house_inputs(now=datetime(2026, 10, 21, 5, 0))
+        active, start = rooms_logic.preheat_window(s, inputs, 60, "night")
+        self.assertFalse(active)
+        # 06:15: pre-heating.
+        inputs = house_inputs(now=datetime(2026, 10, 21, 6, 15))
+        active, start = rooms_logic.preheat_window(s, inputs, 60, "night")
+        self.assertTrue(active)
+        self.assertEqual(start, datetime(2026, 10, 21, 6, 0))
+
+    def test_preheat_before_the_planned_return(self):
+        s = settings(initial_preheat_minutes=60)
+        inputs = house_inputs(
+            now=datetime(2026, 10, 21, 16, 0),
+            away_mode=True,
+            away_end=datetime(2026, 10, 21, 17, 0),
+        )
+        active, start = rooms_logic.preheat_window(s, inputs, 60, "away")
+        self.assertTrue(active)
+        self.assertEqual(start, datetime(2026, 10, 21, 16, 0))
+        # No planned return: no pre-heating.
+        inputs = house_inputs(now=datetime(2026, 10, 21, 16, 0), away_mode=True)
+        active, start = rooms_logic.preheat_window(s, inputs, 60, "away")
+        self.assertFalse(active)
+
+    def test_preheating_room_switches_to_day_early(self):
+        s = settings(initial_preheat_minutes=90)
+        states = states_of(self.rooms, {"salon": 17.0})
+        # 05:45, day at 07:00, 90 min pre-heating: the room is "day".
+        inputs = house_inputs(now=datetime(2026, 10, 21, 5, 45))
+        house = compute_house(s, inputs, self.rooms, states)
+        decision = house.room("salon")
+        self.assertTrue(decision.preheating)
+        self.assertEqual(decision.target, 19.5)  # day target, not night 16
+        self.assertTrue(decision.splits_allowed)
+        self.assertTrue(decision.want_splits)  # 17 < 19.5 - 0.3
+        self.assertEqual(states["salon"].next_preheat,
+                         datetime(2026, 10, 21, 5, 30))
+        # The house shows the pre-heating: the boiler stays in splits mode
+        # on a mild night.
+        self.assertTrue(house.splits_allowed)
+        self.assertEqual(house.mode, "night")
+
+        # Cold night with pre-heating: the boiler follows the day target.
+        cold = house_inputs(now=datetime(2026, 10, 21, 5, 45), outdoor_temp=0.0)
+        house = compute_house(s, cold, self.rooms, states)
+        self.assertEqual(house.boiler_setpoint, 19.5)
 
 
 def tearDownModule():

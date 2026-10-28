@@ -52,6 +52,7 @@ from .const import (
     DOMAIN,
     SETTING_BOOLEANS,
     SETTING_DEFAULTS,
+    SETTING_ENTITIES,
     SETTING_NUMBERS,
     SETTING_SELECTS,
     SETTING_TIMES,
@@ -207,12 +208,16 @@ def _settings_schema(data: dict[str, Any]) -> vol.Schema:
         schema[vol.Required(key, default=setting(key))] = _number_selector(key)
     for key in SETTING_TIMES:
         schema[vol.Required(key, default=setting(key))] = TimeSelector()
-    for key, spec in SETTING_SELECTS.items():
+    for key in SETTING_SELECTS:
         schema[vol.Required(key, default=setting(key))] = SelectSelector(
-            SelectSelectorConfig(options=spec["options"], mode=SelectSelectorMode.DROPDOWN)
+            SelectSelectorConfig(options=SETTING_SELECTS[key]["options"], mode=SelectSelectorMode.DROPDOWN)
         )
     for key in SETTING_BOOLEANS:
         schema[vol.Required(key, default=setting(key))] = BooleanSelector()
+    for key, spec in SETTING_ENTITIES.items():
+        schema[vol.Optional(key, description={"suggested_value": setting(key)})] = (
+            EntitySelector(EntitySelectorConfig(domain=spec["domain"]))
+        )
     return vol.Schema(schema)
 
 

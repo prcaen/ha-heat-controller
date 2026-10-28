@@ -61,6 +61,12 @@ class RoomState:
     unresponsive_notified: bool = False
     override_mode: Optional[str] = None  # mode during which the room is left alone
     last_change: Optional[datetime] = None  # when the switches last changed state
+    # Learned heating rate (persisted by the controller).
+    session: Optional[dict] = None  # heating session in progress
+    rate: Optional[float] = None  # learned °C/h
+    ref_outdoor: Optional[float] = None  # outdoor temp when the rate was learned
+    preheat_minutes: float = 0.0
+    next_preheat: Optional[datetime] = None
 
 
 @dataclass(frozen=True)
@@ -74,6 +80,8 @@ class HouseInputs:
     production: Optional[float] = None  # W produced right now
     consumption: Optional[float] = None  # W consumed right now (None = no sensor)
     solar_bonus_active: bool = False  # latched soft overheating state
+    away_end: Optional[datetime] = None  # planned return (away mode)
+    forecast: Optional[float] = None  # average forecast outdoor temperature
 
 
 def next_solar_bonus(
@@ -109,9 +117,12 @@ class RoomDecision:
     temp: Optional[float]
     target: Optional[float]
     controllable: bool  # sensor and target known
-    splits_allowed: bool  # splits may run (day + outdoor + override)
+    splits_allowed: bool  # splits may run (effective day + outdoor + override)
     want_splits: bool
     left_alone: bool  # manual override: the room is not driven
+    preheating: bool  # the room is pre-heated ahead of the schedule
+    preheat_minutes: float
+    next_preheat: Optional[datetime]
     boiler_trigger_cold: bool  # below target - hysteresis (trigger rooms)
     source: str
 
@@ -169,6 +180,15 @@ def splits_allowed_now(
     return inputs.outdoor_temp is None or inputs.outdoor_temp >= settings.outdoor_threshold
 
 
+def outdoor_allows(settings: Settings, inputs: HouseInputs) -> bool:
+    """Manual override and outdoor threshold, mode independent."""
+    if inputs.forced_source == SOURCE_BOILER:
+        return False
+    if inputs.forced_source == SOURCE_HEAT_PUMP:
+        return True
+    return inputs.outdoor_temp is None or inputs.outdoor_temp >= settings.outdoor_threshold
+
+
 def room_target(
     settings: Settings,
     mode: str,
@@ -188,6 +208,58 @@ def room_target(
     return target
 
 
+def preheat_duration(
+    settings: Settings,
+    state: RoomState,
+    base_target: Optional[float],
+    forecast: Optional[float],
+) -> float:
+    """Pre-heating duration of a room, in minutes.
+
+    (target - current) / learned rate, adjusted with the weather
+    forecast (longer when colder than when the rate was learned),
+    capped by the maximum duration. A fixed duration is used until a
+    rate has been learned.
+    """
+    if (
+        state.rate is not None
+        and state.rate > 0.05
+        and state.temp is not None
+        and base_target is not None
+    ):
+        minutes = max(0.0, base_target - state.temp) / state.rate * 60
+        if forecast is not None and state.ref_outdoor is not None:
+            factor = 1 + WEATHER_FACTOR_PER_DEGREE * (state.ref_outdoor - forecast)
+            minutes *= min(max(factor, WEATHER_FACTOR_MIN), WEATHER_FACTOR_MAX)
+    else:
+        minutes = settings.initial_preheat_minutes
+    return min(minutes, settings.max_preheat_minutes)
+
+
+def preheat_window(
+    settings: Settings,
+    inputs: HouseInputs,
+    minutes: float,
+    mode: str,
+) -> tuple[bool, Optional[datetime]]:
+    """Whether the pre-heating is active, and when it started."""
+    delta = timedelta(minutes=minutes)
+    now = inputs.now
+    if mode == MODE_AWAY:
+        end = inputs.away_end
+        if end is None:
+            return False, None
+        start = end - delta
+        return start <= now < end, start
+    if mode == MODE_DAY:
+        return False, None
+    # Night: the next day start.
+    day_dt = at_time(now, settings.day_start)
+    next_day = day_dt if now < day_dt else day_dt + timedelta(days=1)
+    start = next_day - delta
+    return start <= now < next_day, start
+
+
 def compute_house(
     settings: Settings,
     inputs: HouseInputs,
@@ -203,7 +275,7 @@ def compute_house(
     target); `fallback_demand` comes from the stall detection.
     """
     mode = house_mode(settings, inputs)
-    allowed = splits_allowed_now(settings, inputs, mode)
+    outdoor_ok = outdoor_allows(settings, inputs)
 
     decisions: list[RoomDecision] = []
     for room in rooms:
@@ -216,20 +288,30 @@ def compute_house(
             state.confirmed = False
         left_alone = state.override_mode is not None
         base_target = resolve_target(rooms, room)
+        # Pre-heating: a room switches to "day" ahead of the schedule
+        # (before the day period, or before the planned return).
+        state.preheat_minutes = preheat_duration(
+            settings, state, base_target, inputs.forecast
+        )
+        preheating, next_preheat = preheat_window(
+            settings, inputs, state.preheat_minutes, mode
+        )
+        state.next_preheat = next_preheat
+        effective_mode = MODE_DAY if preheating else mode
         # Soft overheating: on a surplus, split rooms aim slightly
         # above their day target (day only, when the splits may run).
         if (
-            mode == MODE_DAY
-            and allowed
+            effective_mode == MODE_DAY
             and inputs.solar_bonus_active
             and room.has_splits
             and base_target is not None
         ):
             base_target = base_target + settings.solar_bonus
-        target = room_target(settings, mode, base_target)
+        target = room_target(settings, effective_mode, base_target)
         controllable = temp is not None and target is not None
+        room_allowed = outdoor_ok and effective_mode == MODE_DAY
 
-        if room.has_splits and controllable and allowed and not left_alone:
+        if room.has_splits and controllable and room_allowed and not left_alone:
             # Hysteresis regulation: start below target - hysteresis,
             # stop back at the target.
             if state.splits_on:
@@ -259,9 +341,12 @@ def compute_house(
                 temp=temp,
                 target=target,
                 controllable=controllable,
-                splits_allowed=allowed,
+                splits_allowed=room_allowed,
                 want_splits=want,
                 left_alone=left_alone,
+                preheating=preheating,
+                preheat_minutes=state.preheat_minutes,
+                next_preheat=next_preheat,
                 boiler_trigger_cold=trigger_cold,
                 source=SOURCE_IDLE,
             )
@@ -288,10 +373,16 @@ def compute_house(
         targets = [d.target for d in decisions if d.target is not None]
         normal = max(targets) if targets else None
 
-    if allowed and mode == MODE_DAY:
+    # The house is in "splits mode" when the outdoor allows the splits
+    # and the day period (or a pre-heating) is active.
+    splits_first = outdoor_ok and (
+        mode == MODE_DAY or any(d.preheating for d in decisions)
+    )
+    setpoint: Optional[float]
+    if splits_first:
         # Mild day: the splits do the work; the boiler only steps in on
         # a demand from a trigger room (or a stalled split).
-        setpoint: Optional[float] = (
+        setpoint = (
             settings.boiler_demand_setpoint if demand else settings.idle_setpoint
         )
     elif normal is not None:
@@ -303,7 +394,7 @@ def compute_house(
 
     return HouseDecision(
         mode=mode,
-        splits_allowed=allowed,
+        splits_allowed=splits_first,
         rooms=decisions,
         boiler_demand=demand,
         trigger_demand=trigger_demand,
@@ -317,6 +408,15 @@ def compute_house(
 # Delay before a command that was never followed is reported as
 # unresponsive (the switch may legitimately take a while to switch).
 UNRESPONSIVE_GRACE = timedelta(minutes=2)
+
+# Learning of the heating rate (°C/h) per room.
+LEARNING_ALPHA = 0.3  # weight of the newest heating-rate sample
+MIN_SESSION = timedelta(minutes=20)  # shorter sessions are not used
+MIN_RISE = 0.3  # °C: a smaller rise is not a heating session
+MAX_SESSION = timedelta(hours=8)  # a longer session is finalized anyway
+WEATHER_FACTOR_PER_DEGREE = 0.03  # +3 % of pre-heating per colder degree
+WEATHER_FACTOR_MIN = 0.7
+WEATHER_FACTOR_MAX = 1.8
 
 
 def detect_manual(
@@ -416,3 +516,71 @@ def update_fallback(
         and decision.temp < decision.target - settings.hysteresis
     ):
         state.fallback = True
+
+
+def update_learning(
+    state: RoomState,
+    decision: RoomDecision,
+    now: datetime,
+    outdoor_temp: Optional[float],
+    boiler_heating: bool,
+) -> bool:
+    """Learn the heating rate (°C/h) of the room from heating sessions.
+
+    Returns True when a session ended and produced (or updated) a rate:
+    the caller persists the learned values.
+    """
+    temp = decision.temp
+    target = decision.target
+    heating = state.splits_on or boiler_heating
+    active = bool(
+        decision.controllable
+        and heating
+        and temp is not None
+        and target is not None
+        and temp < target
+    )
+    if active and temp is not None:
+        if state.session is None:
+            state.session = {
+                "t0": now,
+                "temp0": temp,
+                "t": now,
+                "temp": temp,
+                "outdoor": outdoor_temp,
+            }
+            return False
+        state.session["t"] = now
+        state.session["temp"] = temp
+        if now - state.session["t0"] > MAX_SESSION:
+            return finalize_session(state)
+        return False
+    if state.session is not None:
+        return finalize_session(state)
+    return False
+
+
+def finalize_session(state: RoomState) -> bool:
+    """Fold the ongoing session into the learned rate. True when learned."""
+    session = state.session
+    state.session = None
+    if not session:
+        return False
+    hours = (session["t"] - session["t0"]).total_seconds() / 3600
+    rise = session["temp"] - session["temp0"]
+    if hours * 60 < MIN_SESSION.total_seconds() / 60 or rise < MIN_RISE:
+        return False
+    sample = min(max(rise / hours, 0.1), 5.0)
+    if state.rate is None:
+        state.rate = sample
+    else:
+        state.rate = (1 - LEARNING_ALPHA) * state.rate + LEARNING_ALPHA * sample
+    outdoor = session.get("outdoor")
+    if outdoor is not None:
+        if state.ref_outdoor is None:
+            state.ref_outdoor = outdoor
+        else:
+            state.ref_outdoor = (
+                (1 - LEARNING_ALPHA) * state.ref_outdoor + LEARNING_ALPHA * outdoor
+            )
+    return True

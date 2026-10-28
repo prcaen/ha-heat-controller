@@ -83,7 +83,8 @@ class TestTranslations(unittest.TestCase):
             set(const.SETTING_NUMBERS)
             | set(const.SETTING_TIMES)
             | set(const.SETTING_SELECTS)
-            | set(const.SETTING_BOOLEANS),
+            | set(const.SETTING_BOOLEANS)
+            | set(const.SETTING_ENTITIES),
         )
 
 

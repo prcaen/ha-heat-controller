@@ -48,7 +48,10 @@
           "solar_bonus": "Solar surplus bonus (°C)",
           "surplus_threshold": "Solar surplus threshold (W)",
           "fallback_minutes": "Delay before the boiler takes over from a stalled split (min)",
-          "min_cycle_minutes": "Minimum split run/stop time (min)"
+          "min_cycle_minutes": "Minimum split run/stop time (min)",
+          "initial_preheat_minutes": "Pre-heating duration before a rate is learned (min)",
+          "max_preheat_minutes": "Maximum pre-heating duration (min)",
+          "weather_entity": "Weather entity (forecast, optional)"
         }
       }
     },
@@ -105,7 +108,10 @@
           "solar_bonus": "Solar surplus bonus (°C)",
           "surplus_threshold": "Solar surplus threshold (W)",
           "fallback_minutes": "Delay before the boiler takes over from a stalled split (min)",
-          "min_cycle_minutes": "Minimum split run/stop time (min)"
+          "min_cycle_minutes": "Minimum split run/stop time (min)",
+          "initial_preheat_minutes": "Pre-heating duration before a rate is learned (min)",
+          "max_preheat_minutes": "Maximum pre-heating duration (min)",
+          "weather_entity": "Weather entity (forecast, optional)"
         }
       }
     },
@@ -175,7 +181,9 @@
       "solar_bonus": { "name": "Solar surplus bonus" },
       "surplus_threshold": { "name": "Solar surplus threshold" },
       "fallback_minutes": { "name": "Boiler fallback delay" },
-      "min_cycle_minutes": { "name": "Minimum split run/stop time" }
+      "min_cycle_minutes": { "name": "Minimum split run/stop time" },
+      "initial_preheat_minutes": { "name": "Initial pre-heating duration" },
+      "max_preheat_minutes": { "name": "Maximum pre-heating duration" }
     },
     "time": {
       "day_start": { "name": "Day period start" },

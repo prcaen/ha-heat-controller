@@ -15,7 +15,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from dataclasses import replace
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import Any, Callable, Mapping, Optional
 
 from homeassistant.config_entries import ConfigEntry
@@ -28,6 +28,7 @@ from homeassistant.const import (
 from homeassistant.core import Event, HomeAssistant, State, callback
 from homeassistant.helpers.event import async_call_later, async_track_state_change_event
 from homeassistant.helpers.event import async_track_time_interval
+from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 
 from .const import (
@@ -65,6 +66,10 @@ from .const import (
     CONF_SURPLUS_THRESHOLD,
     CONF_FALLBACK_MINUTES,
     CONF_MIN_CYCLE_MINUTES,
+    CONF_INITIAL_PREHEAT_MINUTES,
+    CONF_MAX_PREHEAT_MINUTES,
+    CONF_WEATHER_ENTITY,
+    DOMAIN,
     SETTING_DEFAULTS,
     DEFAULT_INDOOR_TEMP,
     DEFAULT_PRODUCTION,
@@ -74,7 +79,15 @@ from .const import (
     STARTUP_DELAY_SECONDS,
     SWITCH_WAIT_TIMEOUT_SECONDS,
 )
-from .logic import Decision, Inputs, Settings, compute, parse_time, target_temperature
+from .logic import (
+    Decision,
+    Inputs,
+    Settings,
+    at_time,
+    compute,
+    parse_time,
+    target_temperature,
+)
 from .rooms import RoomConfig, rooms_from_subentries, rooms_signature
 from .rooms_logic import (
     HouseDecision,
@@ -86,6 +99,7 @@ from .rooms_logic import (
     next_solar_bonus,
     resolve_target,
     update_fallback,
+    update_learning,
     update_room_states,
 )
 from .state import HeatState
@@ -95,6 +109,9 @@ _LOGGER = logging.getLogger(__name__)
 HVAC_OFF = "off"
 HVAC_HEAT = "heat"
 HVAC_AUTO = "auto"
+
+STORAGE_VERSION = 1  # learned heating rates
+FORECAST_CACHE_MINUTES = 30
 
 
 def _as_float(state: Optional[State], default: Optional[float] = None) -> Optional[float]:
@@ -145,6 +162,8 @@ def settings_from_config(config: Mapping[str, Any]) -> Settings:
         surplus_threshold=number(CONF_SURPLUS_THRESHOLD),
         fallback_minutes=number(CONF_FALLBACK_MINUTES),
         min_cycle_minutes=number(CONF_MIN_CYCLE_MINUTES),
+        initial_preheat_minutes=number(CONF_INITIAL_PREHEAT_MINUTES),
+        max_preheat_minutes=number(CONF_MAX_PREHEAT_MINUTES),
         split_fan_preset=str(config.get(CONF_SPLIT_FAN_PRESET, SETTING_DEFAULTS[CONF_SPLIT_FAN_PRESET])),
         split_fan_oscillating=bool(
             config.get(CONF_SPLIT_FAN_OSCILLATING, SETTING_DEFAULTS[CONF_SPLIT_FAN_OSCILLATING])
@@ -203,11 +222,17 @@ class HeatController:
         self._lock = asyncio.Lock()
         self._cancel: list[Callable] = []
         self._first_run = True
+        # Learned heating rates: persisted store + forecast cache.
+        self._store = None  # created in async_start (needs a real hass)
+        self._forecast_temp: Optional[float] = None
+        self._forecast_time: Optional[datetime] = None
 
     # --- Lifecycle -----------------------------------------------------------
 
     async def async_start(self) -> None:
         """Start listening and heartbeat, then first pass."""
+        self._store = Store(self.hass, STORAGE_VERSION, f"{DOMAIN}.{self.entry_id}")
+        await self._load_learned_rates()
         watched = [
             entity
             for entity in (
@@ -578,6 +603,12 @@ class HeatController:
                 away_mode=shared.away_mode,
                 forced_source=shared.forced_source,
                 solar_bonus_active=self._solar_bonus,
+                away_end=shared.away_until or (
+                    at_time(dt_util.now(), self.settings.return_time)
+                    if shared.away_mode
+                    else None
+                ),
+                forecast=await self._forecast_temperature(),
             ),
             self.rooms,
             self.room_states,
@@ -591,6 +622,7 @@ class HeatController:
         heating_needed = house.boiler_demand or any(
             decision.want_splits for decision in house.rooms
         )
+        any_preheating = any(decision.preheating for decision in house.rooms)
         merged = replace(
             base,
             target_setpoint=(
@@ -599,11 +631,16 @@ class HeatController:
                 else base.target_setpoint
             ),
             heating_needed=heating_needed,
+            preheating=any_preheating,
+            preheating_minutes=max(
+                (decision.preheat_minutes for decision in house.rooms), default=0
+            ),
             should_use_heat_pump=house.splits_allowed,
             changeover=house.splits_allowed != shared.heat_pump_source,
         )
         shared.set_decision(merged)
         shared.set_demand(heating_needed)
+        shared.set_preheating(any_preheating)
 
         boiler_heating = self._boiler_heating()
         update_room_states(house, self.room_states, boiler_heating)
@@ -611,6 +648,8 @@ class HeatController:
         # Stall detection: a running split that does not progress asks
         # the boiler for help (from the next cycle on, until the target
         # is reached again).
+        outdoor_temp = _as_float(self.hass.states.get(self.outdoor_sensor))
+        learned = False
         for decision in house.rooms:
             state = self.room_states.get(decision.room_id)
             if state is None:
@@ -625,6 +664,17 @@ class HeatController:
                     "boiler is asked to take over",
                     state.config.name,
                 )
+            # Heating rate learning (splits or boiler heating the room).
+            if update_learning(
+                state,
+                decision,
+                house.now or dt_util.now(),
+                outdoor_temp,
+                boiler_heating,
+            ):
+                learned = True
+        if learned:
+            self._save_learned_rates()
 
         for room, decision in zip(self.rooms, house.rooms):
             await self._apply_room(room, decision)
@@ -642,6 +692,73 @@ class HeatController:
             state is not None
             and state.attributes.get("hvac_action") == "heating"
         )
+
+    async def _load_learned_rates(self) -> None:
+        """Restore the learned heating rates from the store."""
+        if self._store is None:
+            return
+        data = await self._store.async_load() or {}
+        for room_id, values in (data.get("rooms") or {}).items():
+            state = self.room_states.get(room_id)
+            if state is None:
+                continue
+            state.rate = values.get("rate")
+            state.ref_outdoor = values.get("ref_outdoor")
+
+    def _save_learned_rates(self) -> None:
+        """Persist the learned rates (delayed, storage may be absent)."""
+        if self._store is None:
+            return
+        self._store.async_delay_save(
+            (
+                lambda: {
+                    "rooms": {
+                        room_id: {
+                            "rate": state.rate,
+                            "ref_outdoor": state.ref_outdoor,
+                        }
+                        for room_id, state in self.room_states.items()
+                    }
+                }
+            ),
+            10,
+        )
+
+    async def _forecast_temperature(self) -> Optional[float]:
+        """Average outdoor temperature of the next hours (cached)."""
+        entity = str(self.config.get(CONF_WEATHER_ENTITY, "") or "")
+        if not entity:
+            return None
+        now = dt_util.utcnow()
+        if (
+            self._forecast_time is not None
+            and now - self._forecast_time < timedelta(minutes=FORECAST_CACHE_MINUTES)
+        ):
+            return self._forecast_temp
+        self._forecast_time = now
+        self._forecast_temp = None
+        for forecast_type, count in (("hourly", 6), ("daily", 1)):
+            try:
+                response = await self.hass.services.async_call(
+                    "weather",
+                    "get_forecasts",
+                    {"type": forecast_type},
+                    target={"entity_id": entity},
+                    blocking=True,
+                    return_response=True,
+                )
+            except Exception:  # noqa: BLE001 - no weather service or entity
+                continue
+            items = ((response or {}).get(entity) or {}).get("forecast", [])
+            temps = [
+                item["temperature"]
+                for item in items[:count]
+                if item.get("temperature") is not None
+            ]
+            if temps:
+                self._forecast_temp = sum(temps) / len(temps)
+                break
+        return self._forecast_temp
 
     async def _apply_room(self, room: RoomConfig, decision: RoomDecision) -> None:
         """Apply the splits decision of one room."""

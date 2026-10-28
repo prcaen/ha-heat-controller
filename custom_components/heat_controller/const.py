@@ -68,6 +68,9 @@ CONF_SOLAR_BONUS = "solar_bonus"
 CONF_SURPLUS_THRESHOLD = "surplus_threshold"
 CONF_FALLBACK_MINUTES = "fallback_minutes"
 CONF_MIN_CYCLE_MINUTES = "min_cycle_minutes"
+CONF_INITIAL_PREHEAT_MINUTES = "initial_preheat_minutes"
+CONF_MAX_PREHEAT_MINUTES = "max_preheat_minutes"
+CONF_WEATHER_ENTITY = "weather_entity"
 
 # Default values taken from the original YAML automations.
 DEFAULT_OUTDOOR_THRESHOLD = 3.0
@@ -96,6 +99,8 @@ DEFAULT_SOLAR_BONUS = 0.5
 DEFAULT_SURPLUS_THRESHOLD = 500.0
 DEFAULT_FALLBACK_MINUTES = 120
 DEFAULT_MIN_CYCLE_MINUTES = 5
+DEFAULT_INITIAL_PREHEAT_MINUTES = 60
+DEFAULT_MAX_PREHEAT_MINUTES = 180
 
 SPLIT_FAN_PRESET_OPTIONS = ("low", "medium", "high", "auto")
 
@@ -144,6 +149,9 @@ SETTING_DEFAULTS = {
     CONF_SURPLUS_THRESHOLD: DEFAULT_SURPLUS_THRESHOLD,
     CONF_FALLBACK_MINUTES: DEFAULT_FALLBACK_MINUTES,
     CONF_MIN_CYCLE_MINUTES: DEFAULT_MIN_CYCLE_MINUTES,
+    CONF_INITIAL_PREHEAT_MINUTES: DEFAULT_INITIAL_PREHEAT_MINUTES,
+    CONF_MAX_PREHEAT_MINUTES: DEFAULT_MAX_PREHEAT_MINUTES,
+    CONF_WEATHER_ENTITY: "",
 }
 
 # --- Settings entities -------------------------------------------------------
@@ -215,6 +223,19 @@ SETTING_NUMBERS: dict[str, dict[str, Any]] = {
         "min": 0.0, "max": 60.0, "step": 1.0, "unit": "min",
         "device_class": "duration",
     },
+    CONF_INITIAL_PREHEAT_MINUTES: {
+        "min": 0.0, "max": 480.0, "step": 5.0, "unit": "min",
+        "device_class": "duration",
+    },
+    CONF_MAX_PREHEAT_MINUTES: {
+        "min": 0.0, "max": 480.0, "step": 5.0, "unit": "min",
+        "device_class": "duration",
+    },
+}
+
+# Entity settings: configured in the flow, no dashboard entity.
+SETTING_ENTITIES: dict[str, dict[str, Any]] = {
+    CONF_WEATHER_ENTITY: {"domain": "weather"},
 }
 
 # String settings exposed as `select` entities.
