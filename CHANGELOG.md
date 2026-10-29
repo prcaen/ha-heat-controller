@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Fix: the boiler demand (trigger-room latch) is debounced with the minimum run/stop time — a trigger room whose sensor flutters across its dead band (e.g. a median of several sensors hovering between target − hysteresis and target) can no longer flip the demand and the boiler setpoint on every pass. The demand still starts immediately and still releases as soon as every trigger room is back at its target.
+
 - Fix: in hybrid mode the boiler's HVAC mode is never touched anymore — boiler thermostats such as the Netatmo only support `off`/`heat`, and forcing `auto` failed (and spammed the activity feed) at every pass. Only the setpoint is driven; a mode set by hand (e.g. `off` for the summer) is respected.
 - Fix: the per-room sensors (heat source, learned rate, next pre-heating) failed to register (« got multiple values for keyword argument 'config_entry_id' »): sub-entry entities must not carry entry or subentry ids in their `device_info`, Home Assistant links them to the room sub-entry on its own.
 

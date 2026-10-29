@@ -233,6 +233,7 @@ class HeatController:
             room.id: RoomState(room) for room in self.rooms
         }
         self._trigger_demand = False  # latched boiler demand (trigger rooms)
+        self._trigger_changed_at: Optional[datetime] = None  # for the debounce
         self._solar_bonus = False  # latched soft overheating state
         # In hybrid mode the decisions and the virtual thermostat follow
         # the thermostat room, not the configured indoor sensor.
@@ -653,12 +654,22 @@ class HeatController:
                     else None
                 ),
                 forecast=await self._forecast_temperature(),
+                # Boiler demand debounce: a latched demand is not
+                # released before the minimum run/stop time has passed.
+                demand_hold_expired=(
+                    self._trigger_changed_at is None
+                    or dt_util.now() - self._trigger_changed_at
+                    >= timedelta(minutes=self.settings.min_cycle_minutes)
+                ),
             ),
             self.rooms,
             self.room_states,
             trigger_demand=self._trigger_demand,
             fallback_demand=any(state.fallback for state in self.room_states.values()),
         )
+        if house.trigger_demand != self._trigger_demand:
+            # Latched demand changed now: the debounce window restarts.
+            self._trigger_changed_at = dt_util.now()
         self._trigger_demand = house.trigger_demand
         shared.set_house(house)
 

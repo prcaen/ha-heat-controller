@@ -82,6 +82,11 @@ class HouseInputs:
     solar_bonus_active: bool = False  # latched soft overheating state
     away_end: Optional[datetime] = None  # planned return (away mode)
     forecast: Optional[float] = None  # average forecast outdoor temperature
+    # False while the boiler demand debounce holds: a latched demand is
+    # not released before the minimum run/stop time has passed, so a
+    # room sensor fluttering across its dead band cannot sawtooth the
+    # demand (and the boiler setpoint) every minute.
+    demand_hold_expired: bool = True
 
 
 def next_solar_bonus(
@@ -355,11 +360,14 @@ def compute_house(
         )
 
     # Boiler demand: latched while any trigger room is too cold, released
-    # only when all of them are back at their target.
+    # only when all of them are back at their target — and only once the
+    # demand debounce (the minimum run/stop time) has expired, so a
+    # sensor fluttering across its dead band cannot flip the demand
+    # every pass.
     controllable_trigger = [d for d in decisions if d.controllable]
     if any(d.boiler_trigger_cold for d in controllable_trigger):
         trigger_demand = True
-    elif all(
+    elif inputs.demand_hold_expired and all(
         not d.boiler_trigger_cold and d.temp >= d.target  # type: ignore[operator]
         for d in controllable_trigger
         if states[d.room_id].config.boiler_trigger

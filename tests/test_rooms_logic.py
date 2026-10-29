@@ -221,6 +221,32 @@ class TestBoiler(unittest.TestCase):
         )
         self.assertEqual(house.boiler_setpoint, 12.0)
 
+    def test_demand_release_is_debounced(self):
+        """A sensor fluttering across the dead band cannot sawtooth the demand."""
+        rooms = [
+            room("salon", "Salon", "sensor.salon", target=19.5, thermostat_room=True,
+                 boiler_trigger=True),
+        ]
+        states = states_of(rooms, {"salon": 19.2})  # in the dead band
+        # A cold dip latches the demand.
+        states["salon"].temp = 19.1
+        house = compute_house(settings(), house_inputs(), rooms, states,
+                              trigger_demand=False)
+        self.assertTrue(house.boiler_demand)
+        # The sensor bounces back above the target, but the debounce
+        # holds the demand for the minimum run/stop time.
+        states["salon"].temp = 19.7
+        house = compute_house(settings(), house_inputs(
+            demand_hold_expired=False
+        ), rooms, states, trigger_demand=True)
+        self.assertTrue(house.boiler_demand)
+        # Once the debounce expired, the release applies.
+        house = compute_house(settings(), house_inputs(
+            demand_hold_expired=True
+        ), rooms, states, trigger_demand=True)
+        self.assertFalse(house.boiler_demand)
+        self.assertFalse(house.trigger_demand)
+
     def test_frost_floor(self):
         states = states_of(self.rooms, {"salon": 12.0, "cuisine": 12.0, "bain": 12.0})
         house = compute_house(

@@ -607,7 +607,9 @@ class TestHybridRooms(unittest.IsolatedAsyncioTestCase):
         states.set("sensor.cuisine_temp", "19.4")
         await controller._update_locked()
         self.assertTrue(controller._trigger_demand)
+        # Release (after the debounce window has expired).
         states.set("sensor.cuisine_temp", "19.5")
+        controller._trigger_changed_at = dt_util.now() - timedelta(minutes=6)
         await controller._update_locked()
         self.assertFalse(controller._trigger_demand)
         calls = summarise(services)
@@ -768,6 +770,31 @@ class TestHybridRooms(unittest.IsolatedAsyncioTestCase):
         self.assertIn(
             ("climate", "set_temperature", "climate.boiler", None, 12.0), calls
         )
+
+    async def test_boiler_demand_debounce_holds_a_fresh_release(self):
+        """A trigger sensor fluttering cannot sawtooth the demand (regression)."""
+        controller, shared, services, states = build(
+            outdoor="8.0", subentries=self.rooms_subentries()
+        )
+        self.seed_room_states(states)
+        # The cuisine (trigger room, follows the salon at 19.5) is cold:
+        # the demand latches.
+        states.set("sensor.salon_temp", "19.5")
+        states.set("sensor.cuisine_temp", "19.0")
+        await controller._update_locked()
+        self.assertTrue(controller._trigger_demand)
+        self.assertIsNotNone(controller._trigger_changed_at)
+
+        # The cuisine recovers, but within the minimum run/stop time
+        # the demand holds: no sawtooth on a fluttering sensor.
+        states.set("sensor.cuisine_temp", "19.6")
+        await controller._update_locked()
+        self.assertTrue(controller._trigger_demand)
+
+        # After the debounce window, the demand releases.
+        controller._trigger_changed_at = dt_util.now() - timedelta(minutes=6)
+        await controller._update_locked()
+        self.assertFalse(controller._trigger_demand)
 
     async def test_fallback_room_raises_the_boiler(self):
         controller, shared, services, states = build(
