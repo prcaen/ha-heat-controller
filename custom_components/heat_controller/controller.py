@@ -917,11 +917,9 @@ class HeatController:
         state = self.hass.states.get(self.boiler_climate)
         if not self._valid(state):
             return
-        # The boiler stays in auto in hybrid mode: it must be able to
-        # answer a demand from a trigger room at any time.
-        if state is not None and state.state != HVAC_AUTO:
-            await self._call(
-                "climate", "set_hvac_mode", self.boiler_climate, hvac_mode=HVAC_AUTO
-            )
-            await asyncio.sleep(HVAC_MODE_DELAY_SECONDS)
+        # The HVAC mode is never touched in hybrid mode: many boiler
+        # thermostats (Netatmo) only support off/heat, the boiler must
+        # be able to answer a demand at any time, and a mode set by
+        # hand (e.g. off for the summer) is respected. Only the
+        # setpoint is driven.
         await self._push_setpoint(self.boiler_climate, house.boiler_setpoint)

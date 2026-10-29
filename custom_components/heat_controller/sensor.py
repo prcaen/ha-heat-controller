@@ -18,7 +18,6 @@ from homeassistant.components.sensor import (
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import UnitOfTemperature
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .const import DOMAIN
@@ -158,7 +157,13 @@ class HeatModeSensor(HeatControllerEntity, SensorEntity):
 
 
 class _HeatRoomEntity(HeatControllerEntity):
-    """Base of the per-room entities: attached to the room sub-entry."""
+    """Base of the per-room entities: attached to the room sub-entry.
+
+    No `device_info`: Home Assistant links entities added with a
+    `config_subentry_id` to the room sub-entry itself, and passing
+    entry or subentry ids here would collide with the ones the platform
+    already provides.
+    """
 
     def __init__(
         self,
@@ -174,11 +179,8 @@ class _HeatRoomEntity(HeatControllerEntity):
         self._attr_name = self.ENTITY_NAME
 
     @property
-    def device_info(self) -> DeviceInfo:
-        return DeviceInfo(
-            config_entry_id=self._entry_id,
-            config_subentry_id=self._room.id,
-        )
+    def device_info(self) -> None:
+        return None
 
     @property
     def room_state(self):

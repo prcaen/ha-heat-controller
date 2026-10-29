@@ -569,8 +569,13 @@ class TestHybridRooms(unittest.IsolatedAsyncioTestCase):
             )
         )
         # Cuisine is at target: the boiler rests at the idle setpoint.
-        self.assertIn(
-            ("climate", "set_hvac_mode", "climate.boiler", "auto", None), calls
+        # Its HVAC mode is never touched in hybrid mode (the Netatmo
+        # only supports off/heat).
+        self.assertFalse(
+            any(
+                call[1] == "set_hvac_mode" and call[2] == "climate.boiler"
+                for call in calls
+            )
         )
         self.assertIn(
             ("climate", "set_temperature", "climate.boiler", None, 12.0), calls
@@ -740,6 +745,28 @@ class TestHybridRooms(unittest.IsolatedAsyncioTestCase):
                 call[0] == "switch" and call[2].startswith("switch.salon")
                 for call in calls[calls_before:]
             )
+        )
+
+    async def test_hybrid_boiler_never_touches_the_hvac_mode(self):
+        """Regression: the Netatmo only supports off/heat, not auto."""
+        controller, shared, services, states = build(
+            outdoor="8.0", subentries=self.rooms_subentries()
+        )
+        self.seed_room_states(states)
+        states.set("climate.boiler", "heat")  # not "auto"
+        await controller._update_locked()
+        await controller._update_locked()
+        calls = summarise(services)
+        self.assertFalse(
+            any(
+                call[0] == "climate"
+                and call[1] == "set_hvac_mode"
+                and call[2] == "climate.boiler"
+                for call in calls
+            )
+        )
+        self.assertIn(
+            ("climate", "set_temperature", "climate.boiler", None, 12.0), calls
         )
 
     async def test_fallback_room_raises_the_boiler(self):
