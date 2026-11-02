@@ -153,7 +153,11 @@
         "name": "Durée de préchauffe"
       },
       "source": {
-        "name": "Source de chaleur"
+        "name": "Source de chaleur",
+        "state": {
+          "heat_pump": "Pompe à chaleur",
+          "boiler": "Chaudière"
+        }
       },
       "mode": {
         "name": "Mode",
@@ -162,6 +166,20 @@
           "night": "Nuit",
           "away": "Absence"
         }
+      },
+      "heat_source": {
+        "name": "{room} source de chauffe",
+        "state": {
+          "idle": "Inactif",
+          "splits": "Splits",
+          "boiler": "Chaudière"
+        }
+      },
+      "learned_rate": {
+        "name": "{room} vitesse de chauffe apprise"
+      },
+      "next_preheat": {
+        "name": "{room} prochaine préchauffe"
       }
     },
     "select": {

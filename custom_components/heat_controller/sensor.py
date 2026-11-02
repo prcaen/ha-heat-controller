@@ -100,8 +100,10 @@ class HeatPreheatingDurationSensor(HeatControllerEntity, SensorEntity):
 
 
 class HeatSourceSensor(HeatControllerEntity, SensorEntity):
-    """Active heat source: heat pump or boiler."""
+    """Active heat source: splits (heat pump) or boiler mode."""
 
+    _attr_device_class = SensorDeviceClass.ENUM
+    _attr_options = ["heat_pump", "boiler"]
     _attr_translation_key = "source"
     _attr_icon = "mdi:fire"
 
@@ -110,7 +112,7 @@ class HeatSourceSensor(HeatControllerEntity, SensorEntity):
 
     @property
     def native_value(self) -> Optional[str]:
-        return "Heat pump" if self._shared.heat_pump_source else "Boiler"
+        return "heat_pump" if self._shared.heat_pump_source else "boiler"
 
 
 class HeatModeSensor(HeatControllerEntity, SensorEntity):
@@ -162,7 +164,8 @@ class _HeatRoomEntity(HeatControllerEntity):
     No `device_info`: Home Assistant links entities added with a
     `config_subentry_id` to the room sub-entry itself, and passing
     entry or subentry ids here would collide with the ones the platform
-    already provides.
+    already provides. Names and states are translated with the room
+    name as placeholder.
     """
 
     def __init__(
@@ -176,7 +179,8 @@ class _HeatRoomEntity(HeatControllerEntity):
         super().__init__(entry, shared, f"{room.id}_{key}")
         self._controller = controller
         self._room = room
-        self._attr_name = self.ENTITY_NAME
+        self._attr_translation_key = key
+        self._attr_translation_placeholders = {"room": room.name}
 
     @property
     def device_info(self) -> None:
@@ -194,7 +198,6 @@ class _HeatRoomEntity(HeatControllerEntity):
 class HeatRoomSourceSensor(_HeatRoomEntity, SensorEntity):
     """What heats the room right now: idle, splits or boiler."""
 
-    ENTITY_NAME = "heat source"
     _attr_device_class = SensorDeviceClass.ENUM
     _attr_options = ["idle", "splits", "boiler"]
     _attr_icon = "mdi:heat-pump"
@@ -234,7 +237,6 @@ class HeatRoomSourceSensor(_HeatRoomEntity, SensorEntity):
 class HeatRoomRateSensor(_HeatRoomEntity, SensorEntity):
     """Learned heating speed of the room (°C/h)."""
 
-    ENTITY_NAME = "learned heating rate"
     _attr_native_unit_of_measurement = "°C/h"
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_suggested_display_precision = 2
@@ -258,7 +260,6 @@ class HeatRoomRateSensor(_HeatRoomEntity, SensorEntity):
 class HeatRoomNextPreheatSensor(_HeatRoomEntity, SensorEntity):
     """When the next pre-heating of the room starts."""
 
-    ENTITY_NAME = "next pre-heating"
     _attr_device_class = SensorDeviceClass.TIMESTAMP
     _attr_icon = "mdi:timer-outline"
 

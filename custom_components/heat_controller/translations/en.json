@@ -153,7 +153,11 @@
         "name": "Pre-heat duration"
       },
       "source": {
-        "name": "Heat source"
+        "name": "Heat source",
+        "state": {
+          "heat_pump": "Heat pump",
+          "boiler": "Boiler"
+        }
       },
       "mode": {
         "name": "Mode",
@@ -162,6 +166,20 @@
           "night": "Night",
           "away": "Away"
         }
+      },
+      "heat_source": {
+        "name": "{room} heat source",
+        "state": {
+          "idle": "Idle",
+          "splits": "Splits",
+          "boiler": "Boiler"
+        }
+      },
+      "learned_rate": {
+        "name": "{room} learned heating rate"
+      },
+      "next_preheat": {
+        "name": "{room} next pre-heating"
       }
     },
     "select": {

@@ -2,6 +2,8 @@
 
 ## 0.0.2 - 2026-10-29
 
+- Fix: the heat source sensor reported untranslated states (« Heat pump » / « Boiler »): the states are now translated (Pompe à chaleur / Chaudière in French), and the per-room sensors (heat source, learned heating rate, next pre-heating) get translated names with the room name and translated states (Inactif / Splits / Chaudière) instead of hardcoded English.
+
 - **Breaking**: the single-zone mode is removed. The integration is now rooms-only: at least one room sub-entry is required, and the entry does nothing (entities unavailable, warning in the logs) without rooms. Removed from the configuration: the « Indoor temperature » sensor, the « Heat pump climates » and « Power switches » lists (the splits are configured per room), and the settings that only served the single-zone logic: day setpoint, solar setpoint, solar window start and end, heat pump and boiler heat-up rates, pre-heat safety margin. Their `number`/`time` entities disappear; the boiler « changeover » (switching the boiler climate off/on with the source) is gone with it — in hybrid mode the boiler's HVAC mode is never touched.
 - **Breaking (behaviour)**: the solar period is no longer limited to a time window: the soft overheating applies whenever the real surplus (or, without a consumption sensor, the production) is above the threshold, at any time of the day period.
 - The thermostat card now adjusts the **thermostat room's day target** with its +/− buttons during the day (persisted in the room sub-entry, the entry reloads), and the night/away setpoints at night and in away mode.
