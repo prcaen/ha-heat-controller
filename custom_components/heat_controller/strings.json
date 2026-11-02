@@ -280,7 +280,6 @@
             "temperature_sensor": "Room temperature sensor",
             "target": "Day target (°C)",
             "follow_room": "Or: same target as another room",
-            "boiler_trigger": "This room can request the boiler",
             "thermostat_room": "The boiler thermostat is in this room",
             "switches": "Split power switches",
             "climates": "Split climate entities",
@@ -288,7 +287,6 @@
           },
           "data_description": {
             "target": "Leave empty if the room follows another room.",
-            "boiler_trigger": "The boiler thermostat is raised while this room is below its target.",
             "switches": "Used to turn the splits on (first) and off.",
             "climates": "Used for mode and temperature, never to turn off.",
             "fans": "Used for the preset mode and the oscillation."
@@ -301,7 +299,6 @@
             "temperature_sensor": "Room temperature sensor",
             "target": "Day target (°C)",
             "follow_room": "Or: same target as another room",
-            "boiler_trigger": "This room can request the boiler",
             "thermostat_room": "The boiler thermostat is in this room",
             "switches": "Split power switches",
             "climates": "Split climate entities",
@@ -309,7 +306,6 @@
           },
           "data_description": {
             "target": "Leave empty if the room follows another room.",
-            "boiler_trigger": "The boiler thermostat is raised while this room is below its target.",
             "switches": "Used to turn the splits on (first) and off.",
             "climates": "Used for mode and temperature, never to turn off.",
             "fans": "Used for the preset mode and the oscillation."

@@ -2,6 +2,7 @@
 
 ## 0.0.2 - 2026-10-29
 
+- **Breaking (configuration)**: the « This room can request the boiler » flag is removed from the room form — it is now derived automatically: a room **without** splits can request the boiler (it is its only heat source on mild days), a room **with** splits cannot (the automatic stall detection makes it fall back to the boiler). Any flag stored in existing rooms is ignored.
 - Fix: the heat source sensor reported untranslated states (« Heat pump » / « Boiler »): the states are now translated (Pompe à chaleur / Chaudière in French), and the per-room sensors (heat source, learned heating rate, next pre-heating) get translated names with the room name and translated states (Inactif / Splits / Chaudière) instead of hardcoded English.
 
 - **Breaking**: the single-zone mode is removed. The integration is now rooms-only: at least one room sub-entry is required, and the entry does nothing (entities unavailable, warning in the logs) without rooms. Removed from the configuration: the « Indoor temperature » sensor, the « Heat pump climates » and « Power switches » lists (the splits are configured per room), and the settings that only served the single-zone logic: day setpoint, solar setpoint, solar window start and end, heat pump and boiler heat-up rates, pre-heat safety margin. Their `number`/`time` entities disappear; the boiler « changeover » (switching the boiler climate off/on with the source) is gone with it — in hybrid mode the boiler's HVAC mode is never touched.

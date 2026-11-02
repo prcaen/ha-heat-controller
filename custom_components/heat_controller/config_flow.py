@@ -36,7 +36,6 @@ from .const import (
     CONF_CONSUMPTION_SENSOR,
     CONF_OUTDOOR_TEMP_SENSOR,
     CONF_PRODUCTION_SENSOR,
-    CONF_ROOM_BOILER_TRIGGER,
     CONF_ROOM_CLIMATES,
     CONF_ROOM_FANS,
     CONF_ROOM_FOLLOW_ROOM,
@@ -155,7 +154,6 @@ def _room_schema(other_rooms: list[tuple[str, str]], exclude_id: str | None = No
         )
     fields.update(
         {
-            vol.Required(CONF_ROOM_BOILER_TRIGGER, default=False): BooleanSelector(),
             vol.Required(CONF_ROOM_THERMOSTAT_ROOM, default=False): BooleanSelector(),
             vol.Optional(CONF_ROOM_SWITCHES): EntitySelector(
                 EntitySelectorConfig(domain="switch", multiple=True)

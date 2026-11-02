@@ -105,10 +105,36 @@ class TestRooms(unittest.TestCase):
         self.assertEqual(room.sensor, "sensor.salon")
         self.assertEqual(room.target, 19.5)
         self.assertTrue(room.thermostat_room)
-        self.assertFalse(room.boiler_trigger)
+        self.assertFalse(room.boiler_trigger)  # has splits: no boiler trigger
         self.assertEqual(room.switches, ("switch.g", "switch.d"))
         self.assertEqual(room.climates, ("climate.g", "climate.d"))
         self.assertTrue(room.has_splits)
+
+    def test_boiler_trigger_derived_from_the_splits(self):
+        rooms = self.room_module()
+        # A room without splits (kitchen, bathroom...) can request the
+        # boiler: it is its only heat source on mild days.
+        no_split = rooms.room_from_subentry(
+            FakeSubentry("s4", "room", "Cuisine", {
+                "name": "Cuisine",
+                "temperature_sensor": "sensor.cuisine",
+                # a stale boiler_trigger flag must not override the rule
+                "boiler_trigger": False,
+            })
+        )
+        self.assertTrue(no_split.boiler_trigger)
+        # A room with splits cannot: it falls back to the boiler only
+        # through the automatic stall detection.
+        with_split = rooms.room_from_subentry(
+            FakeSubentry("s5", "room", "Salon", {
+                "name": "Salon",
+                "temperature_sensor": "sensor.salon",
+                "boiler_trigger": True,
+                "switches": ["switch.g"],
+                "climates": ["climate.g"],
+            })
+        )
+        self.assertFalse(with_split.boiler_trigger)
 
     def test_follow_room_without_target(self):
         rooms = self.room_module()

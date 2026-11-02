@@ -128,14 +128,18 @@ can be downloaded from the entry page.
 Rooms are added to the entry (« Add room » on the integration page,
 editable afterwards — Home Assistant 2025.3 or newer). A room has:
 a name, its temperature sensor, a day target (or the target of another
-room, e.g. the bathrooms following the living room), a **boiler
-trigger** flag (the room may request the boiler when it is too cold),
-the **thermostat room** flag (the boiler thermostat lives in this
+room, e.g. the bathrooms following the living room), the
+**thermostat room** flag (the boiler thermostat lives in this
 room — usually the living room) and the splits that heat it: power
 switches (the only way to turn a split off), climate entities and fan
 entities. At least one room is required; the room flagged as thermostat
 room drives the boiler and the thermostat card (the first room if
 none is flagged).
+
+A room **without** splits can automatically request the boiler on mild
+days (the boiler is its only heat source); a room **with** splits
+cannot — it falls back to the boiler only through the automatic stall
+detection.
 
 The hybrid regulation:
 

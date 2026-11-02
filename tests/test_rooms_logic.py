@@ -136,8 +136,7 @@ class TestRoomRegulation(unittest.TestCase):
     def test_follow_room_target(self):
         rooms = [
             room("salon", "Salon", "sensor.salon", target=19.5),
-            room("cuisine", "Cuisine", "sensor.cuisine", follow_room="salon",
-                 boiler_trigger=True),
+            room("cuisine", "Cuisine", "sensor.cuisine", follow_room="salon"),
         ]
         states = states_of(rooms, {"salon": 19.0, "cuisine": 18.0})
         house = compute_house(settings(), house_inputs(), rooms, states)
@@ -156,10 +155,8 @@ class TestBoiler(unittest.TestCase):
         self.rooms = [
             room("salon", "Salon", "sensor.salon", target=19.5, thermostat_room=True,
                  switches=("sw1",), climates=("cl1",)),
-            room("cuisine", "Cuisine", "sensor.cuisine", follow_room="salon",
-                 boiler_trigger=True),
-            room("bain", "Salle de bain", "sensor.bain", follow_room="salon",
-                 boiler_trigger=True),
+            room("cuisine", "Cuisine", "sensor.cuisine", follow_room="salon"),
+            room("bain", "Salle de bain", "sensor.bain", follow_room="salon"),
         ]
 
     def test_mild_day_boiler_at_rest(self):
@@ -224,8 +221,7 @@ class TestBoiler(unittest.TestCase):
     def test_demand_release_is_debounced(self):
         """A sensor fluttering across the dead band cannot sawtooth the demand."""
         rooms = [
-            room("salon", "Salon", "sensor.salon", target=19.5, thermostat_room=True,
-                 boiler_trigger=True),
+            room("salon", "Salon", "sensor.salon", target=19.5, thermostat_room=True),
         ]
         states = states_of(rooms, {"salon": 19.2})  # in the dead band
         # A cold dip latches the demand.
@@ -310,8 +306,7 @@ class TestSolarBonus(unittest.TestCase):
         rooms = [
             room("salon", "Salon", "sensor.salon", target=19.5,
                  thermostat_room=True, switches=("sw1",), climates=("cl1",)),
-            room("cuisine", "Cuisine", "sensor.cuisine", follow_room="salon",
-                 boiler_trigger=True),
+            room("cuisine", "Cuisine", "sensor.cuisine", follow_room="salon"),
         ]
         states = states_of(rooms, {"salon": 19.0, "cuisine": 19.5})
         inputs = house_inputs(solar_bonus_active=True)

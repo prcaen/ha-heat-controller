@@ -280,7 +280,6 @@
             "temperature_sensor": "Capteur de température de la pièce",
             "target": "Consigne jour (°C)",
             "follow_room": "Ou : même consigne qu'une autre pièce",
-            "boiler_trigger": "Cette pièce peut demander la chaudière",
             "thermostat_room": "Le thermostat de la chaudière est dans cette pièce",
             "switches": "Interrupteurs d'alimentation des splits",
             "climates": "Entités climate des splits",
@@ -288,7 +287,6 @@
           },
           "data_description": {
             "target": "Laisser vide si la pièce suit une autre pièce.",
-            "boiler_trigger": "Le thermostat de la chaudière est relevé tant que cette pièce est en dessous de sa consigne.",
             "switches": "Utilisés pour allumer les splits (en premier) et les éteindre.",
             "climates": "Utilisés pour le mode et la température, jamais pour éteindre.",
             "fans": "Utilisés pour le preset et l'oscillation."
@@ -301,7 +299,6 @@
             "temperature_sensor": "Capteur de température de la pièce",
             "target": "Consigne jour (°C)",
             "follow_room": "Ou : même consigne qu'une autre pièce",
-            "boiler_trigger": "Cette pièce peut demander la chaudière",
             "thermostat_room": "Le thermostat de la chaudière est dans cette pièce",
             "switches": "Interrupteurs d'alimentation des splits",
             "climates": "Entités climate des splits",
@@ -309,7 +306,6 @@
           },
           "data_description": {
             "target": "Laisser vide si la pièce suit une autre pièce.",
-            "boiler_trigger": "Le thermostat de la chaudière est relevé tant que cette pièce est en dessous de sa consigne.",
             "switches": "Utilisés pour allumer les splits (en premier) et les éteindre.",
             "climates": "Utilisés pour le mode et la température, jamais pour éteindre.",
             "fans": "Utilisés pour le preset et l'oscillation."

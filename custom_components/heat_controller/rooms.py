@@ -17,7 +17,6 @@ from dataclasses import dataclass, field
 from typing import Any, Mapping, Optional
 
 from .const import (
-    CONF_ROOM_BOILER_TRIGGER,
     CONF_ROOM_CLIMATES,
     CONF_ROOM_FANS,
     CONF_ROOM_FOLLOW_ROOM,
@@ -39,7 +38,6 @@ class RoomConfig:
     sensor: str
     target: Optional[float] = None
     follow_room: Optional[str] = None
-    boiler_trigger: bool = False
     thermostat_room: bool = False
     switches: tuple[str, ...] = field(default_factory=tuple)
     climates: tuple[str, ...] = field(default_factory=tuple)
@@ -48,6 +46,13 @@ class RoomConfig:
     @property
     def has_splits(self) -> bool:
         return bool(self.switches)
+
+    @property
+    def boiler_trigger(self) -> bool:
+        """A room without splits has only the boiler to heat it: only
+        those rooms may request it on mild days (the split rooms fall
+        back to the boiler automatically after the fallback delay)."""
+        return not self.has_splits
 
 
 def _target(value: Any) -> Optional[float]:
@@ -77,7 +82,6 @@ def room_from_subentry(subentry: Any) -> Optional[RoomConfig]:
         sensor=sensor,
         target=_target(data.get(CONF_ROOM_TARGET)),
         follow_room=(str(data[CONF_ROOM_FOLLOW_ROOM]) if data.get(CONF_ROOM_FOLLOW_ROOM) else None),
-        boiler_trigger=bool(data.get(CONF_ROOM_BOILER_TRIGGER, False)),
         thermostat_room=bool(data.get(CONF_ROOM_THERMOSTAT_ROOM, False)),
         switches=_entities(data.get(CONF_ROOM_SWITCHES)),
         climates=_entities(data.get(CONF_ROOM_CLIMATES)),
