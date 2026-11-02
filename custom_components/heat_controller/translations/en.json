@@ -3,44 +3,34 @@
     "step": {
       "user": {
         "title": "Sensors",
-        "description": "Pick the sensors used for decisions. For solar production choose your plant's power sensor (e.g. Solenso) — actual produced power replaces the forecast.",
+        "description": "Pick the sensors used for decisions. For solar production choose your plant's power sensor (e.g. Solenso) — actual produced power decides the solar surplus, with the optional house consumption sensor.",
         "data": {
           "outdoor_temp_sensor": "Outdoor temperature",
-          "indoor_temp_sensor": "Indoor temperature",
           "production_sensor": "Solar production (instantaneous power)",
           "consumption_sensor": "House consumption (instantaneous power, optional)"
         }
       },
       "devices": {
-        "title": "Controlled devices",
-        "description": "The boiler is driven through its climate entity. For the heat pump list the climate units and, in the same order, their power switches. A switch is turned on before any climate command and off when there is no heating need; the climate mode is never used to switch a unit off. Accessory fans are switched on with the heat pump and off with the boiler.",
+        "title": "Boiler and accessory fans",
+        "description": "The boiler is driven through its climate entity. Accessory fans are switched on with the splits and off with the boiler mode. The splits themselves are configured per room (Add room).",
         "data": {
           "boiler_climate": "Boiler (climate)",
-          "heat_pump_climates": "Heat pump climate units (ordered)",
-          "heat_pump_switches": "Power switches (same order as climate units)",
           "accessory_fans": "Accessory fans"
         }
       },
       "settings": {
         "title": "Settings",
         "data": {
-          "day_setpoint": "Day setpoint (°C)",
           "night_setpoint": "Night setpoint (°C)",
           "away_setpoint": "Away setpoint (°C)",
-          "solar_setpoint": "Solar setpoint (°C)",
           "idle_setpoint": "Idle setpoint (°C)",
           "frost_setpoint": "Frost protection setpoint (°C)",
           "hysteresis": "Hysteresis (°C)",
           "outdoor_threshold": "Outdoor threshold for heat pump/boiler switch (°C)",
           "production_threshold": "Solar production threshold (W)",
-          "heat_pump_rate": "Heat-up rate, heat pump (°C/h)",
-          "boiler_rate": "Heat-up rate, boiler (°C/h)",
-          "safety_margin": "Pre-heat safety margin (min)",
           "day_start": "Day period start time",
           "night_start": "Night period start time",
           "return_time": "Return time in away mode",
-          "solar_start": "Solar window start",
-          "solar_end": "Solar window end",
           "split_offset": "Split setpoint offset (°C)",
           "boiler_demand_setpoint": "Boiler demand setpoint (°C)",
           "split_fan_preset": "Split fan preset",
@@ -56,52 +46,40 @@
         }
       }
     },
-    "error": {
-      "switch_count_mismatch": "Provide either no switch or one per climate unit, in the same order."
-    }
+    "error": {}
   },
   "options": {
     "step": {
       "user": {
         "title": "Sensors",
-        "description": "Pick the sensors used for decisions. For solar production choose your plant's power sensor (e.g. Solenso) — actual produced power replaces the forecast.",
+        "description": "Pick the sensors used for decisions. For solar production choose your plant's power sensor (e.g. Solenso) — actual produced power decides the solar surplus, with the optional house consumption sensor.",
         "data": {
           "outdoor_temp_sensor": "Outdoor temperature",
-          "indoor_temp_sensor": "Indoor temperature",
           "production_sensor": "Solar production (instantaneous power)",
           "consumption_sensor": "House consumption (instantaneous power, optional)"
         }
       },
       "devices": {
-        "title": "Controlled devices",
-        "description": "The boiler is driven through its climate entity. For the heat pump list the climate units and, in the same order, their power switches. A switch is turned on before any climate command and off when there is no heating need; the climate mode is never used to switch a unit off. Accessory fans are switched on with the heat pump and off with the boiler.",
+        "title": "Boiler and accessory fans",
+        "description": "The boiler is driven through its climate entity. Accessory fans are switched on with the splits and off with the boiler mode. The splits themselves are configured per room (Add room).",
         "data": {
           "boiler_climate": "Boiler (climate)",
-          "heat_pump_climates": "Heat pump climate units (ordered)",
-          "heat_pump_switches": "Power switches (same order as climate units)",
           "accessory_fans": "Accessory fans"
         }
       },
       "settings": {
         "title": "Settings",
         "data": {
-          "day_setpoint": "Day setpoint (°C)",
           "night_setpoint": "Night setpoint (°C)",
           "away_setpoint": "Away setpoint (°C)",
-          "solar_setpoint": "Solar setpoint (°C)",
           "idle_setpoint": "Idle setpoint (°C)",
           "frost_setpoint": "Frost protection setpoint (°C)",
           "hysteresis": "Hysteresis (°C)",
           "outdoor_threshold": "Outdoor threshold for heat pump/boiler switch (°C)",
           "production_threshold": "Solar production threshold (W)",
-          "heat_pump_rate": "Heat-up rate, heat pump (°C/h)",
-          "boiler_rate": "Heat-up rate, boiler (°C/h)",
-          "safety_margin": "Pre-heat safety margin (min)",
           "day_start": "Day period start time",
           "night_start": "Night period start time",
           "return_time": "Return time in away mode",
-          "solar_start": "Solar window start",
-          "solar_end": "Solar window end",
           "split_offset": "Split setpoint offset (°C)",
           "boiler_demand_setpoint": "Boiler demand setpoint (°C)",
           "split_fan_preset": "Split fan preset",
@@ -117,35 +95,73 @@
         }
       }
     },
-    "error": {
-      "switch_count_mismatch": "Provide either no switch or one per climate unit, in the same order."
-    }
+    "error": {}
   },
   "entity": {
     "switch": {
-      "active": { "name": "Heating control", "state": { "on": "Active", "off": "Inactive" } },
-      "away_mode": { "name": "Away mode", "state": { "on": "Away", "off": "Home" } },
-      "split_fan_oscillating": { "name": "Split fan oscillation" }
+      "active": {
+        "name": "Heating control",
+        "state": {
+          "on": "Active",
+          "off": "Inactive"
+        }
+      },
+      "away_mode": {
+        "name": "Away mode",
+        "state": {
+          "on": "Away",
+          "off": "Home"
+        }
+      },
+      "split_fan_oscillating": {
+        "name": "Split fan oscillation"
+      }
     },
     "climate": {
-      "thermostat": { "name": "Thermostat" }
+      "thermostat": {
+        "name": "Thermostat"
+      }
     },
     "binary_sensor": {
-      "heat_pump_source": { "name": "Heat pump source" },
-      "preheating": { "name": "Pre-heating" },
-      "heating_demand": { "name": "Heating demand" },
-      "day_period": { "name": "Day period" },
-      "solar_period": { "name": "Solar period" },
-      "frost_protection": { "name": "Frost protection" },
-      "boiler_demand": { "name": "Boiler demand" }
+      "heat_pump_source": {
+        "name": "Heat pump source"
+      },
+      "preheating": {
+        "name": "Pre-heating"
+      },
+      "heating_demand": {
+        "name": "Heating demand"
+      },
+      "day_period": {
+        "name": "Day period"
+      },
+      "solar_period": {
+        "name": "Solar period"
+      },
+      "frost_protection": {
+        "name": "Frost protection"
+      },
+      "boiler_demand": {
+        "name": "Boiler demand"
+      }
     },
     "sensor": {
-      "target_setpoint": { "name": "Target setpoint" },
-      "preheating_duration": { "name": "Pre-heat duration" },
-      "source": { "name": "Heat source" },
+      "target_setpoint": {
+        "name": "Target setpoint"
+      },
+      "preheating_duration": {
+        "name": "Pre-heat duration"
+      },
+      "source": {
+        "name": "Heat source"
+      },
       "mode": {
         "name": "Mode",
-        "state": { "day": "Day", "night": "Night", "away": "Away" }
+        "state": {
+          "day": "Day",
+          "night": "Night",
+          "away": "Away"
+        }
       }
     },
     "select": {
@@ -168,41 +184,75 @@
       }
     },
     "datetime": {
-      "away_until": { "name": "Away until" }
+      "away_until": {
+        "name": "Away until"
+      }
     },
     "number": {
-      "day_setpoint": { "name": "Day setpoint" },
-      "night_setpoint": { "name": "Night setpoint" },
-      "away_setpoint": { "name": "Away setpoint" },
-      "solar_setpoint": { "name": "Solar setpoint" },
-      "idle_setpoint": { "name": "Idle setpoint" },
-      "frost_setpoint": { "name": "Frost protection setpoint" },
-      "outdoor_threshold": { "name": "Heat pump/boiler switch threshold" },
-      "hysteresis": { "name": "Hysteresis" },
-      "production_threshold": { "name": "Solar production threshold" },
-      "heat_pump_rate": { "name": "Heat pump heat-up rate" },
-      "boiler_rate": { "name": "Boiler heat-up rate" },
-      "safety_margin": { "name": "Pre-heat safety margin" },
-      "split_offset": { "name": "Split setpoint offset" },
-      "boiler_demand_setpoint": { "name": "Boiler demand setpoint" },
-      "solar_bonus": { "name": "Solar surplus bonus" },
-      "surplus_threshold": { "name": "Solar surplus threshold" },
-      "fallback_minutes": { "name": "Boiler fallback delay" },
-      "min_cycle_minutes": { "name": "Minimum split run/stop time" },
-      "initial_preheat_minutes": { "name": "Initial pre-heating duration" },
-      "max_preheat_minutes": { "name": "Maximum pre-heating duration" }
+      "night_setpoint": {
+        "name": "Night setpoint"
+      },
+      "away_setpoint": {
+        "name": "Away setpoint"
+      },
+      "idle_setpoint": {
+        "name": "Idle setpoint"
+      },
+      "frost_setpoint": {
+        "name": "Frost protection setpoint"
+      },
+      "outdoor_threshold": {
+        "name": "Heat pump/boiler switch threshold"
+      },
+      "hysteresis": {
+        "name": "Hysteresis"
+      },
+      "production_threshold": {
+        "name": "Solar production threshold"
+      },
+      "split_offset": {
+        "name": "Split setpoint offset"
+      },
+      "boiler_demand_setpoint": {
+        "name": "Boiler demand setpoint"
+      },
+      "solar_bonus": {
+        "name": "Solar surplus bonus"
+      },
+      "surplus_threshold": {
+        "name": "Solar surplus threshold"
+      },
+      "fallback_minutes": {
+        "name": "Boiler fallback delay"
+      },
+      "min_cycle_minutes": {
+        "name": "Minimum split run/stop time"
+      },
+      "initial_preheat_minutes": {
+        "name": "Initial pre-heating duration"
+      },
+      "max_preheat_minutes": {
+        "name": "Maximum pre-heating duration"
+      }
     },
     "time": {
-      "day_start": { "name": "Day period start" },
-      "night_start": { "name": "Night period start" },
-      "return_time": { "name": "Away return time" },
-      "solar_start": { "name": "Solar window start" },
-      "solar_end": { "name": "Solar window end" }
+      "day_start": {
+        "name": "Day period start"
+      },
+      "night_start": {
+        "name": "Night period start"
+      },
+      "return_time": {
+        "name": "Away return time"
+      }
     }
   },
   "config_subentries": {
     "room": {
-      "initiate_flow": { "user": "Add room", "reconfigure": "Edit room" },
+      "initiate_flow": {
+        "user": "Add room",
+        "reconfigure": "Edit room"
+      },
       "entry_type": "Room",
       "step": {
         "user": {
@@ -252,7 +302,9 @@
         "target_required": "Set a target temperature or pick the room to follow.",
         "climate_required": "Splits need at least one climate entity."
       },
-      "abort": { "reconfigure_successful": "Room updated." }
+      "abort": {
+        "reconfigure_successful": "Room updated."
+      }
     }
   }
 }

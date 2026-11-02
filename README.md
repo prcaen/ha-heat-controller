@@ -1,53 +1,54 @@
 # Heat Controller for Home Assistant
 
-Custom integration that replaces YAML automations
-« Heating - Heat pump/Boiler changeover » and
-« Heating - Day/Night/Away with anticipation »
-(and all associated `input_*`) with a single configurable component,
-and controls the solar period using the **actual production** from the
-photovoltaic central (power sensor from the
-[Solenso](https://github.com/pismache/ha-solenso) integration) instead of a
-Forecast.Solar forecast.
+Custom integration for a **hybrid multi-room heating**: the heat pump
+splits regulate each room on mild days, the boiler rests and answers the
+demands of the rooms it is the only one to heat, and cold days, nights
+and absences switch to the boiler following the thermostat room's target.
+The solar surplus (production − consumption, Solenso power sensors)
+drives a soft overheating of the split rooms.
 
 ## What the integration does
 
-- **Heat pump / Boiler changeover**: the heat pump takes over when the
-  outdoor temperature exceeds the threshold (3 °C default, adjustable from
-  -5 °C to 10 °C), the boiler when it goes below, with a hysteresis of
-  ±0.5 °C to avoid back-and-forth.
-  Changeover sequence identical to YAML: boiler off, accessory fans on,
-  wait 15 s, heat pump units powered through their switches (and the
-  reverse for the boiler: switches cut, the climate mode is never used
-  to switch a unit off).
-- **Day/Night/Away / Solar scheduling**: target setpoint according to the
-  period (day, night, away, solar window), anticipated preheating
-  proportional to the temperature difference and the active source's
-  rise rate (°C/h) + safety hysteresis, heating demand hysteresis,
-  automatic away mode stop after the return time.
-- **Actual solar period**: the solar window only activates if the
-  central is actually producing above the threshold (500 W default),
-  read from the instantaneous power sensor — at night it reads 0 W,
-  so the window only opens if there's real sunlight.
-- **Settings on the dashboard**: every setpoint, threshold, rate and
-  schedule is also exposed as a `number` or `time` entity — adjust them
-  from a dashboard; they are applied live and stored in the integration
-  options.
-- **Manual heat source override**: a `select` entity forces the heat pump
-  or the boiler (Automatic = normal changeover); the choice survives
-  restarts.
-- **Frost protection**: the target setpoint never goes below the frost
-  setpoint (7 °C default, adjustable) and heating is forced as soon as the
-  indoor temperature reaches it — whatever the schedule or away mode says.
+- **Hybrid regulation** (see « Rooms and hybrid regulation » below):
+  mild days let the splits heat the rooms, the boiler rests at the idle
+  setpoint and rises to the demand setpoint while a trigger room is
+  below its target; cold days, nights and absences force the splits off
+  and the boiler follows the thermostat room.
+- **Solar surplus**: on a production surplus (production − consumption
+  above the surplus threshold, or the production threshold without a
+  consumption sensor) the split rooms aim slightly above their target,
+  with a ±threshold hysteresis band so the splits' own consumption
+  cannot flip the mode.
+- **Safety nets**: a running split that stalls asks the boiler, a split
+  changed by hand leaves its room alone, non-forced state changes wait
+  for the minimum run/stop time, and commands are sent only once the
+  switches confirm ON and the climate entities are available.
+- **Learning**: each room's heating speed (°C/h) is learned from the
+  observed sessions and persisted; the pre-heating before the day period
+  and before a planned return is (target − current) / rate, adjusted
+  with the weather forecast when a weather entity is configured.
+- **Notifications**: an optional notify service receives the away
+  start/end, the unresponsive splits and the boiler takeovers.
+- **Settings on the dashboard**: every setpoint, threshold, delay and
+  schedule is also exposed as a `number`, `time`, `select` or `switch`
+  entity — adjust them from a dashboard; they are applied live and
+  stored in the integration options.
+- **Manual heat source override**: a `select` entity forces the splits
+  (heat pump) or the boiler (Automatic = normal behaviour); the choice
+  survives restarts.
+- **Frost protection**: the target of a room never goes below the frost
+  setpoint (7 °C default, adjustable) and heating is forced as soon as a
+  room reaches it — whatever the schedule or away mode says.
 - **Absence with a return date**: set the « Away until » `datetime` entity
   to turn away mode on until that date and time; the absence ends by
   itself, with pre-heating before your return (the daily return time
   remains as a fallback when no date is set).
 - **Thermostat card**: the `climate.heating_thermostat` entity shows the
-  indoor temperature and the current setpoint (day, night, away or solar —
-  it does not drop to the idle setpoint), ready for the standard thermostat
-  card. Adjusting it changes the setpoint of the active period (the matching
-  `number` entity follows); its on/off button mirrors the heating control
-  switch.
+  temperature of the thermostat room and the current target, ready for
+  the standard thermostat card. During the day its +/− buttons change
+  the thermostat room's day target (the room sub-entry follows); at
+  night and in away mode they change the night/away setpoints. Its
+  on/off button mirrors the heating control switch.
 
 ## Created entities ( « Heating » device)
 
@@ -66,25 +67,19 @@ Forecast.Solar forecast.
 | `binary_sensor.heating_frost_protection` | binary_sensor | (calculated) |
 | `select.heating_heat_source_override` | select | Automatic / Heat pump / Boiler |
 | `datetime.heating_away_until` | datetime | absence end (date + time) |
-| `climate.heating_thermostat` | climate | thermostat card (indoor temp + setpoint) |
-| `number.heating_*` (12 entities) | number | `input_number.chauffage_*` |
-| `time.heating_*` (5 entities) | time | `input_datetime.chauffage_heure_*` |
-
-With rooms configured (multi-room mode, see below) the integration also
-creates:
-
-| Entity | Type | Purpose |
-|---|---|---|
+| `climate.heating_thermostat` | climate | thermostat card (room temp + setpoint) |
+| `number.heating_*` (15 entities) | number | the numeric settings |
+| `time.heating_*` (3 entities) | time | day/night start, away return time |
+| `select.heating_split_fan_preset` | select | split fan preset |
+| `switch.heating_split_fan_oscillating` | switch | split fan oscillation |
 | `sensor.heating_mode` | sensor | `day` / `night` / `away`, with the solar surplus, the boiler setpoint and the splits state as attributes |
 | `binary_sensor.heating_boiler_demand` | binary_sensor | a trigger room (or a stalled split) is asking the boiler |
 | `sensor.<room>_heat_source` | sensor | per room: `idle` / `splits` / `boiler`, with the room's target, pre-heating and override state |
 | `sensor.<room>_learned_heating_rate` | sensor | per room: learned heating speed (°C/h) |
 | `sensor.<room>_next_pre_heating` | sensor | per room: when the next pre-heating starts |
-| `number.heating_*`, `select.heating_*`, `switch.heating_*` | — | the hybrid settings (split offset, boiler demand setpoint, surplus threshold and bonus, fallback delay, minimum run/stop time, fan preset and oscillation, ...) |
 
 Flags (heat pump source, preheating, demand, active, away mode, forced
-source, absence end) persist across restarts, like the original
-`input_boolean` entities.
+source, absence end) persist across restarts.
 
 > Exact identifiers are generated by Home Assistant from the names
 > (device "Heating" + entity name) ; check them in
@@ -108,42 +103,41 @@ Copy the `custom_components/heat_controller` folder to
 Settings → Devices and services → **Add integration** →
 **Heat Controller**. Three screens :
 
-1. **Sensors** : outdoor temperature, indoor temperature, and
-   instantaneous solar power production (power sensor), plus the optional
-   house consumption power sensor (for the solar surplus). If
-   the Solenso integration is installed, the central's power sensor
-   is pre-selected.
-2. **Controlled devices** : the boiler's climate (Netatmo), the heat pump's
-   climate units **in order**, their power switches **in the same order**
-   (`switch.salon_clim_gauche`, `switch.salon_clim_droite`: each switch powers
-   the matching unit and is driven before any climate command), and the
-   accessory fans (those for the changeover,
-   `fan.climate_series_accessory*` in the original YAML).
-3. **Settings** : day/night/away/solar/**idle**/**frost protection**
-   setpoints, hysteresis, exterior changeover threshold, production
-   threshold, rise rate (°C/h), safety margin (min), day/night/return hours
-   and solar window.
+1. **Sensors** : outdoor temperature, instantaneous solar power
+   production (power sensor), and the optional house consumption power
+   sensor (for the solar surplus). If the Solenso integration is
+   installed, the central's power sensor is pre-selected.
+2. **Boiler and accessory fans** : the boiler's climate (Netatmo) and
+   the accessory fans (on with the splits, off with the boiler mode).
+   The splits themselves are configured per room (« Add room »).
+3. **Settings** : night/away/**idle**/**frost protection** setpoints,
+   hysteresis, outdoor threshold, production threshold, day/night/return
+   hours, and the hybrid settings (split offset, boiler demand setpoint,
+   surplus threshold and bonus, fallback delay, minimum run/stop time,
+   pre-heating durations, fan preset and oscillation, optional weather
+   entity and notification service).
 
 All is then modifiable via **Configure** on the entry, or directly from a
-dashboard through the `number`/`time` entities; settings are stored in the
-integration options and applied without reloading. Diagnostics (settings,
-flags, last decision and sensor readings) can be downloaded from the entry
-page.
+dashboard through the `number`/`time`/`select`/`switch` entities; settings
+are stored in the integration options and applied without reloading.
+Diagnostics (settings, rooms, flags, last decisions and sensor readings)
+can be downloaded from the entry page.
 
-## Rooms and hybrid regulation (multi-room mode)
+## Rooms and hybrid regulation
 
-With Home Assistant 2025.3 or newer, rooms can be added to the entry
-(« Add room » on the integration page, editable afterwards). A room has:
+Rooms are added to the entry (« Add room » on the integration page,
+editable afterwards — Home Assistant 2025.3 or newer). A room has:
 a name, its temperature sensor, a day target (or the target of another
 room, e.g. the bathrooms following the living room), a **boiler
 trigger** flag (the room may request the boiler when it is too cold),
 the **thermostat room** flag (the boiler thermostat lives in this
 room — usually the living room) and the splits that heat it: power
 switches (the only way to turn a split off), climate entities and fan
-entities.
+entities. At least one room is required; the room flagged as thermostat
+room drives the boiler and the thermostat card (the first room if
+none is flagged).
 
-Once rooms exist, the hybrid regulation replaces the single-zone
-changeover:
+The hybrid regulation:
 
 - **Mild day** (outdoor at or above the threshold, or sensor
   unavailable): the splits regulate each room — start below
@@ -226,31 +220,20 @@ cards:
    verified that nothing else references them (dashboards, other
    automations).
 
-## Voluntary differences from YAML
+## Notes
 
-- Heartbeat every minutes + sensor listening, instead of
-  5/15 minutes : decisions are idempotent and protected by
-  hysteresis, we just react faster.
-- When changing over to the boiler, the heat pump units are cut from their
-  power switches (the YAML only turned off the accessory fans) : nothing
-  remains unnecessarily powered.
-- While the heat pump is the active source, the boiler's setpoint is
-  pushed down to the idle setpoint (12 °C default, adjustable) on every
-  control pass, in addition to the `off` mode set at changeover : a
-  boiler that ignores or loses the `off` mode cannot heat alongside the
-  heat pump.
-- When there is no heating need, the boiler thermostat is not turned off ;
-  its setpoint is reduced to the idle setpoint (12 °C default, adjustable)
-  and it stays on in `auto` mode. The heat pump units are simply powered
-  off through their switches: their climate mode is never used to switch
-  them off, and it is set to `heat` right after the switch is confirmed on.
+- Heartbeat every minute + sensor listening: decisions are idempotent and
+  protected by hysteresis.
+- The boiler's HVAC mode is never touched: many boiler thermostats
+  (Netatmo) only support off/heat, and a mode set by hand (e.g. off for
+  the summer) is respected. Only the setpoint is driven.
+- The splits are cut from their power switches only: their climate mode
+  is never used to switch them off, and it is set to `heat` right after
+  the switch is confirmed on.
 - Settings are applied live when changed from the settings screens or from
   the dashboard entities, without reloading the integration.
-- Manual source override, frost protection and the absence end date have no
-  direct YAML equivalent (they replace manual `input_boolean` handling).
-- The solar window is based on measured production, therefore more reliable
-  than a forecast ; in case of a Solenso data feed cut-off in full sun,
-  the sensor becomes unavailable and is treated as « no production ».
+- In case of a Solenso data feed cut-off in full sun, the sensor becomes
+  unavailable and is treated as « no production ».
 
 ## Development
 

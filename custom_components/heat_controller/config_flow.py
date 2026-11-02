@@ -34,9 +34,6 @@ from .const import (
     CONF_ACCESSORY_FANS,
     CONF_BOILER_CLIMATE,
     CONF_CONSUMPTION_SENSOR,
-    CONF_HEAT_PUMP_CLIMATES,
-    CONF_HEAT_PUMP_SWITCHES,
-    CONF_INDOOR_TEMP_SENSOR,
     CONF_OUTDOOR_TEMP_SENSOR,
     CONF_PRODUCTION_SENSOR,
     CONF_ROOM_BOILER_TRIGGER,
@@ -107,12 +104,6 @@ def _sensors_schema(data: dict[str, Any], suggested_production: str | None) -> v
                 EntitySelectorConfig(domain="sensor", device_class="temperature")
             ),
             vol.Required(
-                CONF_INDOOR_TEMP_SENSOR,
-                default=data.get(CONF_INDOOR_TEMP_SENSOR),
-            ): EntitySelector(
-                EntitySelectorConfig(domain="sensor", device_class="temperature")
-            ),
-            vol.Required(
                 CONF_PRODUCTION_SENSOR,
                 default=data.get(CONF_PRODUCTION_SENSOR, suggested_production),
             ): EntitySelector(
@@ -135,16 +126,6 @@ def _devices_schema(data: dict[str, Any]) -> vol.Schema:
             vol.Required(
                 CONF_BOILER_CLIMATE, default=data.get(CONF_BOILER_CLIMATE)
             ): EntitySelector(EntitySelectorConfig(domain="climate")),
-            vol.Required(
-                CONF_HEAT_PUMP_CLIMATES, default=data.get(CONF_HEAT_PUMP_CLIMATES, [])
-            ): EntitySelector(
-                EntitySelectorConfig(domain="climate", multiple=True)
-            ),
-            vol.Optional(
-                CONF_HEAT_PUMP_SWITCHES, default=data.get(CONF_HEAT_PUMP_SWITCHES, [])
-            ): EntitySelector(
-                EntitySelectorConfig(domain="switch", multiple=True)
-            ),
             vol.Optional(
                 CONF_ACCESSORY_FANS, default=data.get(CONF_ACCESSORY_FANS, [])
             ): EntitySelector(EntitySelectorConfig(domain="fan", multiple=True)),
@@ -263,19 +244,12 @@ class HeatControllerConfigFlow(ConfigFlow, domain=DOMAIN):
         )
 
     async def async_step_devices(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
-        errors: dict[str, str] = {}
         if user_input is not None:
-            climates = user_input.get(CONF_HEAT_PUMP_CLIMATES) or []
-            switches = user_input.get(CONF_HEAT_PUMP_SWITCHES) or []
-            if switches and len(switches) != len(climates):
-                errors["base"] = "switch_count_mismatch"
-            else:
-                self._data.update(user_input)
-                return await self.async_step_settings()
+            self._data.update(user_input)
+            return await self.async_step_settings()
         return self.async_show_form(
             step_id="devices",
             data_schema=_devices_schema(self._data),
-            errors=errors,
         )
 
     async def async_step_settings(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
@@ -310,19 +284,12 @@ class HeatControllerOptionsFlow(OptionsFlow):
         )
 
     async def async_step_devices(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
-        errors: dict[str, str] = {}
         if user_input is not None:
-            climates = user_input.get(CONF_HEAT_PUMP_CLIMATES) or []
-            switches = user_input.get(CONF_HEAT_PUMP_SWITCHES) or []
-            if switches and len(switches) != len(climates):
-                errors["base"] = "switch_count_mismatch"
-            else:
-                self._data.update(user_input)
-                return await self.async_step_settings()
+            self._data.update(user_input)
+            return await self.async_step_settings()
         return self.async_show_form(
             step_id="devices",
             data_schema=_devices_schema(self._data),
-            errors=errors,
         )
 
     async def async_step_settings(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:

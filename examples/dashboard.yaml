@@ -5,12 +5,11 @@
 # the entity names. Check them in Developer Tools > States.
 type: vertical-stack
 cards:
-  # Virtual thermostat of the integration: indoor temperature and current
-  # setpoint (day, night, away or solar — it does not drop to the idle
-  # setpoint). The +/- buttons adjust the active period's setpoint and the
-  # power button mirrors "Heating control". To watch the boiler's own
-  # setpoint instead, use climate.netatmo_smart_thermostat (or the heat pump
-  # climates, e.g. climate.salon_clim_gauche).
+  # Virtual thermostat of the integration: temperature of the thermostat
+  # room and current target. The +/- buttons adjust the thermostat room's
+  # day target during the day (night/away setpoints at night and in away
+  # mode) and the power button mirrors "Heating control". To watch the
+  # boiler's own setpoint instead, use climate.netatmo_smart_thermostat.
   - type: thermostat
     entity: climate.heating_thermostat
     name: Heating
@@ -55,11 +54,12 @@ cards:
       - entity: binary_sensor.heating_heating_demand
       - entity: sensor.heating_target_setpoint
       - entity: sensor.heating_pre_heat_duration
-      - entity: number.heating_day_setpoint
       - entity: number.heating_night_setpoint
       - entity: number.heating_away_setpoint
       - entity: number.heating_idle_setpoint
       - entity: number.heating_frost_setpoint
+      - entity: number.heating_outdoor_threshold
+      - entity: number.heating_hysteresis
       - entity: time.heating_day_start
       - entity: time.heating_night_start
       - entity: time.heating_return_time

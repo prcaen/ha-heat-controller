@@ -3,44 +3,34 @@
     "step": {
       "user": {
         "title": "Capteurs",
-        "description": "Choisissez les capteurs utilisés pour les décisions. Pour la production solaire, sélectionnez le capteur de puissance de votre centrale (par ex. Solenso) — la puissance réellement produite remplace la prévision.",
+        "description": "Choisissez les capteurs utilisés pour les décisions. Pour la production solaire, choisissez le capteur de puissance de votre centrale (ex. Solenso) — la puissance produite décide du surplus solaire, avec le capteur de consommation de la maison en option.",
         "data": {
           "outdoor_temp_sensor": "Température extérieure",
-          "indoor_temp_sensor": "Température intérieure",
           "production_sensor": "Production solaire (puissance instantanée)",
           "consumption_sensor": "Consommation de la maison (puissance instantanée, optionnel)"
         }
       },
       "devices": {
-        "title": "Appareils pilotés",
-        "description": "La chaudière est pilotée par son entité climate. Pour la PAC, listez les clims et, dans le même ordre, leurs interrupteurs de puissance. Un interrupteur est activé avant toute commande climate et coupé en l'absence de besoin de chauffage ; le mode climate n'est jamais utilisé pour éteindre une clim. Les ventilateurs accessoires sont allumés avec la PAC et coupés avec la chaudière.",
+        "title": "Chaudière et ventilateurs accessoires",
+        "description": "La chaudière est pilotée par son entité climate. Les ventilateurs accessoires s'allument avec les splits et s'éteignent en mode chaudière. Les splits eux-mêmes se configurent par pièce (Ajouter une pièce).",
         "data": {
           "boiler_climate": "Chaudière",
-          "heat_pump_climates": "Clims de la PAC (dans l'ordre)",
-          "heat_pump_switches": "Interrupteurs de puissance (même ordre que les clims)",
           "accessory_fans": "Ventilateurs accessoires"
         }
       },
       "settings": {
         "title": "Réglages",
         "data": {
-          "day_setpoint": "Consigne jour (°C)",
           "night_setpoint": "Consigne nuit (°C)",
           "away_setpoint": "Consigne absence (°C)",
-          "solar_setpoint": "Consigne solaire (°C)",
           "idle_setpoint": "Consigne hors besoin (°C)",
           "frost_setpoint": "Consigne hors gel (°C)",
           "hysteresis": "Hystérésis (°C)",
           "outdoor_threshold": "Seuil extérieur de bascule PAC/chaudière (°C)",
           "production_threshold": "Seuil de production solaire (W)",
-          "heat_pump_rate": "Vitesse de montée en température, PAC (°C/h)",
-          "boiler_rate": "Vitesse de montée en température, chaudière (°C/h)",
-          "safety_margin": "Marge de sécurité de la préchauffe (min)",
           "day_start": "Heure de début de la période jour",
           "night_start": "Heure de début de la période nuit",
           "return_time": "Heure de retour en mode absence",
-          "solar_start": "Début de la fenêtre solaire",
-          "solar_end": "Fin de la fenêtre solaire",
           "split_offset": "Décalage de consigne des splits (°C)",
           "boiler_demand_setpoint": "Consigne de demande chaudière (°C)",
           "split_fan_preset": "Preset du ventilateur des splits",
@@ -56,52 +46,40 @@
         }
       }
     },
-    "error": {
-      "switch_count_mismatch": "Indiquez soit aucun interrupteur, soit un par clim, dans le même ordre."
-    }
+    "error": {}
   },
   "options": {
     "step": {
       "user": {
         "title": "Capteurs",
-        "description": "Choisissez les capteurs utilisés pour les décisions. Pour la production solaire, sélectionnez le capteur de puissance de votre centrale (par ex. Solenso) — la puissance réellement produite remplace la prévision.",
+        "description": "Choisissez les capteurs utilisés pour les décisions. Pour la production solaire, choisissez le capteur de puissance de votre centrale (ex. Solenso) — la puissance produite décide du surplus solaire, avec le capteur de consommation de la maison en option.",
         "data": {
           "outdoor_temp_sensor": "Température extérieure",
-          "indoor_temp_sensor": "Température intérieure",
           "production_sensor": "Production solaire (puissance instantanée)",
           "consumption_sensor": "Consommation de la maison (puissance instantanée, optionnel)"
         }
       },
       "devices": {
-        "title": "Appareils pilotés",
-        "description": "La chaudière est pilotée par son entité climate. Pour la PAC, listez les clims et, dans le même ordre, leurs interrupteurs de puissance. Un interrupteur est activé avant toute commande climate et coupé en l'absence de besoin de chauffage ; le mode climate n'est jamais utilisé pour éteindre une clim. Les ventilateurs accessoires sont allumés avec la PAC et coupés avec la chaudière.",
+        "title": "Chaudière et ventilateurs accessoires",
+        "description": "La chaudière est pilotée par son entité climate. Les ventilateurs accessoires s'allument avec les splits et s'éteignent en mode chaudière. Les splits eux-mêmes se configurent par pièce (Ajouter une pièce).",
         "data": {
           "boiler_climate": "Chaudière (climate)",
-          "heat_pump_climates": "Clims de la PAC (dans l'ordre)",
-          "heat_pump_switches": "Interrupteurs de puissance (même ordre que les clims)",
           "accessory_fans": "Ventilateurs accessoires"
         }
       },
       "settings": {
         "title": "Réglages",
         "data": {
-          "day_setpoint": "Consigne jour (°C)",
           "night_setpoint": "Consigne nuit (°C)",
           "away_setpoint": "Consigne absence (°C)",
-          "solar_setpoint": "Consigne solaire (°C)",
           "idle_setpoint": "Consigne hors besoin (°C)",
           "frost_setpoint": "Consigne hors gel (°C)",
           "hysteresis": "Hystérésis (°C)",
           "outdoor_threshold": "Seuil extérieur de bascule PAC/chaudière (°C)",
           "production_threshold": "Seuil de production solaire (W)",
-          "heat_pump_rate": "Vitesse de montée en température, PAC (°C/h)",
-          "boiler_rate": "Vitesse de montée en température, chaudière (°C/h)",
-          "safety_margin": "Marge de sécurité de la préchauffe (min)",
           "day_start": "Heure de début de la période jour",
           "night_start": "Heure de début de la période nuit",
           "return_time": "Heure de retour en mode absence",
-          "solar_start": "Début de la fenêtre solaire",
-          "solar_end": "Fin de la fenêtre solaire",
           "split_offset": "Décalage de consigne des splits (°C)",
           "boiler_demand_setpoint": "Consigne de demande chaudière (°C)",
           "split_fan_preset": "Preset du ventilateur des splits",
@@ -117,35 +95,73 @@
         }
       }
     },
-    "error": {
-      "switch_count_mismatch": "Indiquez soit aucun interrupteur, soit un par clim, dans le même ordre."
-    }
+    "error": {}
   },
   "entity": {
     "switch": {
-      "active": { "name": "Pilotage actif", "state": { "on": "Actif", "off": "Inactif" } },
-      "away_mode": { "name": "Mode absence", "state": { "on": "Absent", "off": "Présent" } },
-      "split_fan_oscillating": { "name": "Oscillation du ventilateur des splits" }
+      "active": {
+        "name": "Pilotage actif",
+        "state": {
+          "on": "Actif",
+          "off": "Inactif"
+        }
+      },
+      "away_mode": {
+        "name": "Mode absence",
+        "state": {
+          "on": "Absent",
+          "off": "Présent"
+        }
+      },
+      "split_fan_oscillating": {
+        "name": "Oscillation du ventilateur des splits"
+      }
     },
     "climate": {
-      "thermostat": { "name": "Thermostat" }
+      "thermostat": {
+        "name": "Thermostat"
+      }
     },
     "binary_sensor": {
-      "heat_pump_source": { "name": "Source PAC" },
-      "preheating": { "name": "Préchauffe" },
-      "heating_demand": { "name": "Demande de chauffage" },
-      "day_period": { "name": "Période jour" },
-      "solar_period": { "name": "Période solaire" },
-      "frost_protection": { "name": "Hors gel" },
-      "boiler_demand": { "name": "Demande chaudière" }
+      "heat_pump_source": {
+        "name": "Source PAC"
+      },
+      "preheating": {
+        "name": "Préchauffe"
+      },
+      "heating_demand": {
+        "name": "Demande de chauffage"
+      },
+      "day_period": {
+        "name": "Période jour"
+      },
+      "solar_period": {
+        "name": "Période solaire"
+      },
+      "frost_protection": {
+        "name": "Hors gel"
+      },
+      "boiler_demand": {
+        "name": "Demande chaudière"
+      }
     },
     "sensor": {
-      "target_setpoint": { "name": "Consigne cible" },
-      "preheating_duration": { "name": "Durée de préchauffe" },
-      "source": { "name": "Source de chaleur" },
+      "target_setpoint": {
+        "name": "Consigne cible"
+      },
+      "preheating_duration": {
+        "name": "Durée de préchauffe"
+      },
+      "source": {
+        "name": "Source de chaleur"
+      },
       "mode": {
         "name": "Mode",
-        "state": { "day": "Jour", "night": "Nuit", "away": "Absence" }
+        "state": {
+          "day": "Jour",
+          "night": "Nuit",
+          "away": "Absence"
+        }
       }
     },
     "select": {
@@ -168,41 +184,75 @@
       }
     },
     "datetime": {
-      "away_until": { "name": "Absent jusqu'au" }
+      "away_until": {
+        "name": "Absent jusqu'au"
+      }
     },
     "number": {
-      "day_setpoint": { "name": "Consigne jour" },
-      "night_setpoint": { "name": "Consigne nuit" },
-      "away_setpoint": { "name": "Consigne absence" },
-      "solar_setpoint": { "name": "Consigne solaire" },
-      "idle_setpoint": { "name": "Consigne hors besoin" },
-      "frost_setpoint": { "name": "Consigne hors gel" },
-      "outdoor_threshold": { "name": "Seuil de bascule PAC/chaudière" },
-      "hysteresis": { "name": "Hystérésis" },
-      "production_threshold": { "name": "Seuil de production solaire" },
-      "heat_pump_rate": { "name": "Vitesse de montée PAC" },
-      "boiler_rate": { "name": "Vitesse de montée chaudière" },
-      "safety_margin": { "name": "Marge de sécurité de la préchauffe" },
-      "split_offset": { "name": "Décalage de consigne des splits" },
-      "boiler_demand_setpoint": { "name": "Consigne de demande chaudière" },
-      "solar_bonus": { "name": "Bonus surplus solaire" },
-      "surplus_threshold": { "name": "Seuil de surplus solaire" },
-      "fallback_minutes": { "name": "Délai de repli chaudière" },
-      "min_cycle_minutes": { "name": "Durée minimale de marche/arrêt des splits" },
-      "initial_preheat_minutes": { "name": "Durée de préchauffe initiale" },
-      "max_preheat_minutes": { "name": "Durée maximale de préchauffe" }
+      "night_setpoint": {
+        "name": "Consigne nuit"
+      },
+      "away_setpoint": {
+        "name": "Consigne absence"
+      },
+      "idle_setpoint": {
+        "name": "Consigne hors besoin"
+      },
+      "frost_setpoint": {
+        "name": "Consigne hors gel"
+      },
+      "outdoor_threshold": {
+        "name": "Seuil de bascule PAC/chaudière"
+      },
+      "hysteresis": {
+        "name": "Hystérésis"
+      },
+      "production_threshold": {
+        "name": "Seuil de production solaire"
+      },
+      "split_offset": {
+        "name": "Décalage de consigne des splits"
+      },
+      "boiler_demand_setpoint": {
+        "name": "Consigne de demande chaudière"
+      },
+      "solar_bonus": {
+        "name": "Bonus surplus solaire"
+      },
+      "surplus_threshold": {
+        "name": "Seuil de surplus solaire"
+      },
+      "fallback_minutes": {
+        "name": "Délai de repli chaudière"
+      },
+      "min_cycle_minutes": {
+        "name": "Durée minimale de marche/arrêt des splits"
+      },
+      "initial_preheat_minutes": {
+        "name": "Durée de préchauffe initiale"
+      },
+      "max_preheat_minutes": {
+        "name": "Durée maximale de préchauffe"
+      }
     },
     "time": {
-      "day_start": { "name": "Début de la période jour" },
-      "night_start": { "name": "Début de la période nuit" },
-      "return_time": { "name": "Heure de retour en absence" },
-      "solar_start": { "name": "Début de la fenêtre solaire" },
-      "solar_end": { "name": "Fin de la fenêtre solaire" }
+      "day_start": {
+        "name": "Début de la période jour"
+      },
+      "night_start": {
+        "name": "Début de la période nuit"
+      },
+      "return_time": {
+        "name": "Heure de retour en absence"
+      }
     }
   },
   "config_subentries": {
     "room": {
-      "initiate_flow": { "user": "Ajouter une pièce", "reconfigure": "Modifier la pièce" },
+      "initiate_flow": {
+        "user": "Ajouter une pièce",
+        "reconfigure": "Modifier la pièce"
+      },
       "entry_type": "Pièce",
       "step": {
         "user": {
@@ -252,7 +302,9 @@
         "target_required": "Définir une consigne ou choisir la pièce à suivre.",
         "climate_required": "Les splits ont besoin d'au moins une entité climate."
       },
-      "abort": { "reconfigure_successful": "Pièce mise à jour." }
+      "abort": {
+        "reconfigure_successful": "Pièce mise à jour."
+      }
     }
   }
 }

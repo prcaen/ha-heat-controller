@@ -60,7 +60,6 @@ class TestSchemas(unittest.TestCase):
             keys,
             {
                 "outdoor_temp_sensor",
-                "indoor_temp_sensor",
                 "production_sensor",
                 "consumption_sensor",
             },
@@ -72,8 +71,6 @@ class TestSchemas(unittest.TestCase):
             keys,
             {
                 CONF_BOILER_CLIMATE,
-                "heat_pump_climates",
-                "heat_pump_switches",
                 CONF_ACCESSORY_FANS,
             },
         )

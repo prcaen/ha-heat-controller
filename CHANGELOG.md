@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **Breaking**: the single-zone mode is removed. The integration is now rooms-only: at least one room sub-entry is required, and the entry does nothing (entities unavailable, warning in the logs) without rooms. Removed from the configuration: the « Indoor temperature » sensor, the « Heat pump climates » and « Power switches » lists (the splits are configured per room), and the settings that only served the single-zone logic: day setpoint, solar setpoint, solar window start and end, heat pump and boiler heat-up rates, pre-heat safety margin. Their `number`/`time` entities disappear; the boiler « changeover » (switching the boiler climate off/on with the source) is gone with it — in hybrid mode the boiler's HVAC mode is never touched.
+- **Breaking (behaviour)**: the solar period is no longer limited to a time window: the soft overheating applies whenever the real surplus (or, without a consumption sensor, the production) is above the threshold, at any time of the day period.
+- The thermostat card now adjusts the **thermostat room's day target** with its +/− buttons during the day (persisted in the room sub-entry, the entry reloads), and the night/away setpoints at night and in away mode.
+- The global decision entities (target setpoint, pre-heating, demand, frost protection, day/solar period) are now computed directly from the multi-room decision instead of the single-zone logic.
+
 - Fix: the boiler demand (trigger-room latch) is debounced with the minimum run/stop time — a trigger room whose sensor flutters across its dead band (e.g. a median of several sensors hovering between target − hysteresis and target) can no longer flip the demand and the boiler setpoint on every pass. The demand still starts immediately and still releases as soon as every trigger room is back at its target.
 
 - Fix: in hybrid mode the boiler's HVAC mode is never touched anymore — boiler thermostats such as the Netatmo only support `off`/`heat`, and forcing `auto` failed (and spammed the activity feed) at every pass. Only the setpoint is driven; a mode set by hand (e.g. `off` for the summer) is respected.

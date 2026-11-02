@@ -1,20 +1,18 @@
 """Heat Controller: reads state, decides, applies.
 
-Equivalent Python of YAML automations « Heating - PAC/Boiler changeover »
-and « Heating - Day/Night/Away with anticipation ».
+Multi-room hybrid regulation: the splits heat the rooms on mild days,
+the boiler rests at the idle setpoint and answers the demands of the
+trigger rooms; cold days, nights and absences switch to the boiler
+following the thermostat room's target.
 
-Voluntary differences from YAML, without changing behavior:
-- Heartbeat every minutes (instead of 5/15 min) + sensor listening:
-  decisions are idempotent and protected by hysteresis;
-- Solar production comes from a real power sensor (Solenso central)
-  instead of the Forecast.Solar forecast.
+One pass per minute and on every watched sensor change: the decisions
+are idempotent and protected by hysteresis.
 """
 
 from __future__ import annotations
 
 import asyncio
 import logging
-from dataclasses import replace
 from datetime import datetime, timedelta
 from typing import Any, Callable, Mapping, Optional
 
@@ -32,22 +30,16 @@ from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 
 from .const import (
-    CHANGEOVER_FAN_DELAY_SECONDS,
     CONF_ACCESSORY_FANS,
     CONF_AWAY_SETPOINT,
     CONF_BOILER_CLIMATE,
     CONF_BOILER_DEMAND_SETPOINT,
-    CONF_BOILER_RATE,
     CONF_CONSUMPTION_SENSOR,
-    CONF_DAY_SETPOINT,
     CONF_DAY_START,
+    CONF_FALLBACK_MINUTES,
     CONF_FROST_SETPOINT,
-    CONF_HEAT_PUMP_CLIMATES,
-    CONF_HEAT_PUMP_SWITCHES,
-    CONF_HEAT_PUMP_RATE,
     CONF_HYSTERESIS,
     CONF_IDLE_SETPOINT,
-    CONF_INDOOR_TEMP_SENSOR,
     CONF_NIGHT_SETPOINT,
     CONF_NIGHT_START,
     CONF_OUTDOOR_TEMP_SENSOR,
@@ -55,14 +47,10 @@ from .const import (
     CONF_PRODUCTION_SENSOR,
     CONF_PRODUCTION_THRESHOLD,
     CONF_RETURN_TIME,
-    CONF_SAFETY_MARGIN,
-    CONF_SOLAR_END,
-    CONF_SOLAR_SETPOINT,
-    CONF_SOLAR_START,
+    CONF_SOLAR_BONUS,
     CONF_SPLIT_FAN_OSCILLATING,
     CONF_SPLIT_FAN_PRESET,
     CONF_SPLIT_OFFSET,
-    CONF_SOLAR_BONUS,
     CONF_SURPLUS_THRESHOLD,
     CONF_FALLBACK_MINUTES,
     CONF_MIN_CYCLE_MINUTES,
@@ -72,8 +60,6 @@ from .const import (
     CONF_NOTIFY_SERVICE,
     DOMAIN,
     SETTING_DEFAULTS,
-    DEFAULT_INDOOR_TEMP,
-    DEFAULT_PRODUCTION,
     HVAC_MODE_DELAY_SECONDS,
     POLL_INTERVAL_SECONDS,
     SERVICE_TIMEOUT_SECONDS,
@@ -82,10 +68,8 @@ from .const import (
 )
 from .logic import (
     Decision,
-    Inputs,
     Settings,
     at_time,
-    compute,
     parse_time,
     target_temperature,
 )
@@ -107,9 +91,7 @@ from .state import HeatState
 
 _LOGGER = logging.getLogger(__name__)
 
-HVAC_OFF = "off"
 HVAC_HEAT = "heat"
-HVAC_AUTO = "auto"
 
 STORAGE_VERSION = 1  # learned heating rates
 FORECAST_CACHE_MINUTES = 30
@@ -161,22 +143,15 @@ def settings_from_config(config: Mapping[str, Any]) -> Settings:
 
     return Settings(
         outdoor_threshold=number(CONF_OUTDOOR_THRESHOLD),
-        day_setpoint=number(CONF_DAY_SETPOINT),
         night_setpoint=number(CONF_NIGHT_SETPOINT),
         away_setpoint=number(CONF_AWAY_SETPOINT),
-        solar_setpoint=number(CONF_SOLAR_SETPOINT),
         idle_setpoint=number(CONF_IDLE_SETPOINT),
         frost_setpoint=number(CONF_FROST_SETPOINT),
         hysteresis=number(CONF_HYSTERESIS),
         production_threshold=number(CONF_PRODUCTION_THRESHOLD),
-        heat_pump_rate=number(CONF_HEAT_PUMP_RATE),
-        boiler_rate=number(CONF_BOILER_RATE),
-        safety_margin=int(number(CONF_SAFETY_MARGIN)),
         day_start=moment(CONF_DAY_START),
         night_start=moment(CONF_NIGHT_START),
         return_time=moment(CONF_RETURN_TIME),
-        solar_start=moment(CONF_SOLAR_START),
-        solar_end=moment(CONF_SOLAR_END),
         split_offset=number(CONF_SPLIT_OFFSET),
         boiler_demand_setpoint=number(CONF_BOILER_DEMAND_SETPOINT),
         solar_bonus=number(CONF_SOLAR_BONUS),
@@ -209,22 +184,13 @@ class HeatController:
         self.settings = settings_from_config(self.config)
 
         self.outdoor_sensor: str = config.get(CONF_OUTDOOR_TEMP_SENSOR, "")
-        self.indoor_sensor: str = config.get(CONF_INDOOR_TEMP_SENSOR, "")
         self.production_sensor: str = config.get(CONF_PRODUCTION_SENSOR, "")
         self.consumption_sensor: str = config.get(CONF_CONSUMPTION_SENSOR, "")
 
         self.boiler_climate: str = config.get(CONF_BOILER_CLIMATE, "")
-        self.heat_pump_climates: list[str] = list(config.get(CONF_HEAT_PUMP_CLIMATES, []))
-        heat_pump_switches: list[str] = list(config.get(CONF_HEAT_PUMP_SWITCHES, []))
-        # Pairing by order: switch[i] powers climate[i] (None if missing).
-        self.heat_pump_switches: list[Optional[str]] = [
-            heat_pump_switches[i] if i < len(heat_pump_switches) else None
-            for i in range(len(self.heat_pump_climates))
-        ]
         self.accessory_fans: list[str] = list(config.get(CONF_ACCESSORY_FANS, []))
 
-        # Rooms (config sub-entries): when present, the hybrid multi-room
-        # regulation replaces the single-zone changeover.
+        # Rooms (config sub-entries): the hybrid multi-room regulation.
         self.rooms: list[RoomConfig] = rooms_from_subentries(
             getattr(entry, "subentries", None)
         )
@@ -235,11 +201,15 @@ class HeatController:
         self._trigger_demand = False  # latched boiler demand (trigger rooms)
         self._trigger_changed_at: Optional[datetime] = None  # for the debounce
         self._solar_bonus = False  # latched soft overheating state
-        # In hybrid mode the decisions and the virtual thermostat follow
-        # the thermostat room, not the configured indoor sensor.
-        thermostat_room = next((r for r in self.rooms if r.thermostat_room), None)
-        if thermostat_room is not None:
-            self.indoor_sensor = thermostat_room.sensor
+        # The decisions and the virtual thermostat follow the thermostat
+        # room (the first room by default).
+        thermostat_room = next(
+            (r for r in self.rooms if r.thermostat_room), self.rooms[0] if self.rooms else None
+        )
+        self.thermostat_room_id: Optional[str] = (
+            thermostat_room.id if thermostat_room else None
+        )
+        self.indoor_sensor: str = thermostat_room.sensor if thermostat_room else ""
 
         self._lock = asyncio.Lock()
         self._cancel: list[Callable] = []
@@ -260,7 +230,6 @@ class HeatController:
             entity
             for entity in (
                 self.outdoor_sensor,
-                self.indoor_sensor,
                 self.production_sensor,
                 self.consumption_sensor,
             )
@@ -321,28 +290,6 @@ class HeatController:
 
     # --- Decision ------------------------------------------------------------
 
-    def _snapshot_inputs(self) -> Inputs:
-        outdoor_temp = _as_float(self.hass.states.get(self.outdoor_sensor))
-        indoor_temp = _as_float(
-            self.hass.states.get(self.indoor_sensor), DEFAULT_INDOOR_TEMP
-        )
-        production = _as_float(
-            self.hass.states.get(self.production_sensor), DEFAULT_PRODUCTION
-        )
-        return Inputs(
-            now=dt_util.now(),
-            outdoor_temp=outdoor_temp,
-            indoor_temp=indoor_temp if indoor_temp is not None else DEFAULT_INDOOR_TEMP,
-            production=production if production is not None else DEFAULT_PRODUCTION,
-            active=self.shared.active,
-            away_mode=self.shared.away_mode,
-            heat_pump_source=self.shared.heat_pump_source,
-            preheating_flag=self.shared.preheating,
-            demand_flag=self.shared.demand,
-            forced_source=self.shared.forced_source,
-            away_until=self.shared.away_until,
-        )
-
     async def async_update(self) -> None:
         """Full pass: decision then application (serialized)."""
         if self._lock.locked():
@@ -354,6 +301,28 @@ class HeatController:
                 _LOGGER.exception("Error during the control pass")
             finally:
                 self._first_run = False
+
+    def thermostat_room(self) -> Optional[RoomConfig]:
+        """The room the boiler thermostat lives in."""
+        return next((r for r in self.rooms if r.id == self.thermostat_room_id), None)
+
+    def thermostat_room_target(self) -> float:
+        """Day target of the thermostat room (for the thermostat card)."""
+        room = self.thermostat_room()
+        if room is None:
+            return self.settings.night_setpoint
+        target = resolve_target(self.rooms, room)
+        return target if target is not None else self.settings.night_setpoint
+
+    def _away_end(self) -> Optional[datetime]:
+        """Effective end of the absence: the planned return, or the
+        daily return time as a fallback."""
+        now = dt_util.now()
+        if self.shared.away_until is not None:
+            return self.shared.away_until
+        if self.shared.away_mode:
+            return at_time(now, self.settings.return_time)
+        return None
 
     async def _update_locked(self) -> None:
         shared = self.shared
@@ -377,33 +346,25 @@ class HeatController:
                 await self._notify("away_end")
             self._away_last = shared.away_mode
 
-        decision = compute(self.settings, self._snapshot_inputs())
-        shared.set_decision(decision)
-
-        # Return time exceeded: end of away mode (as in YAML).
-        if decision.return_passed and shared.away_mode:
+        # Return time exceeded: end of away mode (as in the YAML).
+        away_end = self._away_end()
+        return_passed = shared.away_mode and away_end is not None and dt_util.now() >= away_end
+        if return_passed:
             shared.set_away_mode(False)
             shared.set_away_until(None)
-        shared.set_preheating(decision.preheating)
-        shared.set_demand(decision.heating_needed)
 
-        if self.rooms:
-            # Hybrid multi-room regulation.
-            await self._update_rooms(decision)
+        if not self.rooms:
+            _LOGGER.warning(
+                "No room is configured on this entry: nothing is controlled. "
+                "Add rooms on the integration page."
+            )
+            if shared.decision is not None:
+                shared.set_decision(None)
+            if shared.house is not None:
+                shared.set_house(None)
             return
 
-        # Single-zone regulation: no house decision.
-        if shared.house is not None:
-            shared.set_house(None)
-
-        # PAC / Boiler changeover (or reapplication on first pass).
-        if decision.changeover:
-            await self._apply_changeover(decision.should_use_heat_pump)
-        elif self._first_run:
-            await self._enforce_accessory_fans(shared.heat_pump_source)
-
-        # Day/night/away/solar scheduling on the active source.
-        await self._apply_program(decision)
+        await self._update_rooms(return_passed)
 
     # --- Application ---------------------------------------------------------
 
@@ -470,31 +431,6 @@ class HeatController:
         if self._is_on(switch):
             await self._call("switch", "turn_off", switch)
 
-    async def _apply_changeover(self, to_heat_pump: bool) -> None:
-        """Reproduces « Heating - PAC/Boiler changeover »."""
-        shared = self.shared
-        if to_heat_pump:
-            _LOGGER.info("Changeover to the heat pump (outdoor temperature high enough)")
-            await self._call("climate", "set_hvac_mode", self.boiler_climate, hvac_mode=HVAC_OFF)
-            for fan in self.accessory_fans:
-                await self._call("fan", "turn_on", fan)
-            await asyncio.sleep(CHANGEOVER_FAN_DELAY_SECONDS)
-            # The heat pump units are powered through their switches; the
-            # program pass run right after this one turns them on first,
-            # before any climate command.
-            shared.set_heat_pump_source(True)
-        else:
-            _LOGGER.info("Changeover to the boiler (outdoor temperature too low)")
-            # Cut the power of the heat pump units; their climate mode is
-            # never used to switch them off.
-            for switch in self.heat_pump_switches:
-                if switch:
-                    await self._power_off(switch)
-            for fan in self.accessory_fans:
-                await self._call("fan", "turn_off", fan)
-            await self._call("climate", "set_hvac_mode", self.boiler_climate, hvac_mode=HVAC_AUTO)
-            shared.set_heat_pump_source(False)
-
     async def _enforce_accessory_fans(self, on: bool) -> None:
         """Re-align the accessory fans with the active source."""
         for fan in self.accessory_fans:
@@ -502,77 +438,6 @@ class HeatController:
                 await self._call("fan", "turn_on", fan)
             elif not on and self._is_on(fan):
                 await self._call("fan", "turn_off", fan)
-
-    async def _apply_program(self, decision: Decision) -> None:
-        """Reproduces « Heating - Day/Night/Away scheduling »."""
-        heating_needed = decision.heating_needed
-        heat_pump_source = self.shared.heat_pump_source
-
-        pairs: list[tuple[str, Optional[str]]] = (
-            list(zip(self.heat_pump_climates, self.heat_pump_switches))
-            if heat_pump_source
-            else [(self.boiler_climate, None)]
-        )
-
-        # The heat pump heats: keep the boiler's setpoint at the idle value
-        # on every pass. It was set to "off" at changeover, but if the
-        # device ignores or loses that mode, the low setpoint keeps it
-        # from heating alongside the heat pump.
-        if heat_pump_source and self.boiler_climate:
-            await self._push_setpoint(self.boiler_climate, self.settings.idle_setpoint)
-
-        # Heat pump climate units always stay in "heat" (no cooling risk when
-        # idle); the boiler stays in "auto" like the original YAML.
-        desired_mode = HVAC_HEAT if heat_pump_source else HVAC_AUTO
-
-        for clim, switch in pairs:
-            state = self.hass.states.get(clim)
-
-            # Heat pump units are powered through their switch: it must be
-            # on before any climate command, and off when there is no
-            # heating need (the climate mode is never used to switch the
-            # unit off).
-            if heat_pump_source and switch is not None:
-                if heating_needed:
-                    if not await self._power_on(switch, clim):
-                        continue
-                    # Safe start: re-read the state after the switch is
-                    # confirmed ON. A split climate often reports
-                    # "unavailable" while unpowered; if it does not come
-                    # back, the commands are skipped this cycle and
-                    # retried on the next pass.
-                    state = self.hass.states.get(clim)
-                    if not self._valid(state):
-                        _LOGGER.warning(
-                            "Climate %s is not available after power switch "
-                            "%s went on; commands are skipped this cycle and "
-                            "retried on the next pass",
-                            clim,
-                            switch,
-                        )
-                        continue
-                else:
-                    await self._power_off(switch)
-                    continue
-
-            # HVAC mode: heat (heat pump) or auto (boiler).
-            if self._valid(state) and state.state != desired_mode:  # type: ignore[union-attr]
-                await self._call(
-                    "climate", "set_hvac_mode", clim, hvac_mode=desired_mode
-                )
-                await asyncio.sleep(HVAC_MODE_DELAY_SECONDS)
-                state = self.hass.states.get(clim)
-
-            # Setpoint: heating setpoint when there is a need, idle setpoint
-            # otherwise; a heat pump unit without a power switch keeps the
-            # original behavior (on in heat mode with the idle setpoint).
-            if self._valid(state):
-                setpoint = (
-                    decision.target_setpoint
-                    if heating_needed
-                    else self.settings.idle_setpoint
-                )
-                await self._push_setpoint(clim, setpoint)
 
     async def _push_setpoint(self, clim: str, setpoint: float) -> None:
         """Set a climate's temperature, clamped to its own bounds."""
@@ -599,7 +464,7 @@ class HeatController:
 
     # --- Hybrid multi-room regulation ----------------------------------------
 
-    async def _update_rooms(self, base: Decision) -> None:
+    async def _update_rooms(self, return_passed: bool) -> None:
         """One hybrid pass: rooms first, then the boiler."""
         shared = self.shared
         # Observe the rooms: temperatures and actual switch states.
@@ -638,6 +503,7 @@ class HeatController:
         self._solar_bonus = next_solar_bonus(
             self.settings, production, consumption, self._solar_bonus
         )
+        away_end = self._away_end()
         house = compute_house(
             self.settings,
             HouseInputs(
@@ -648,11 +514,7 @@ class HeatController:
                 solar_bonus_active=self._solar_bonus,
                 production=production,
                 consumption=consumption,
-                away_end=shared.away_until or (
-                    at_time(dt_util.now(), self.settings.return_time)
-                    if shared.away_mode
-                    else None
-                ),
+                away_end=away_end,
                 forecast=await self._forecast_temperature(),
                 # Boiler demand debounce: a latched demand is not
                 # released before the minimum run/stop time has passed.
@@ -673,29 +535,36 @@ class HeatController:
         self._trigger_demand = house.trigger_demand
         shared.set_house(house)
 
-        # The global decision keeps feeding the existing entities, with
-        # the hybrid result overriding the single-zone fields.
+        # Global decision feeding the entities, built from the house.
         heating_needed = house.boiler_demand or any(
             decision.want_splits for decision in house.rooms
         )
         any_preheating = any(decision.preheating for decision in house.rooms)
-        merged = replace(
-            base,
-            target_setpoint=(
-                house.thermostat_room_target
-                if house.thermostat_room_target is not None
-                else base.target_setpoint
+        frost = any(
+            decision.temp is not None
+            and decision.temp <= self.settings.frost_setpoint
+            for decision in house.rooms
+        )
+        target = house.thermostat_room_target
+        decision = Decision(
+            in_day_period=house.mode == "day",
+            in_solar_period=house.solar_bonus,
+            preheating_minutes=int(
+                max((d.preheat_minutes for d in house.rooms), default=0)
             ),
-            heating_needed=heating_needed,
+            return_passed=return_passed,
+            away_mode_active=shared.away_mode,
             preheating=any_preheating,
-            preheating_minutes=max(
-                (decision.preheat_minutes for decision in house.rooms), default=0
-            ),
+            target_setpoint=target
+            if target is not None
+            else self.settings.night_setpoint,
+            heating_needed=heating_needed or frost,
             should_use_heat_pump=house.splits_allowed,
             changeover=house.splits_allowed != shared.heat_pump_source,
+            frost_protection=frost,
         )
-        shared.set_decision(merged)
-        shared.set_demand(heating_needed)
+        shared.set_decision(decision)
+        shared.set_demand(decision.heating_needed)
         shared.set_preheating(any_preheating)
 
         boiler_heating = self._boiler_heating()

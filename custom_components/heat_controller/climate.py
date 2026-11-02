@@ -1,13 +1,15 @@
-"""Virtual thermostat: room temperature and program setpoint for the card.
+"""Virtual thermostat: room temperature and current target for the card.
 
-The standard thermostat card works on this entity: it shows the indoor
-temperature and the current setpoint (same value as
-`sensor.heating_target_setpoint`, so it does not drop to the idle setpoint
-when there is no heating need).
+The standard thermostat card works on this entity: it shows the
+temperature of the thermostat room (the one holding the boiler
+thermostat) and the current target (day target of that room, night or
+away setpoint depending on the mode).
 
-Adjusting the temperature updates the setpoint of the active period (day,
-night, away or solar) — the matching `number` entity follows. The on/off
-button mirrors the « Heating control » switch.
+Adjusting the temperature: during the day (and while pre-heating) the
++/- buttons change the thermostat room's day target (persisted in its
+room sub-entry); at night and in away mode they change the global
+night/away setpoints. The on/off button mirrors the « Heating control »
+switch.
 """
 
 from __future__ import annotations
@@ -29,11 +31,10 @@ from homeassistant.const import (
 )
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
-from homeassistant.util import dt as dt_util
 
+from .const import CONF_AWAY_SETPOINT, CONF_NIGHT_SETPOINT, CONF_ROOM_TARGET
 from .controller import HeatController
 from .entity import HeatControllerEntity
-from .logic import SETPOINT_DAY, SETPOINT_NIGHT, active_setpoint, at_time
 from .state import HeatState
 
 
@@ -74,7 +75,7 @@ class HeatThermostat(HeatControllerEntity, ClimateEntity):
 
     @property
     def current_temperature(self) -> float | None:
-        """Indoor temperature, from the sensor used for decisions."""
+        """Temperature of the thermostat room."""
         if self.hass is None:
             return None
         state = self.hass.states.get(self._controller.indoor_sensor)
@@ -87,11 +88,11 @@ class HeatThermostat(HeatControllerEntity, ClimateEntity):
 
     @property
     def target_temperature(self) -> float:
-        """Current setpoint, even when the source is idle."""
+        """Current target, even when the control is off."""
         decision = self._shared.decision
         if decision is not None:
             return decision.target_setpoint
-        return self._fallback_setpoint()
+        return self._controller.thermostat_room_target()
 
     @property
     def hvac_mode(self) -> HVACMode:
@@ -129,28 +130,38 @@ class HeatThermostat(HeatControllerEntity, ClimateEntity):
         if temperature is None:
             return
         value = min(max(round(float(temperature), 1), self.min_temp), self.max_temp)
-        key = self._setpoint_key()
+        # Match the 0.5 step of the room targets.
+        value = round(value * 2) / 2
+
+        decision = self._shared.decision
+        if decision is not None and decision.away_mode_active:
+            key = CONF_AWAY_SETPOINT
+        elif decision is not None and not decision.in_day_period:
+            key = CONF_NIGHT_SETPOINT
+        else:
+            # Day (or pre-heating): the thermostat room's day target.
+            self._set_thermostat_room_target(value)
+            self.async_write_ha_state()
+            return
+
         self._controller.update_config({**self._controller.config, key: value})
         self.hass.config_entries.async_update_entry(
             self._entry, options={**self._entry.options, key: value}
         )
         self.async_write_ha_state()
 
-    # --- Helpers -------------------------------------------------------------
+    def _set_thermostat_room_target(self, value: float) -> None:
+        """Write the new day target into the thermostat room's sub-entry.
 
-    def _setpoint_key(self) -> str:
-        """Setting the card adjusts: active period, or clock when off."""
-        decision = self._shared.decision
-        if decision is not None:
-            return active_setpoint(decision)
-        return self._fallback_key()
-
-    def _fallback_key(self) -> str:
-        """Day/night setpoint by clock, used when the control is off."""
-        now = dt_util.now()
-        day_dt = at_time(now, self._controller.settings.day_start)
-        night_dt = at_time(now, self._controller.settings.night_start)
-        return SETPOINT_DAY if day_dt <= now < night_dt else SETPOINT_NIGHT
-
-    def _fallback_setpoint(self) -> float:
-        return float(getattr(self._controller.settings, self._fallback_key()))
+        The entry reloads through the update listener: the new target
+        applies on the next pass.
+        """
+        room_id = self._controller.thermostat_room_id
+        subentry = self._entry.subentries.get(room_id)
+        if subentry is None:
+            return
+        self.hass.config_entries.async_update_subentry(
+            self._entry,
+            subentry,
+            data={**subentry.data, CONF_ROOM_TARGET: value},
+        )
