@@ -23,13 +23,13 @@ cards:
       - entity: switch.heating_away_mode
       - entity: datetime.heating_away_until
 
-  # Heat source: automatic changeover or forced heat pump / boiler.
+  # Heat source: automatic regulation or forced splits / boiler.
   - type: entities
     title: Heat source
     entities:
       - entity: select.heating_heat_source_override
-      - entity: binary_sensor.heating_heat_pump_source
       - entity: sensor.heating_heat_source
+      - entity: sensor.heating_heating_state
 
   # Multi-room mode (when rooms are configured on the entry): global mode
   # with the solar surplus as attributes, boiler demand, and per room the
@@ -45,13 +45,11 @@ cards:
       - entity: sensor.salon_learned_heating_rate
       - entity: sensor.salon_next_pre_heating
 
-  # Status and the main settings (all settings exist as number/time entities:
-  # thresholds, rates, margins, solar window, ...).
+  # Status and the main settings (all settings exist as number/time entities).
   - type: entities
     title: Settings
     entities:
       - entity: binary_sensor.heating_frost_protection
-      - entity: binary_sensor.heating_heating_demand
       - entity: sensor.heating_target_setpoint
       - entity: sensor.heating_pre_heat_duration
       - entity: number.heating_night_setpoint

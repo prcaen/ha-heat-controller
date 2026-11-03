@@ -124,15 +124,6 @@
       }
     },
     "binary_sensor": {
-      "heat_pump_source": {
-        "name": "Source PAC"
-      },
-      "preheating": {
-        "name": "Préchauffe"
-      },
-      "heating_demand": {
-        "name": "Demande de chauffage"
-      },
       "day_period": {
         "name": "Période jour"
       },
@@ -181,6 +172,14 @@
       },
       "next_preheat": {
         "name": "{room} prochaine préchauffe"
+      },
+      "heating_state": {
+        "name": "État du chauffage",
+        "state": {
+          "idle": "Inactif",
+          "heating": "Chauffage",
+          "preheating": "Pré-chauffage"
+        }
       }
     },
     "select": {

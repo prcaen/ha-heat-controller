@@ -3,6 +3,7 @@
 ## 0.0.2 - 2026-10-29
 
 - **Breaking (configuration)**: the « This room can request the boiler » flag is removed from the room form — it is now derived automatically: a room **without** splits can request the boiler (it is its only heat source on mild days), a room **with** splits cannot (the automatic stall detection makes it fall back to the boiler). Any flag stored in existing rooms is ignored.
+- **Breaking (entities)**: `binary_sensor.heating_heat_pump_source` is removed (the `sensor.heating_heat_source` already tells the active source: PAC / Chaudière), and `binary_sensor.heating_heating_demand` and `binary_sensor.heating_pre_heating` are replaced by a single enum sensor `sensor.heating_heating_state` (« État du chauffage ») with the states `idle` / `heating` / `preheating` (Inactif / Chauffage / Pré-chauffage). The flags still exist internally and in the diagnostics.
 - The integration name is translated: « Régulateur de chauffage » on French instances (a `title` key at the root of the translation files; the manifest name stays the English fallback).
 - Fix: the heat source sensor reported untranslated states (« Heat pump » / « Boiler »): the states are now translated (Pompe à chaleur / Chaudière in French), and the per-room sensors (heat source, learned heating rate, next pre-heating) get translated names with the room name and translated states (Inactif / Splits / Chaudière) instead of hardcoded English.
 

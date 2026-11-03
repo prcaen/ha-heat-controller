@@ -124,15 +124,6 @@
       }
     },
     "binary_sensor": {
-      "heat_pump_source": {
-        "name": "Heat pump source"
-      },
-      "preheating": {
-        "name": "Pre-heating"
-      },
-      "heating_demand": {
-        "name": "Heating demand"
-      },
       "day_period": {
         "name": "Day period"
       },
@@ -181,6 +172,14 @@
       },
       "next_preheat": {
         "name": "{room} next pre-heating"
+      },
+      "heating_state": {
+        "name": "Heating state",
+        "state": {
+          "idle": "Idle",
+          "heating": "Heating",
+          "preheating": "Pre-heating"
+        }
       }
     },
     "select": {

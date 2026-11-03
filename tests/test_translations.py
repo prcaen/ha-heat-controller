@@ -53,9 +53,6 @@ class TestTranslations(unittest.TestCase):
         self.assertEqual(
             set(self.strings["entity"]["binary_sensor"]),
             {
-                "heat_pump_source",
-                "preheating",
-                "heating_demand",
                 "day_period",
                 "solar_period",
                 "frost_protection",
@@ -69,6 +66,7 @@ class TestTranslations(unittest.TestCase):
                 "preheating_duration",
                 "source",
                 "mode",
+                "heating_state",
                 "heat_source",
                 "learned_rate",
                 "next_preheat",

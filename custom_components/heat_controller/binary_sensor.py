@@ -1,18 +1,17 @@
 """Binary state sensors for the heat controller.
 
-Reproduce the YAML input_boolean:
-heat pump source, preheating, heating demand, plus calculated sensors
-(day period, solar period, frost protection).
+Calculated sensors only (day period, solar period, frost protection,
+and the boiler demand in multi-room mode). The source, demand and
+pre-heating flags are exposed through sensors instead: see
+`sensor.heating_heat_source` and `sensor.heating_heating_state`.
 """
 
 from __future__ import annotations
 
 from homeassistant.components.binary_sensor import BinarySensorEntity
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import STATE_ON
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
-from homeassistant.helpers.restore_state import RestoreEntity
 
 from .controller import HeatController
 from .entity import HeatControllerEntity
@@ -27,9 +26,6 @@ async def async_setup_entry(
     shared: HeatState = hass.data["heat_controller"][entry.entry_id]["shared"]
     controller: HeatController = hass.data["heat_controller"][entry.entry_id]["controller"]
     entities: list = [
-        HeatRestorableBinarySensor(entry, shared, "heat_pump_source"),
-        HeatRestorableBinarySensor(entry, shared, "preheating"),
-        HeatRestorableBinarySensor(entry, shared, "heating_demand"),
         HeatComputedBinarySensor(entry, shared, "day_period"),
         HeatComputedBinarySensor(entry, shared, "solar_period"),
         HeatComputedBinarySensor(entry, shared, "frost_protection"),
@@ -37,34 +33,6 @@ async def async_setup_entry(
     if controller.rooms:
         entities.append(HeatBoilerDemandSensor(entry, shared))
     async_add_entities(entities)
-
-
-class HeatRestorableBinarySensor(HeatControllerEntity, BinarySensorEntity, RestoreEntity):
-    """Persistent flag: heat_pump_source, preheating, heating_demand."""
-
-    _FLAGS = {
-        "heat_pump_source": ("heat_pump_source", "mdi:heat-pump"),
-        "preheating": ("preheating", "mdi:clock-fast"),
-        "heating_demand": ("demand", "mdi:radiator"),
-    }
-
-    def __init__(self, entry: ConfigEntry, shared: HeatState, key: str) -> None:
-        flag, icon = self._FLAGS[key]
-        super().__init__(entry, shared, key)
-        self._flag = flag
-        self._attr_icon = icon
-        self._attr_translation_key = key
-
-    @property
-    def is_on(self) -> bool | None:
-        return getattr(self._shared, self._flag)
-
-    async def async_added_to_hass(self) -> None:
-        await super().async_added_to_hass()
-        last_state = await self.async_get_last_state()
-        if last_state is not None:
-            setter = getattr(self._shared, f"set_{self._flag}")
-            setter(last_state.state == STATE_ON)
 
 
 class HeatComputedBinarySensor(HeatControllerEntity, BinarySensorEntity):

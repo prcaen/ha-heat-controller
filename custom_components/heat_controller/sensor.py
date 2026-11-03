@@ -36,6 +36,7 @@ async def async_setup_entry(
     shared: HeatState = data["shared"]
     controller: HeatController = data["controller"]
     entities: list[SensorEntity] = [
+        HeatHeatingStateSensor(entry, shared),
         HeatTargetSetpointSensor(entry, shared),
         HeatPreheatingDurationSensor(entry, shared),
         HeatSourceSensor(entry, shared),
@@ -276,3 +277,30 @@ class HeatRoomNextPreheatSensor(_HeatRoomEntity, SensorEntity):
     def native_value(self) -> Optional[datetime]:
         state = self.room_state
         return state.next_preheat if state else None
+
+
+class HeatHeatingStateSensor(HeatControllerEntity, SensorEntity):
+    """General heating state: pre-heating, heating or idle."""
+
+    _attr_device_class = SensorDeviceClass.ENUM
+    _attr_options = ["idle", "heating", "preheating"]
+    _attr_translation_key = "heating_state"
+    _attr_icon = "mdi:radiator"
+
+    def __init__(self, entry: ConfigEntry, shared: HeatState) -> None:
+        super().__init__(entry, shared, "heating_state")
+
+    @property
+    def available(self) -> bool:
+        return self._shared.decision is not None
+
+    @property
+    def native_value(self) -> Optional[str]:
+        decision = self._shared.decision
+        if decision is None:
+            return None
+        if decision.preheating:
+            return "preheating"
+        if decision.heating_needed:
+            return "heating"
+        return "idle"
