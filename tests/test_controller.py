@@ -610,6 +610,46 @@ class TestHybridRooms(unittest.IsolatedAsyncioTestCase):
         )
         self.assertTrue(shared.decision.preheating)
 
+    async def test_surplus_notification_on_the_rising_edge(self):
+        controller, shared, services, states = build(
+            {
+                "notify_service": "notify.mobile_app_phone",
+                "consumption_sensor": "sensor.conso",
+                "surplus_threshold": 500.0,
+                "solar_bonus": 0.5,
+            },
+            production="1500.0",
+            subentries=self.rooms_subentries(),
+        )
+        self.seed_room_states(states)
+        states.set("sensor.conso", "1000.0")  # surplus +500 W: bonus on
+        await controller._update_locked()
+        surplus_calls = [
+            c for c in services.calls
+            if c[0] == "notify" and "surplus" in c[2].get("message", "").lower()
+        ]
+        self.assertEqual(len(surplus_calls), 1)
+        self.assertIn("+500 W", surplus_calls[0][2]["message"])
+        self.assertIn("+0.5", surplus_calls[0][2]["message"])
+
+        # Still active on the next pass: no repeated notification.
+        await controller._update_locked()
+        surplus_calls = [
+            c for c in services.calls
+            if c[0] == "notify" and "surplus" in c[2].get("message", "").lower()
+        ]
+        self.assertEqual(len(surplus_calls), 1)
+
+        # The surplus drops below -threshold: bonus off, no notification.
+        states.set("sensor.conso", "2200.0")
+        await controller._update_locked()
+        self.assertFalse(controller._solar_bonus)
+        surplus_calls = [
+            c for c in services.calls
+            if c[0] == "notify" and "surplus" in c[2].get("message", "").lower()
+        ]
+        self.assertEqual(len(surplus_calls), 1)
+
     async def test_no_rooms_means_no_decision(self):
         controller, shared, services, states = build()
         with self.assertLogs(

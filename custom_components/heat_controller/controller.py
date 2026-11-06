@@ -105,6 +105,8 @@ NOTIFICATIONS: dict[str, dict[str, str]] = {
         "fallback": "The splits in {room} are not reaching the target: "
         "the boiler takes over.",
         "unresponsive": "The splits in {room} are not responding.",
+        "surplus": "Solar surplus in use ({surplus} W): the split rooms are "
+        "heated above their target (+{bonus} °C).",
     },
     "fr": {
         "away_start": "Mode absence activé. Retour prévu : {when}.",
@@ -113,6 +115,8 @@ NOTIFICATIONS: dict[str, dict[str, str]] = {
         "fallback": "Les splits de {room} n'atteignent pas la cible : "
         "la chaudière prend le relais.",
         "unresponsive": "Le split de {room} ne répond pas.",
+        "surplus": "Surplus solaire utilisé ({surplus} W) : les pièces avec "
+        "splits sont chauffées au-dessus de leur consigne (+{bonus} °C).",
     },
 }
 
@@ -500,9 +504,22 @@ class HeatController:
             if self.consumption_sensor
             else None
         )
+        previous_bonus = self._solar_bonus
         self._solar_bonus = next_solar_bonus(
             self.settings, production, consumption, self._solar_bonus
         )
+        if self._solar_bonus and not previous_bonus:
+            # The surplus starts being used: notify once, on the rising edge.
+            surplus = (
+                production - consumption
+                if production is not None and consumption is not None
+                else production
+            )
+            await self._notify(
+                "surplus",
+                surplus=f"{round(surplus):+d}" if surplus is not None else "0",
+                bonus=self.settings.solar_bonus,
+            )
         away_end = self._away_end()
         house = compute_house(
             self.settings,
