@@ -577,6 +577,39 @@ class TestHybridRooms(unittest.IsolatedAsyncioTestCase):
             ("climate", "set_temperature", "climate.boiler", None, 15.0), calls
         )
 
+    async def test_preheating_uses_the_boiler_never_the_splits(self):
+        """Regression: pre-heating must not start the splits."""
+        controller, shared, services, states = build(
+            {"initial_preheat_minutes": 60}, subentries=self.rooms_subentries()
+        )
+        self.seed_room_states(states)
+        states.set("switch.salon_gauche", "on")
+        states.set("switch.salon_droite", "on")
+        # Absence ending in 30 min: the pre-heating window (60 min) is open.
+        shared.set_away_mode(True)
+        shared.set_away_until(dt_util.now() + timedelta(minutes=30))
+        await controller._update_locked()
+        calls = summarise(services)
+
+        house = shared.house
+        self.assertEqual(house.mode, "away")
+        self.assertTrue(house.room("salon").preheating)
+        # The splits are forced off and never started.
+        self.assertFalse(house.splits_allowed)
+        self.assertFalse(house.room("salon").splits_allowed)
+        self.assertIn(("switch", "turn_off", "switch.salon_gauche", None, None), calls)
+        self.assertFalse(
+            any(call[0] == "switch" and call[1] == "turn_on" for call in calls)
+        )
+        self.assertFalse(
+            any(call[2].startswith("climate.salon") for call in calls)
+        )
+        # The boiler does the pre-heating at the salon's day target.
+        self.assertIn(
+            ("climate", "set_temperature", "climate.boiler", None, 19.5), calls
+        )
+        self.assertTrue(shared.decision.preheating)
+
     async def test_no_rooms_means_no_decision(self):
         controller, shared, services, states = build()
         with self.assertLogs(

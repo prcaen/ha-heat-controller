@@ -173,20 +173,6 @@ def house_mode(settings: Settings, inputs: HouseInputs) -> str:
     return MODE_NIGHT
 
 
-def splits_allowed_now(
-    settings: Settings, inputs: HouseInputs, mode: str
-) -> bool:
-    """Whether the splits may run: mild day, or forced heat pump."""
-    if inputs.forced_source == SOURCE_BOILER:
-        return False
-    if mode != MODE_DAY:
-        return False  # splits stay off at night and away
-    if inputs.forced_source == SOURCE_HEAT_PUMP:
-        return True
-    # An unknown outdoor temperature does not block the splits.
-    return inputs.outdoor_temp is None or inputs.outdoor_temp >= settings.outdoor_threshold
-
-
 def outdoor_allows(settings: Settings, inputs: HouseInputs) -> bool:
     """Manual override and outdoor threshold, mode independent."""
     if inputs.forced_source == SOURCE_BOILER:
@@ -316,7 +302,11 @@ def compute_house(
             base_target = base_target + settings.solar_bonus
         target = room_target(settings, effective_mode, base_target)
         controllable = temp is not None and target is not None
-        room_allowed = outdoor_ok and effective_mode == MODE_DAY
+        # The splits never run while pre-heating: the boiler does the
+        # pre-heating (it follows the thermostat room's day target).
+        room_allowed = (
+            outdoor_ok and effective_mode == MODE_DAY and not preheating
+        )
 
         if room.has_splits and controllable and room_allowed and not left_alone:
             # Hysteresis regulation: start below target - hysteresis,
@@ -383,11 +373,9 @@ def compute_house(
         targets = [d.target for d in decisions if d.target is not None]
         normal = max(targets) if targets else None
 
-    # The house is in "splits mode" when the outdoor allows the splits
-    # and the day period (or a pre-heating) is active.
-    splits_first = outdoor_ok and (
-        mode == MODE_DAY or any(d.preheating for d in decisions)
-    )
+    # The house is in "splits mode" only during the real day period when
+    # the outdoor allows it: a pre-heating is done by the boiler alone.
+    splits_first = outdoor_ok and mode == MODE_DAY
     setpoint: Optional[float]
     if splits_first:
         # Mild day: the splits do the work; the boiler only steps in on

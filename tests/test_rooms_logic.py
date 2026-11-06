@@ -620,16 +620,17 @@ class TestPreheat(unittest.TestCase):
         decision = house.room("salon")
         self.assertTrue(decision.preheating)
         self.assertEqual(decision.target, 19.5)  # day target, not night 16
-        self.assertTrue(decision.splits_allowed)
-        self.assertTrue(decision.want_splits)  # 17 < 19.5 - 0.3
         self.assertEqual(states["salon"].next_preheat,
                          datetime(2026, 10, 21, 5, 30))
-        # The house shows the pre-heating: the boiler stays in splits mode
-        # on a mild night.
-        self.assertTrue(house.splits_allowed)
+        # The splits never run while pre-heating: the boiler does it.
+        self.assertFalse(decision.splits_allowed)
+        self.assertFalse(decision.want_splits)
+        self.assertFalse(house.splits_allowed)
         self.assertEqual(house.mode, "night")
+        # The boiler follows the thermostat room's day target, whether
+        # the night is mild or cold.
+        self.assertEqual(house.boiler_setpoint, 19.5)
 
-        # Cold night with pre-heating: the boiler follows the day target.
         cold = house_inputs(now=datetime(2026, 10, 21, 5, 45), outdoor_temp=0.0)
         house = compute_house(s, cold, self.rooms, states)
         self.assertEqual(house.boiler_setpoint, 19.5)

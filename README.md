@@ -155,10 +155,9 @@ The hybrid regulation:
   consumption cannot flip the mode.
 - **Cold day, night or absence**: the splits are off and the boiler
   follows the thermostat room's effective target (raised to the
-  demand setpoint while a room still asks for heat). The splits
-  pre-heat their rooms before the day period and before a planned
-  return; on a cold night the boiler takes the day target during the
-  pre-heating.
+  demand setpoint while a room still asks for heat). The **pre-heating
+  is always done by the boiler** — the splits never run during a
+  pre-heating, before the day period or before a planned return.
 - **Safety nets**: a running split that does not progress by 0.2 °C
   for the fallback delay (2 h default) asks the boiler; a split
   changed by hand leaves its room alone until the next mode
