@@ -9,5 +9,5 @@
   "issue_tracker": "https://github.com/pierrick/ha-heat-controller/issues",
   "loggers": ["custom_components.heat_controller"],
   "requirements": [],
-  "version": "0.0.2"
+  "version": "0.0.6"
 }

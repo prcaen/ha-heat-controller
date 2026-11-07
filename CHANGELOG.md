@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.0.6 - 2026-11-07
 
 - **Per-room split fan preset**: each room can now override the global « split fan preset » for its own fans — a new « Split fan preset (this room) » field in the room form (Add room / Edit room, default « Inherit » = the global setting) and a new per-room `select.<room>_fan_preset` entity on the dashboard. The preset is applied to the room's fans on each split start, like the global one; editing it reloads the entry (the room sub-entries are structural). Rooms configured before this change inherit the global preset, no migration needed.
 
