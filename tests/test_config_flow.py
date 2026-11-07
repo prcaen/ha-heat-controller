@@ -139,7 +139,11 @@ class TestSchemas(unittest.TestCase):
             for key, value in schema.schema.items()
         }
         selector = fields[CONF_ROOM_FAN_PRESET]
-        self.assertEqual(list(selector.config.options), list(ROOM_FAN_PRESET_OPTIONS))
+        # SelectSelectorConfig is a dict in recent HA versions, a
+        # dataclass in older ones.
+        config = selector.config
+        options = config["options"] if isinstance(config, dict) else config.options
+        self.assertEqual(list(options), list(ROOM_FAN_PRESET_OPTIONS))
         base = {
             CONF_ROOM_NAME: "Salon",
             CONF_ROOM_TEMP_SENSOR: "sensor.salon",
