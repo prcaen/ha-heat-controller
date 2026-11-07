@@ -784,14 +784,16 @@ class HeatController:
             setpoint = (decision.target or 0.0) + self.settings.split_offset
             await self._push_setpoint(clim, setpoint)
 
-        # Fan preset and oscillation are (re)applied on each start.
+        # Fan preset and oscillation are (re)applied on each start; the
+        # preset may be overridden per room ("inherit" uses the global one).
         if state.last_want is not True:
+            preset = room.fan_preset_or(self.settings.split_fan_preset)
             for fan in room.fans:
                 await self._call(
                     "fan",
                     "set_preset_mode",
                     fan,
-                    preset_mode=self.settings.split_fan_preset,
+                    preset_mode=preset,
                 )
                 await self._call(
                     "fan",

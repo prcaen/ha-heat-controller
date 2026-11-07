@@ -38,6 +38,7 @@ from .const import (
     CONF_PRODUCTION_SENSOR,
     CONF_ROOM_CLIMATES,
     CONF_ROOM_FANS,
+    CONF_ROOM_FAN_PRESET,
     CONF_ROOM_FOLLOW_ROOM,
     CONF_ROOM_NAME,
     CONF_ROOM_SWITCHES,
@@ -46,6 +47,8 @@ from .const import (
     CONF_ROOM_THERMOSTAT_ROOM,
     CONNECTION_KEYS,
     DOMAIN,
+    ROOM_FAN_PRESET_INHERIT,
+    ROOM_FAN_PRESET_OPTIONS,
     SETTING_BOOLEANS,
     SETTING_DEFAULTS,
     SETTING_ENTITIES,
@@ -163,6 +166,14 @@ def _room_schema(other_rooms: list[tuple[str, str]], exclude_id: str | None = No
             ),
             vol.Optional(CONF_ROOM_FANS): EntitySelector(
                 EntitySelectorConfig(domain="fan", multiple=True)
+            ),
+            vol.Optional(
+                CONF_ROOM_FAN_PRESET, default=ROOM_FAN_PRESET_INHERIT
+            ): SelectSelector(
+                SelectSelectorConfig(
+                    options=list(ROOM_FAN_PRESET_OPTIONS),
+                    mode=SelectSelectorMode.DROPDOWN,
+                )
             ),
         }
     )

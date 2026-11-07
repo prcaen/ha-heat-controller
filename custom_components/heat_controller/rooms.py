@@ -19,12 +19,15 @@ from typing import Any, Mapping, Optional
 from .const import (
     CONF_ROOM_CLIMATES,
     CONF_ROOM_FANS,
+    CONF_ROOM_FAN_PRESET,
     CONF_ROOM_FOLLOW_ROOM,
     CONF_ROOM_NAME,
     CONF_ROOM_SWITCHES,
     CONF_ROOM_TARGET,
     CONF_ROOM_TEMP_SENSOR,
     CONF_ROOM_THERMOSTAT_ROOM,
+    ROOM_FAN_PRESET_INHERIT,
+    SPLIT_FAN_PRESET_OPTIONS,
     SUBENTRY_ROOM,
 )
 
@@ -42,10 +45,17 @@ class RoomConfig:
     switches: tuple[str, ...] = field(default_factory=tuple)
     climates: tuple[str, ...] = field(default_factory=tuple)
     fans: tuple[str, ...] = field(default_factory=tuple)
+    fan_preset: str = ROOM_FAN_PRESET_INHERIT  # per-room override, "inherit" = global
 
     @property
     def has_splits(self) -> bool:
         return bool(self.switches)
+
+    def fan_preset_or(self, fallback: str) -> str:
+        """The room's fan preset, or the global setting when inherited."""
+        if self.fan_preset in SPLIT_FAN_PRESET_OPTIONS:
+            return self.fan_preset
+        return fallback
 
     @property
     def boiler_trigger(self) -> bool:
@@ -70,6 +80,14 @@ def _entities(value: Any) -> tuple[str, ...]:
     return tuple(str(item) for item in value)
 
 
+def _fan_preset(value: Any) -> str:
+    """Normalize the stored preset: unknown or missing values inherit."""
+    preset = str(value) if value else ""
+    if preset in SPLIT_FAN_PRESET_OPTIONS:
+        return preset
+    return ROOM_FAN_PRESET_INHERIT
+
+
 def room_from_subentry(subentry: Any) -> Optional[RoomConfig]:
     """Build a room from a config sub-entry (None if malformed)."""
     data: Mapping[str, Any] = getattr(subentry, "data", None) or {}
@@ -86,6 +104,7 @@ def room_from_subentry(subentry: Any) -> Optional[RoomConfig]:
         switches=_entities(data.get(CONF_ROOM_SWITCHES)),
         climates=_entities(data.get(CONF_ROOM_CLIMATES)),
         fans=_entities(data.get(CONF_ROOM_FANS)),
+        fan_preset=_fan_preset(data.get(CONF_ROOM_FAN_PRESET)),
     )
 
 
@@ -115,6 +134,7 @@ def rooms_signature(rooms: list[RoomConfig]) -> tuple:
             room.switches,
             room.climates,
             room.fans,
+            room.fan_preset,
         )
         for room in rooms
     )

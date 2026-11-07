@@ -34,6 +34,7 @@ CONF_ROOM_THERMOSTAT_ROOM = "thermostat_room"
 CONF_ROOM_SWITCHES = "switches"
 CONF_ROOM_CLIMATES = "climates"
 CONF_ROOM_FANS = "fans"
+CONF_ROOM_FAN_PRESET = "fan_preset"
 
 # --- Settings ----------------------------------------------------------------
 
@@ -85,6 +86,11 @@ DEFAULT_INITIAL_PREHEAT_MINUTES = 60
 DEFAULT_MAX_PREHEAT_MINUTES = 180
 
 SPLIT_FAN_PRESET_OPTIONS = ("low", "medium", "high", "auto")
+
+# Per-room override of the split fan preset: "inherit" uses the global
+# `split_fan_preset` setting.
+ROOM_FAN_PRESET_INHERIT = "inherit"
+ROOM_FAN_PRESET_OPTIONS = (ROOM_FAN_PRESET_INHERIT, *SPLIT_FAN_PRESET_OPTIONS)
 
 # --- Config entry layout -----------------------------------------------------
 

@@ -97,6 +97,7 @@ class TestRooms(unittest.TestCase):
                     "switches": ["switch.g", "switch.d"],
                     "climates": ["climate.g", "climate.d"],
                     "fans": ["fan.g", "fan.d"],
+                    "fan_preset": "low",
                 },
             )
         )
@@ -109,6 +110,26 @@ class TestRooms(unittest.TestCase):
         self.assertEqual(room.switches, ("switch.g", "switch.d"))
         self.assertEqual(room.climates, ("climate.g", "climate.d"))
         self.assertTrue(room.has_splits)
+        self.assertEqual(room.fan_preset, "low")
+        self.assertEqual(room.fan_preset_or("auto"), "low")
+
+    def test_fan_preset_inherits_by_default(self):
+        rooms = self.room_module()
+        # No stored value: the room inherits the global preset.
+        room = rooms.room_from_subentry(
+            FakeSubentry("s1", "room", "Salon", {"temperature_sensor": "sensor.salon"})
+        )
+        self.assertEqual(room.fan_preset, "inherit")
+        self.assertEqual(room.fan_preset_or("auto"), "auto")
+        # An unknown stored value (older/edited config) also inherits.
+        stale = rooms.room_from_subentry(
+            FakeSubentry("s2", "room", "S2", {
+                "temperature_sensor": "sensor.s2",
+                "fan_preset": "turbo",
+            })
+        )
+        self.assertEqual(stale.fan_preset, "inherit")
+        self.assertEqual(stale.fan_preset_or("medium"), "medium")
 
     def test_boiler_trigger_derived_from_the_splits(self):
         rooms = self.room_module()
@@ -187,6 +208,12 @@ class TestRooms(unittest.TestCase):
             [rooms.room_from_subentry(FakeSubentry("s1", "room", "Salon", changed))]
         )
         self.assertNotEqual(first, other)
+        # The fan preset is part of the signature (it reloads the entry).
+        changed_fan = dict(data, fan_preset="high")
+        other_fan = rooms.rooms_signature(
+            [rooms.room_from_subentry(FakeSubentry("s1", "room", "Salon", changed_fan))]
+        )
+        self.assertNotEqual(first, other_fan)
 
 
 if __name__ == "__main__":

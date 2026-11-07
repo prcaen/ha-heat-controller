@@ -101,6 +101,7 @@ SUBENTRIES = {
         "switches": ["switch.salon_g", "switch.salon_d"],
         "climates": ["climate.salon_g", "climate.salon_d"],
         "fans": ["fan.salon_g", "fan.salon_d"],
+        "fan_preset": "low",  # per-room override of the global preset
     }),
     "cuisine": FakeSubentry("cuisine", "Cuisine", {
         "name": "Cuisine",
@@ -173,6 +174,13 @@ async def run_pass():
     # the boiler rests at the idle setpoint; the accessory fan follows
     assert ("climate", "set_temperature", "climate.netatmo", None, 12.0) in summary
     assert ("fan", "turn_on", "fan.acc1", None, None) in summary
+    # the salon fans get the per-room preset (low), not the global one (auto)
+    assert any(
+        c[0] == "fan" and c[1] == "set_preset_mode"
+        and c[2]["entity_id"] in ("fan.salon_g", "fan.salon_d")
+        and c[2]["preset_mode"] == "low"
+        for c in fake_services.calls
+    )
     print("mild day pass OK")
 
     # Second pass: the trigger room gets cold, the boiler takes the demand

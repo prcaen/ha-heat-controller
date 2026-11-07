@@ -11,6 +11,7 @@ from homeassistant.core import callback
 from homeassistant.helpers.device_registry import DeviceInfo
 
 from .const import DOMAIN
+from .rooms import RoomConfig
 from .state import HeatState
 
 if TYPE_CHECKING:
@@ -88,3 +89,40 @@ class HeatSettingEntity(HeatControllerEntity):
             self._entry, options={**self._entry.options, self._key: value}
         )
         self.async_write_ha_state()
+
+
+class HeatRoomEntity(HeatControllerEntity):
+    """Base of the per-room entities: attached to the room sub-entry.
+
+    No `device_info`: Home Assistant links entities added with a
+    `config_subentry_id` to the room sub-entry itself, and passing
+    entry or subentry ids here would collide with the ones the platform
+    already provides. Names and states are translated with the room
+    name as placeholder.
+    """
+
+    def __init__(
+        self,
+        entry: ConfigEntry,
+        shared: HeatState,
+        controller: HeatController,
+        room: RoomConfig,
+        key: str,
+    ) -> None:
+        super().__init__(entry, shared, f"{room.id}_{key}")
+        self._controller = controller
+        self._room = room
+        self._attr_translation_key = key
+        self._attr_translation_placeholders = {"room": room.name}
+
+    @property
+    def device_info(self) -> None:
+        return None
+
+    @property
+    def room_state(self):
+        return self._controller.room_states.get(self._room.id)
+
+    @property
+    def available(self) -> bool:
+        return self._shared.house is not None and self.room_state is not None

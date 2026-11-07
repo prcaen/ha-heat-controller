@@ -283,6 +283,39 @@ class TestHybridRooms(unittest.IsolatedAsyncioTestCase):
         # Accessory fans follow the splits mode.
         self.assertIn(("fan", "turn_on", "fan.acc", None, None), calls)
 
+    async def test_room_fan_preset_overrides_the_global_one(self):
+        subentries = self.rooms_subentries()
+        # The salon overrides the preset; the chambre inherits it.
+        subentries["salon"].data["fan_preset"] = "low"
+        subentries["chambre"] = FakeSubentry("chambre", "Chambre", {
+            "name": "Chambre",
+            "temperature_sensor": "sensor.chambre_temp",
+            "target": 20.0,
+            "switches": ["switch.chambre"],
+            "climates": ["climate.chambre"],
+            "fans": ["fan.chambre"],
+        })
+        controller, shared, services, states = build(
+            entry_data={"split_fan_preset": "high"},  # the global preset
+            subentries=subentries,
+        )
+        self.seed_room_states(states)
+        states.set("sensor.chambre_temp", "17.0")  # cold: its splits start too
+        states.set("switch.chambre", "off")
+        states.set("climate.chambre", "off", dict(CLIMATE_ATTRIBUTES))
+        states.set("fan.chambre", "off")
+        await controller._update_locked()
+
+        presets = {
+            call[2]["entity_id"]: call[2]["preset_mode"]
+            for call in services.calls
+            if call[0] == "fan" and call[1] == "set_preset_mode"
+        }
+        # The salon fans get the room preset, the chambre fans the global.
+        self.assertEqual(presets["fan.salon_gauche"], "low")
+        self.assertEqual(presets["fan.salon_droite"], "low")
+        self.assertEqual(presets["fan.chambre"], "high")
+
     async def test_trigger_room_raises_the_boiler(self):
         controller, shared, services, states = build(
             subentries=self.rooms_subentries()

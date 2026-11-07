@@ -78,7 +78,7 @@ class TestTranslations(unittest.TestCase):
         self.assertEqual(set(self.strings["entity"]["time"]), set(const.SETTING_TIMES))
         self.assertEqual(
             set(self.strings["entity"]["select"]),
-            {"heat_source_override"} | set(const.SETTING_SELECTS),
+            {"heat_source_override", "fan_preset"} | set(const.SETTING_SELECTS),
         )
         self.assertEqual(set(self.strings["entity"]["datetime"]), {"away_until"})
         self.assertEqual(set(self.strings["entity"]["climate"]), {"thermostat"})

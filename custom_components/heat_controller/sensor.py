@@ -22,7 +22,7 @@ from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .const import DOMAIN
 from .controller import HeatController
-from .entity import HeatControllerEntity
+from .entity import HeatControllerEntity, HeatRoomEntity
 from .rooms import RoomConfig
 from .state import HeatState
 
@@ -159,44 +159,7 @@ class HeatModeSensor(HeatControllerEntity, SensorEntity):
         }
 
 
-class _HeatRoomEntity(HeatControllerEntity):
-    """Base of the per-room entities: attached to the room sub-entry.
-
-    No `device_info`: Home Assistant links entities added with a
-    `config_subentry_id` to the room sub-entry itself, and passing
-    entry or subentry ids here would collide with the ones the platform
-    already provides. Names and states are translated with the room
-    name as placeholder.
-    """
-
-    def __init__(
-        self,
-        entry: ConfigEntry,
-        shared: HeatState,
-        controller: HeatController,
-        room: RoomConfig,
-        key: str,
-    ) -> None:
-        super().__init__(entry, shared, f"{room.id}_{key}")
-        self._controller = controller
-        self._room = room
-        self._attr_translation_key = key
-        self._attr_translation_placeholders = {"room": room.name}
-
-    @property
-    def device_info(self) -> None:
-        return None
-
-    @property
-    def room_state(self):
-        return self._controller.room_states.get(self._room.id)
-
-    @property
-    def available(self) -> bool:
-        return self._shared.house is not None and self.room_state is not None
-
-
-class HeatRoomSourceSensor(_HeatRoomEntity, SensorEntity):
+class HeatRoomSourceSensor(HeatRoomEntity, SensorEntity):
     """What heats the room right now: idle, splits or boiler."""
 
     _attr_device_class = SensorDeviceClass.ENUM
@@ -235,7 +198,7 @@ class HeatRoomSourceSensor(_HeatRoomEntity, SensorEntity):
         }
 
 
-class HeatRoomRateSensor(_HeatRoomEntity, SensorEntity):
+class HeatRoomRateSensor(HeatRoomEntity, SensorEntity):
     """Learned heating speed of the room (°C/h)."""
 
     _attr_native_unit_of_measurement = "°C/h"
@@ -258,7 +221,7 @@ class HeatRoomRateSensor(_HeatRoomEntity, SensorEntity):
         return state.rate if state else None
 
 
-class HeatRoomNextPreheatSensor(_HeatRoomEntity, SensorEntity):
+class HeatRoomNextPreheatSensor(HeatRoomEntity, SensorEntity):
     """When the next pre-heating of the room starts."""
 
     _attr_device_class = SensorDeviceClass.TIMESTAMP

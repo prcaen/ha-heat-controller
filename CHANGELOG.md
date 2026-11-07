@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- **Per-room split fan preset**: each room can now override the global « split fan preset » for its own fans — a new « Split fan preset (this room) » field in the room form (Add room / Edit room, default « Inherit » = the global setting) and a new per-room `select.<room>_fan_preset` entity on the dashboard. The preset is applied to the room's fans on each split start, like the global one; editing it reloads the entry (the room sub-entries are structural). Rooms configured before this change inherit the global preset, no migration needed.
+
 ## 0.0.2 - 2026-10-29
 
 - **Breaking (configuration)**: the « This room can request the boiler » flag is removed from the room form — it is now derived automatically: a room **without** splits can request the boiler (it is its only heat source on mild days), a room **with** splits cannot (the automatic stall detection makes it fall back to the boiler). Any flag stored in existing rooms is ignored.

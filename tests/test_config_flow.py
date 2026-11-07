@@ -25,12 +25,15 @@ from custom_components.heat_controller.const import (
     CONF_OUTDOOR_THRESHOLD,
     CONF_ROOM_CLIMATES,
     CONF_ROOM_FANS,
+    CONF_ROOM_FAN_PRESET,
     CONF_ROOM_FOLLOW_ROOM,
     CONF_ROOM_NAME,
     CONF_ROOM_SWITCHES,
     CONF_ROOM_TARGET,
     CONF_ROOM_TEMP_SENSOR,
     CONF_ROOM_THERMOSTAT_ROOM,
+    ROOM_FAN_PRESET_INHERIT,
+    ROOM_FAN_PRESET_OPTIONS,
     SETTING_DEFAULTS,
 )
 
@@ -122,11 +125,35 @@ class TestSchemas(unittest.TestCase):
                 CONF_ROOM_SWITCHES,
                 CONF_ROOM_CLIMATES,
                 CONF_ROOM_FANS,
+                CONF_ROOM_FAN_PRESET,
             },
         )
         # No followable room yet: the follow selector is absent.
         keys = schema_keys(config_flow._room_schema([]))
         self.assertNotIn(CONF_ROOM_FOLLOW_ROOM, keys)
+
+    def test_room_fan_preset_selector(self):
+        schema = config_flow._room_schema([])
+        fields = {
+            key.schema if isinstance(key, vol.Marker) else key: value
+            for key, value in schema.schema.items()
+        }
+        selector = fields[CONF_ROOM_FAN_PRESET]
+        self.assertEqual(list(selector.config.options), list(ROOM_FAN_PRESET_OPTIONS))
+        base = {
+            CONF_ROOM_NAME: "Salon",
+            CONF_ROOM_TEMP_SENSOR: "sensor.salon",
+            CONF_ROOM_TARGET: 19.5,
+        }
+        # Default: inherit the global preset.
+        self.assertEqual(
+            schema(base)[CONF_ROOM_FAN_PRESET], ROOM_FAN_PRESET_INHERIT
+        )
+        # An explicit per-room preset is accepted.
+        self.assertEqual(
+            schema({**base, CONF_ROOM_FAN_PRESET: "high"})[CONF_ROOM_FAN_PRESET],
+            "high",
+        )
 
     def test_validate_room_input(self):
         valid = {

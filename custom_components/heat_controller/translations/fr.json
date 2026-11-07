@@ -199,6 +199,16 @@
           "high": "Élevé",
           "auto": "Auto"
         }
+      },
+      "fan_preset": {
+        "name": "{room} preset du ventilateur",
+        "state": {
+          "inherit": "Hériter (global)",
+          "low": "Faible",
+          "medium": "Moyen",
+          "high": "Élevé",
+          "auto": "Auto"
+        }
       }
     },
     "datetime": {
@@ -283,13 +293,15 @@
             "thermostat_room": "Le thermostat de la chaudière est dans cette pièce",
             "switches": "Interrupteurs d'alimentation des splits",
             "climates": "Entités climate des splits",
-            "fans": "Entités fan des splits"
+            "fans": "Entités fan des splits",
+            "fan_preset": "Preset du ventilateur (cette pièce)"
           },
           "data_description": {
             "target": "Laisser vide si la pièce suit une autre pièce.",
             "switches": "Utilisés pour allumer les splits (en premier) et les éteindre.",
             "climates": "Utilisés pour le mode et la température, jamais pour éteindre.",
-            "fans": "Utilisés pour le preset et l'oscillation."
+            "fans": "Utilisés pour le preset et l'oscillation.",
+            "fan_preset": "Remplace le preset global du ventilateur pour cette pièce ; « Hériter » garde le réglage global."
           }
         },
         "reconfigure": {
@@ -302,13 +314,15 @@
             "thermostat_room": "Le thermostat de la chaudière est dans cette pièce",
             "switches": "Interrupteurs d'alimentation des splits",
             "climates": "Entités climate des splits",
-            "fans": "Entités fan des splits"
+            "fans": "Entités fan des splits",
+            "fan_preset": "Preset du ventilateur (cette pièce)"
           },
           "data_description": {
             "target": "Laisser vide si la pièce suit une autre pièce.",
             "switches": "Utilisés pour allumer les splits (en premier) et les éteindre.",
             "climates": "Utilisés pour le mode et la température, jamais pour éteindre.",
-            "fans": "Utilisés pour le preset et l'oscillation."
+            "fans": "Utilisés pour le preset et l'oscillation.",
+            "fan_preset": "Remplace le preset global du ventilateur pour cette pièce ; « Hériter » garde le réglage global."
           }
         }
       },

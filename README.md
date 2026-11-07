@@ -68,13 +68,14 @@ drives a soft overheating of the split rooms.
 | `climate.heating_thermostat` | climate | thermostat card (room temp + setpoint) |
 | `number.heating_*` (15 entities) | number | the numeric settings |
 | `time.heating_*` (3 entities) | time | day/night start, away return time |
-| `select.heating_split_fan_preset` | select | split fan preset |
+| `select.heating_split_fan_preset` | select | split fan preset (global) |
 | `switch.heating_split_fan_oscillating` | switch | split fan oscillation |
 | `sensor.heating_mode` | sensor | `day` / `night` / `away`, with the solar surplus, the boiler setpoint and the splits state as attributes |
 | `binary_sensor.heating_boiler_demand` | binary_sensor | a trigger room (or a stalled split) is asking the boiler |
 | `sensor.<room>_heat_source` | sensor | per room: `idle` / `splits` / `boiler`, with the room's target, pre-heating and override state |
 | `sensor.<room>_learned_heating_rate` | sensor | per room: learned heating speed (°C/h) |
 | `sensor.<room>_next_pre_heating` | sensor | per room: when the next pre-heating starts |
+| `select.<room>_fan_preset` | select | per room: split fan preset (`inherit` = the global setting) |
 
 Flags (active, away mode, forced source, absence end) persist across
 restarts; the source, demand and pre-heating states are recomputed at
@@ -131,7 +132,10 @@ room, e.g. the bathrooms following the living room), the
 **thermostat room** flag (the boiler thermostat lives in this
 room — usually the living room) and the splits that heat it: power
 switches (the only way to turn a split off), climate entities and fan
-entities. At least one room is required; the room flagged as thermostat
+entities. A room can also override the **fan preset** for its own
+fans (form field, or the `select.<room>_fan_preset` entity; `inherit`
+keeps the global `split fan preset`). At least one room is required;
+the room flagged as thermostat
 room drives the boiler and the thermostat card (the first room if
 none is flagged).
 

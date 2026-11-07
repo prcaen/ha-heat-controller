@@ -199,6 +199,16 @@
           "high": "High",
           "auto": "Auto"
         }
+      },
+      "fan_preset": {
+        "name": "{room} fan preset",
+        "state": {
+          "inherit": "Inherit (global)",
+          "low": "Low",
+          "medium": "Medium",
+          "high": "High",
+          "auto": "Auto"
+        }
       }
     },
     "datetime": {
@@ -283,13 +293,15 @@
             "thermostat_room": "The boiler thermostat is in this room",
             "switches": "Split power switches",
             "climates": "Split climate entities",
-            "fans": "Split fan entities"
+            "fans": "Split fan entities",
+            "fan_preset": "Split fan preset (this room)"
           },
           "data_description": {
             "target": "Leave empty if the room follows another room.",
             "switches": "Used to turn the splits on (first) and off.",
             "climates": "Used for mode and temperature, never to turn off.",
-            "fans": "Used for the preset mode and the oscillation."
+            "fans": "Used for the preset mode and the oscillation.",
+            "fan_preset": "Overrides the global split fan preset for this room; Inherit keeps the global setting."
           }
         },
         "reconfigure": {
@@ -302,13 +314,15 @@
             "thermostat_room": "The boiler thermostat is in this room",
             "switches": "Split power switches",
             "climates": "Split climate entities",
-            "fans": "Split fan entities"
+            "fans": "Split fan entities",
+            "fan_preset": "Split fan preset (this room)"
           },
           "data_description": {
             "target": "Leave empty if the room follows another room.",
             "switches": "Used to turn the splits on (first) and off.",
             "climates": "Used for mode and temperature, never to turn off.",
-            "fans": "Used for the preset mode and the oscillation."
+            "fans": "Used for the preset mode and the oscillation.",
+            "fan_preset": "Overrides the global split fan preset for this room; Inherit keeps the global setting."
           }
         }
       },
