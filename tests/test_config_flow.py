@@ -28,6 +28,7 @@ from custom_components.heat_controller.const import (
     CONF_ROOM_FAN_PRESET,
     CONF_ROOM_FOLLOW_ROOM,
     CONF_ROOM_NAME,
+    CONF_ROOM_PREHEAT_WITH_SPLITS,
     CONF_ROOM_SWITCHES,
     CONF_ROOM_TARGET,
     CONF_ROOM_TEMP_SENSOR,
@@ -126,6 +127,7 @@ class TestSchemas(unittest.TestCase):
                 CONF_ROOM_CLIMATES,
                 CONF_ROOM_FANS,
                 CONF_ROOM_FAN_PRESET,
+                CONF_ROOM_PREHEAT_WITH_SPLITS,
             },
         )
         # No followable room yet: the follow selector is absent.
@@ -157,6 +159,23 @@ class TestSchemas(unittest.TestCase):
         self.assertEqual(
             schema({**base, CONF_ROOM_FAN_PRESET: "high"})[CONF_ROOM_FAN_PRESET],
             "high",
+        )
+
+    def test_room_preheat_with_splits_defaults_off(self):
+        schema = config_flow._room_schema([])
+        base = {
+            CONF_ROOM_NAME: "Salon",
+            CONF_ROOM_TEMP_SENSOR: "sensor.salon",
+            CONF_ROOM_TARGET: 19.5,
+        }
+        # Default: the boiler does the pre-heating (previous behaviour).
+        self.assertIs(schema(base)[CONF_ROOM_PREHEAT_WITH_SPLITS], False)
+        # The opt-in is accepted.
+        self.assertIs(
+            schema({**base, CONF_ROOM_PREHEAT_WITH_SPLITS: True})[
+                CONF_ROOM_PREHEAT_WITH_SPLITS
+            ],
+            True,
         )
 
     def test_validate_room_input(self):

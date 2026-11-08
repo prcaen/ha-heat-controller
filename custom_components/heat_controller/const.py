@@ -35,6 +35,7 @@ CONF_ROOM_SWITCHES = "switches"
 CONF_ROOM_CLIMATES = "climates"
 CONF_ROOM_FANS = "fans"
 CONF_ROOM_FAN_PRESET = "fan_preset"
+CONF_ROOM_PREHEAT_WITH_SPLITS = "preheat_with_splits"
 
 # --- Settings ----------------------------------------------------------------
 

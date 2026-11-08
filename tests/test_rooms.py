@@ -98,6 +98,7 @@ class TestRooms(unittest.TestCase):
                     "climates": ["climate.g", "climate.d"],
                     "fans": ["fan.g", "fan.d"],
                     "fan_preset": "low",
+                    "preheat_with_splits": True,
                 },
             )
         )
@@ -112,6 +113,16 @@ class TestRooms(unittest.TestCase):
         self.assertTrue(room.has_splits)
         self.assertEqual(room.fan_preset, "low")
         self.assertEqual(room.fan_preset_or("auto"), "low")
+        self.assertTrue(room.preheat_with_splits)
+
+    def test_preheat_with_splits_off_by_default(self):
+        rooms = self.room_module()
+        # No stored value: the boiler does the pre-heating (previous
+        # behaviour), the splits never run while pre-heating.
+        room = rooms.room_from_subentry(
+            FakeSubentry("s1", "room", "Salon", {"temperature_sensor": "sensor.salon"})
+        )
+        self.assertFalse(room.preheat_with_splits)
 
     def test_fan_preset_inherits_by_default(self):
         rooms = self.room_module()
@@ -214,6 +225,12 @@ class TestRooms(unittest.TestCase):
             [rooms.room_from_subentry(FakeSubentry("s1", "room", "Salon", changed_fan))]
         )
         self.assertNotEqual(first, other_fan)
+        # ...and so is the pre-heating source opt-in.
+        changed_preheat = dict(data, preheat_with_splits=True)
+        other_preheat = rooms.rooms_signature(
+            [rooms.room_from_subentry(FakeSubentry("s1", "room", "Salon", changed_preheat))]
+        )
+        self.assertNotEqual(first, other_preheat)
 
 
 if __name__ == "__main__":

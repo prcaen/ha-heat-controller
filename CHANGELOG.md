@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- **Per-room PAC pre-heating**: a room can now opt in to pre-heat with its splits (the heat pump) — a new « Pre-heat with the heat pump (splits) » field in the room form (Add room / Edit room, default off). During a pre-heating (before the day period or before a planned return) an opted-in room's splits may run (the outdoor threshold still applies) while the other rooms keep the boiler pre-heating; when the thermostat room itself pre-heats with the PAC, the boiler rests at the idle setpoint and only answers the trigger rooms' demand. Rooms configured before this change keep the boiler pre-heating, no migration needed.
+
 ## 0.0.6 - 2026-11-07
 
 - **Per-room split fan preset**: each room can now override the global « split fan preset » for its own fans — a new « Split fan preset (this room) » field in the room form (Add room / Edit room, default « Inherit » = the global setting) and a new per-room `select.<room>_fan_preset` entity on the dashboard. The preset is applied to the room's fans on each split start, like the global one; editing it reloads the entry (the room sub-entries are structural). Rooms configured before this change inherit the global preset, no migration needed.

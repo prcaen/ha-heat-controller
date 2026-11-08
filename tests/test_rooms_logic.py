@@ -635,6 +635,83 @@ class TestPreheat(unittest.TestCase):
         house = compute_house(s, cold, self.rooms, states)
         self.assertEqual(house.boiler_setpoint, 19.5)
 
+    def test_preheat_with_splits_opt_in_runs_the_splits(self):
+        """A room opted in pre-heats with its splits (the PAC)."""
+        rooms = [room("salon", "Salon", "sensor.salon", target=19.5,
+                      thermostat_room=True, switches=("sw1",), climates=("cl1",),
+                      preheat_with_splits=True)]
+        s = settings(initial_preheat_minutes=90)
+        states = states_of(rooms, {"salon": 17.0})
+        # 05:45, day at 07:00, 90 min pre-heating: the window is open.
+        inputs = house_inputs(now=datetime(2026, 10, 21, 5, 45))
+        house = compute_house(s, inputs, rooms, states)
+        decision = house.room("salon")
+        self.assertTrue(decision.preheating)
+        self.assertTrue(decision.splits_allowed)
+        self.assertTrue(decision.want_splits)
+        # The house is in splits mode, and the thermostat room pre-heats
+        # with the PAC: the boiler rests at the idle setpoint.
+        self.assertTrue(house.splits_allowed)
+        self.assertEqual(house.boiler_setpoint, 12.0)
+
+    def test_preheat_with_splits_before_the_planned_return(self):
+        rooms = [room("salon", "Salon", "sensor.salon", target=19.5,
+                      thermostat_room=True, switches=("sw1",), climates=("cl1",),
+                      preheat_with_splits=True)]
+        s = settings(initial_preheat_minutes=60)
+        states = states_of(rooms, {"salon": 17.0})
+        inputs = house_inputs(
+            now=datetime(2026, 10, 21, 16, 30),
+            away_mode=True,
+            away_end=datetime(2026, 10, 21, 17, 0),
+        )
+        house = compute_house(s, inputs, rooms, states)
+        decision = house.room("salon")
+        self.assertTrue(decision.preheating)
+        self.assertTrue(decision.splits_allowed)
+        self.assertTrue(house.splits_allowed)
+        self.assertEqual(house.boiler_setpoint, 12.0)
+
+    def test_preheat_with_splits_blocked_when_cold(self):
+        """The outdoor threshold still applies during a PAC pre-heating."""
+        rooms = [room("salon", "Salon", "sensor.salon", target=19.5,
+                      thermostat_room=True, switches=("sw1",), climates=("cl1",),
+                      preheat_with_splits=True)]
+        s = settings(initial_preheat_minutes=90)
+        states = states_of(rooms, {"salon": 17.0})
+        inputs = house_inputs(now=datetime(2026, 10, 21, 5, 45), outdoor_temp=0.0)
+        house = compute_house(s, inputs, rooms, states)
+        decision = house.room("salon")
+        self.assertTrue(decision.preheating)
+        self.assertFalse(decision.splits_allowed)
+        self.assertFalse(decision.want_splits)
+        self.assertFalse(house.splits_allowed)
+        # The boiler does the pre-heating, at the thermostat room's target.
+        self.assertEqual(house.boiler_setpoint, 19.5)
+
+    def test_preheat_with_splits_in_one_room_keeps_the_boiler_for_the_others(self):
+        """Only the opted-in room uses the PAC; when the thermostat room did
+        not opt in, the boiler still does the pre-heating."""
+        rooms = [
+            room("salon", "Salon", "sensor.salon", target=19.5,
+                 thermostat_room=True, switches=("sw1",), climates=("cl1",)),
+            room("cleo", "Chambre de Cleo", "sensor.cleo", target=18.0,
+                 switches=("sw3",), climates=("cl3",), preheat_with_splits=True),
+        ]
+        s = settings(initial_preheat_minutes=90)
+        states = states_of(rooms, {"salon": 17.0, "cleo": 16.5})
+        inputs = house_inputs(now=datetime(2026, 10, 21, 5, 45))
+        house = compute_house(s, inputs, rooms, states)
+        self.assertTrue(house.room("salon").preheating)
+        self.assertFalse(house.room("salon").splits_allowed)
+        self.assertTrue(house.room("cleo").splits_allowed)
+        self.assertTrue(house.room("cleo").want_splits)
+        # The PAC is in use: the house is in splits mode...
+        self.assertTrue(house.splits_allowed)
+        # ...but the thermostat room did not opt in: the boiler does the
+        # pre-heating at the thermostat room's day target.
+        self.assertEqual(house.boiler_setpoint, 19.5)
+
 
 def tearDownModule():
     unload_pure()
