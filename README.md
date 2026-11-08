@@ -134,7 +134,9 @@ room — usually the living room) and the splits that heat it: power
 switches (the only way to turn a split off), climate entities and fan
 entities. A room can also override the **fan preset** for its own
 fans (form field, or the `select.<room>_fan_preset` entity; `inherit`
-keeps the global `split fan preset`). At least one room is required;
+keeps the global `split fan preset`), and opt in to **pre-heat with
+the heat pump (the splits)**: during a pre-heating, its splits heat
+the room via the PAC instead of the boiler. At least one room is required;
 the room flagged as thermostat
 room drives the boiler and the thermostat card (the first room if
 none is flagged).
@@ -160,8 +162,12 @@ The hybrid regulation:
 - **Cold day, night or absence**: the splits are off and the boiler
   follows the thermostat room's effective target (raised to the
   demand setpoint while a room still asks for heat). The **pre-heating
-  is always done by the boiler** — the splits never run during a
-  pre-heating, before the day period or before a planned return.
+  is done by the boiler by default** — before the day period or before
+  a planned return, the splits never run unless the room opted in
+  (**pre-heat with the heat pump**): its splits then pre-heat it via
+  the PAC (the outdoor threshold still applies), and when the
+  thermostat room pre-heats that way, the boiler rests at the idle
+  setpoint (it still answers the trigger rooms' demand).
 - **Safety nets**: a running split that does not progress by 0.2 °C
   for the fallback delay (2 h default) asks the boiler; a split
   changed by hand leaves its room alone until the next mode

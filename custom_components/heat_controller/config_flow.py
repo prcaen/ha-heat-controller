@@ -41,6 +41,7 @@ from .const import (
     CONF_ROOM_FAN_PRESET,
     CONF_ROOM_FOLLOW_ROOM,
     CONF_ROOM_NAME,
+    CONF_ROOM_PREHEAT_WITH_SPLITS,
     CONF_ROOM_SWITCHES,
     CONF_ROOM_TARGET,
     CONF_ROOM_TEMP_SENSOR,
@@ -175,6 +176,9 @@ def _room_schema(other_rooms: list[tuple[str, str]], exclude_id: str | None = No
                     mode=SelectSelectorMode.DROPDOWN,
                 )
             ),
+            vol.Required(
+                CONF_ROOM_PREHEAT_WITH_SPLITS, default=False
+            ): BooleanSelector(),
         }
     )
     return vol.Schema(fields)

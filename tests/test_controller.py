@@ -643,6 +643,97 @@ class TestHybridRooms(unittest.IsolatedAsyncioTestCase):
         )
         self.assertTrue(shared.decision.preheating)
 
+    async def test_preheating_with_splits_in_an_opted_in_room(self):
+        """A room opted in pre-heats with its splits (the PAC)."""
+        subentries = self.rooms_subentries()
+        subentries["salon"].data["preheat_with_splits"] = True
+        controller, shared, services, states = build(
+            {"initial_preheat_minutes": 60}, subentries=subentries
+        )
+        self.seed_room_states(states)
+        # Absence ending in 30 min: the pre-heating window (60 min) is open.
+        shared.set_away_mode(True)
+        shared.set_away_until(dt_util.now() + timedelta(minutes=30))
+        await controller._update_locked()
+        calls = summarise(services)
+
+        house = shared.house
+        self.assertEqual(house.mode, "away")
+        self.assertTrue(house.room("salon").preheating)
+        self.assertTrue(house.room("salon").splits_allowed)
+        self.assertTrue(house.splits_allowed)
+        # The splits are started and driven (day target + offset).
+        self.assertIn(("switch", "turn_on", "switch.salon_gauche", None, None), calls)
+        self.assertIn(("switch", "turn_on", "switch.salon_droite", None, None), calls)
+        self.assertIn(
+            ("climate", "set_temperature", "climate.salon_gauche", None, 21.5), calls
+        )
+        self.assertFalse(
+            any(call[0] == "switch" and call[1] == "turn_off" for call in calls)
+        )
+        # The thermostat room pre-heats with the PAC: the boiler rests.
+        self.assertIn(
+            ("climate", "set_temperature", "climate.boiler", None, 12.0), calls
+        )
+        self.assertTrue(shared.decision.preheating)
+
+    async def test_preheating_with_splits_only_in_the_opted_in_room(self):
+        """The PAC pre-heats only the opted-in room; the boiler still does
+        the pre-heating when the thermostat room did not opt in."""
+        subentries = {
+            "salon": FakeSubentry("salon", "Salon", {
+                "name": "Salon",
+                "temperature_sensor": "sensor.salon_temp",
+                "target": 19.5,
+                "thermostat_room": True,
+                "switches": ["switch.salon_gauche"],
+                "climates": ["climate.salon_gauche"],
+            }),
+            "chambre": FakeSubentry("chambre", "Chambre", {
+                "name": "Chambre",
+                "temperature_sensor": "sensor.chambre_temp",
+                "target": 18.0,
+                "switches": ["switch.chambre"],
+                "climates": ["climate.chambre"],
+                "preheat_with_splits": True,
+            }),
+        }
+        controller, shared, services, states = build(
+            {"initial_preheat_minutes": 60}, subentries=subentries
+        )
+        states.set("sensor.salon_temp", "17.0")
+        states.set("sensor.chambre_temp", "16.0")
+        states.set("switch.salon_gauche", "off")
+        states.set("climate.salon_gauche", "off", dict(CLIMATE_ATTRIBUTES))
+        states.set("switch.chambre", "off")
+        states.set("climate.chambre", "off", dict(CLIMATE_ATTRIBUTES))
+        shared.set_away_mode(True)
+        shared.set_away_until(dt_util.now() + timedelta(minutes=30))
+        await controller._update_locked()
+        calls = summarise(services)
+
+        house = shared.house
+        self.assertTrue(house.room("salon").preheating)
+        self.assertFalse(house.room("salon").splits_allowed)
+        self.assertTrue(house.room("chambre").preheating)
+        self.assertTrue(house.room("chambre").splits_allowed)
+        self.assertTrue(house.splits_allowed)
+        # The chambre's splits are started (target + offset); the salon's
+        # are left off.
+        self.assertIn(("switch", "turn_on", "switch.chambre", None, None), calls)
+        self.assertIn(
+            ("climate", "set_temperature", "climate.chambre", None, 20.0), calls
+        )
+        self.assertFalse(
+            any(call[2] == "switch.salon_gauche" and call[1] == "turn_on" for call in calls)
+        )
+        self.assertFalse(any(call[2].startswith("climate.salon") for call in calls))
+        # The thermostat room did not opt in: the boiler does the
+        # pre-heating at the salon's day target.
+        self.assertIn(
+            ("climate", "set_temperature", "climate.boiler", None, 19.5), calls
+        )
+
     async def test_surplus_notification_on_the_rising_edge(self):
         controller, shared, services, states = build(
             {

@@ -12,7 +12,9 @@ the splits regulate each room; the boiler thermostat stays at the idle
 boiler-trigger room is below its target (or a split room stalls, handled
 by the caller). Cold outside, night or away: the splits are off and the
 boiler follows the thermostat room's target, raised to the demand
-setpoint while there is a demand.
+setpoint while there is a demand. A room may opt in to pre-heat with
+its own splits (the PAC) during its pre-heating window; the other rooms
+keep the boiler pre-heating.
 """
 
 from __future__ import annotations
@@ -302,10 +304,12 @@ def compute_house(
             base_target = base_target + settings.solar_bonus
         target = room_target(settings, effective_mode, base_target)
         controllable = temp is not None and target is not None
-        # The splits never run while pre-heating: the boiler does the
-        # pre-heating (it follows the thermostat room's day target).
+        # The splits do not run while pre-heating, unless the room opted
+        # in: its splits (the PAC) then do the pre-heating of this room.
         room_allowed = (
-            outdoor_ok and effective_mode == MODE_DAY and not preheating
+            outdoor_ok
+            and effective_mode == MODE_DAY
+            and (not preheating or room.preheat_with_splits)
         )
 
         if room.has_splits and controllable and room_allowed and not left_alone:
@@ -373,9 +377,22 @@ def compute_house(
         targets = [d.target for d in decisions if d.target is not None]
         normal = max(targets) if targets else None
 
-    # The house is in "splits mode" only during the real day period when
-    # the outdoor allows it: a pre-heating is done by the boiler alone.
-    splits_first = outdoor_ok and mode == MODE_DAY
+    # The house is in "splits mode" during the real day period when the
+    # outdoor allows it; outside the day period, only while a room
+    # pre-heats with its own splits (per-room opt-in).
+    pac_preheat_ids = {
+        d.room_id
+        for d in decisions
+        if d.preheating and d.splits_allowed and states[d.room_id].config.has_splits
+    }
+    splits_allowed = outdoor_ok and (mode == MODE_DAY or bool(pac_preheat_ids))
+    # During a pre-heating the boiler rests only when the thermostat room
+    # itself pre-heats with the PAC; otherwise it does the pre-heating,
+    # at the thermostat room's day target.
+    splits_first = outdoor_ok and (
+        mode == MODE_DAY
+        or (thermostat is not None and thermostat.id in pac_preheat_ids)
+    )
     setpoint: Optional[float]
     if splits_first:
         # Mild day: the splits do the work; the boiler only steps in on
@@ -392,7 +409,7 @@ def compute_house(
 
     return HouseDecision(
         mode=mode,
-        splits_allowed=splits_first,
+        splits_allowed=splits_allowed,
         rooms=decisions,
         boiler_demand=demand,
         trigger_demand=trigger_demand,

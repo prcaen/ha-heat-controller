@@ -294,14 +294,16 @@
             "switches": "Interrupteurs d'alimentation des splits",
             "climates": "Entités climate des splits",
             "fans": "Entités fan des splits",
-            "fan_preset": "Preset du ventilateur (cette pièce)"
+            "fan_preset": "Preset du ventilateur (cette pièce)",
+            "preheat_with_splits": "Préchauffer avec la PAC (splits)"
           },
           "data_description": {
             "target": "Laisser vide si la pièce suit une autre pièce.",
             "switches": "Utilisés pour allumer les splits (en premier) et les éteindre.",
             "climates": "Utilisés pour le mode et la température, jamais pour éteindre.",
             "fans": "Utilisés pour le preset et l'oscillation.",
-            "fan_preset": "Remplace le preset global du ventilateur pour cette pièce ; « Hériter » garde le réglage global."
+            "fan_preset": "Remplace le preset global du ventilateur pour cette pièce ; « Hériter » garde le réglage global.",
+            "preheat_with_splits": "Pendant un préchauffage (avant la période jour ou le retour prévu), les splits de cette pièce chauffent via la PAC ; les autres pièces gardent le préchauffage par la chaudière."
           }
         },
         "reconfigure": {
@@ -315,14 +317,16 @@
             "switches": "Interrupteurs d'alimentation des splits",
             "climates": "Entités climate des splits",
             "fans": "Entités fan des splits",
-            "fan_preset": "Preset du ventilateur (cette pièce)"
+            "fan_preset": "Preset du ventilateur (cette pièce)",
+            "preheat_with_splits": "Préchauffer avec la PAC (splits)"
           },
           "data_description": {
             "target": "Laisser vide si la pièce suit une autre pièce.",
             "switches": "Utilisés pour allumer les splits (en premier) et les éteindre.",
             "climates": "Utilisés pour le mode et la température, jamais pour éteindre.",
             "fans": "Utilisés pour le preset et l'oscillation.",
-            "fan_preset": "Remplace le preset global du ventilateur pour cette pièce ; « Hériter » garde le réglage global."
+            "fan_preset": "Remplace le preset global du ventilateur pour cette pièce ; « Hériter » garde le réglage global.",
+            "preheat_with_splits": "Pendant un préchauffage (avant la période jour ou le retour prévu), les splits de cette pièce chauffent via la PAC ; les autres pièces gardent le préchauffage par la chaudière."
           }
         }
       },
