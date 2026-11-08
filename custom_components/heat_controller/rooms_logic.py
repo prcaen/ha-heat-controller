@@ -23,7 +23,14 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import Optional
 
-from .logic import SOURCE_AUTO, SOURCE_BOILER, SOURCE_HEAT_PUMP, Settings, at_time
+from .logic import (
+    SOURCE_AUTO,
+    SOURCE_BOILER,
+    SOURCE_HEAT_PUMP,
+    Settings,
+    in_day_period,
+    next_day_start,
+)
 from .rooms import RoomConfig
 
 MODE_DAY = "day"
@@ -166,11 +173,10 @@ def resolve_target(rooms: list[RoomConfig], room: RoomConfig, depth: int = 0) ->
 
 
 def house_mode(settings: Settings, inputs: HouseInputs) -> str:
-    """Global mode: away wins, then the day/night clock."""
+    """Global mode: away wins, then the weekly day/night schedule."""
     if inputs.away_mode:
         return MODE_AWAY
-    now = inputs.now
-    if at_time(now, settings.day_start) <= now < at_time(now, settings.night_start):
+    if in_day_period(settings, inputs.now):
         return MODE_DAY
     return MODE_NIGHT
 
@@ -248,11 +254,12 @@ def preheat_window(
         return start <= now < end, start
     if mode == MODE_DAY:
         return False, None
-    # Night: the next day start.
-    day_dt = at_time(now, settings.day_start)
-    next_day = day_dt if now < day_dt else day_dt + timedelta(days=1)
-    start = next_day - delta
-    return start <= now < next_day, start
+    # Night: the next day period start of the weekly schedule.
+    next_start = next_day_start(settings, now)
+    if next_start is None:
+        return False, None
+    start = next_start - delta
+    return start <= now < next_start, start
 
 
 def compute_house(

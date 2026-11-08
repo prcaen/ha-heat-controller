@@ -34,6 +34,8 @@ from .const import (
     CONF_ACCESSORY_FANS,
     CONF_BOILER_CLIMATE,
     CONF_CONSUMPTION_SENSOR,
+    CONF_DAY_START,
+    CONF_NIGHT_START,
     CONF_OUTDOOR_TEMP_SENSOR,
     CONF_PRODUCTION_SENSOR,
     CONF_ROOM_CLIMATES,
@@ -58,7 +60,16 @@ from .const import (
     SETTING_TEXTS,
     SETTING_TIMES,
     SUBENTRY_ROOM,
+    WEEKDAYS,
+    day_end_key,
+    day_start_key,
 )
+
+# Legacy single day period -> weekly schedule keys (migration of old entries).
+_LEGACY_SCHEDULE_KEYS = {
+    **{day_start_key(day): CONF_DAY_START for day in WEEKDAYS},
+    **{day_end_key(day): CONF_NIGHT_START for day in WEEKDAYS},
+}
 
 
 def _number_selector(key: str) -> NumberSelector:
@@ -196,7 +207,13 @@ def validate_room_input(user_input: dict[str, Any]) -> dict[str, str]:
 
 def _settings_schema(data: dict[str, Any]) -> vol.Schema:
     def setting(key: str) -> Any:
-        return data.get(key, SETTING_DEFAULTS[key])
+        if key in data:
+            return data[key]
+        # Schedule keys of an old entry: seeded from the legacy day period.
+        legacy = _LEGACY_SCHEDULE_KEYS.get(key)
+        if legacy is not None and legacy in data:
+            return data[legacy]
+        return SETTING_DEFAULTS[key]
 
     schema: dict[Any, Any] = {}
     for key in SETTING_NUMBERS:

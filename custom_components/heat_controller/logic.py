@@ -20,6 +20,9 @@ SOURCE_HEAT_PUMP = "heat_pump"
 SOURCE_BOILER = "boiler"
 SOURCE_OPTIONS = (SOURCE_AUTO, SOURCE_HEAT_PUMP, SOURCE_BOILER)
 
+# Weekday suffixes of the weekly schedule keys, Monday first (date.weekday()).
+WEEKDAYS = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
+
 
 def round_half_up(value: float) -> int:
     """Round to the nearest integer, 0.5 rounds up (like Jinja |round(0))."""
@@ -52,6 +55,42 @@ def time_of_day(since_midnight: timedelta) -> time:
     return (datetime.min + since_midnight).time()
 
 
+def day_period_bounds(settings: Settings, weekday: int) -> tuple[timedelta, timedelta]:
+    """(start, end) of the day period of the given weekday (0 = Monday)."""
+    day = WEEKDAYS[weekday]
+    return (
+        getattr(settings, f"day_start_{day}"),
+        getattr(settings, f"day_end_{day}"),
+    )
+
+
+def in_day_period(settings: Settings, now: datetime) -> bool:
+    """Whether `now` falls inside the day period of its weekday.
+
+    Slots never cross midnight: a start at or after the end means an empty
+    window, so the whole day is night.
+    """
+    start, end = day_period_bounds(settings, now.weekday())
+    if start >= end:
+        return False
+    since_midnight = now - at_time(now, timedelta(0))
+    return start <= since_midnight < end
+
+
+def next_day_start(settings: Settings, now: datetime) -> Optional[datetime]:
+    """The next instant at which a day period starts, None if none within a week."""
+    midnight = at_time(now, timedelta(0))
+    for offset in range(8):  # 8 days cover every weekday at least once
+        candidate_day = now + timedelta(days=offset)
+        start, end = day_period_bounds(settings, candidate_day.weekday())
+        if start >= end:
+            continue
+        candidate = midnight + timedelta(days=offset) + start
+        if candidate > now:
+            return candidate
+    return None
+
+
 @dataclass(frozen=True)
 class Settings:
     """Settings, already validated and converted."""
@@ -63,8 +102,21 @@ class Settings:
     frost_setpoint: float = 7.0
     hysteresis: float = 0.3
     production_threshold: float = 500.0
-    day_start: timedelta = timedelta(hours=7)
-    night_start: timedelta = timedelta(hours=22)
+    # Weekly schedule: one day period per weekday (slots never cross midnight).
+    day_start_mon: timedelta = timedelta(hours=7)
+    day_end_mon: timedelta = timedelta(hours=22)
+    day_start_tue: timedelta = timedelta(hours=7)
+    day_end_tue: timedelta = timedelta(hours=22)
+    day_start_wed: timedelta = timedelta(hours=7)
+    day_end_wed: timedelta = timedelta(hours=22)
+    day_start_thu: timedelta = timedelta(hours=7)
+    day_end_thu: timedelta = timedelta(hours=22)
+    day_start_fri: timedelta = timedelta(hours=7)
+    day_end_fri: timedelta = timedelta(hours=22)
+    day_start_sat: timedelta = timedelta(hours=7)
+    day_end_sat: timedelta = timedelta(hours=22)
+    day_start_sun: timedelta = timedelta(hours=7)
+    day_end_sun: timedelta = timedelta(hours=22)
     return_time: timedelta = timedelta(hours=18)
     # Hybrid (multi-room) regulation.
     split_offset: float = 2.0

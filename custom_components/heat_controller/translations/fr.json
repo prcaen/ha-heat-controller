@@ -29,8 +29,20 @@
           "hysteresis": "Hystérésis (°C)",
           "outdoor_threshold": "Seuil extérieur de bascule PAC/chaudière (°C)",
           "production_threshold": "Seuil de production solaire (W)",
-          "day_start": "Heure de début de la période jour",
-          "night_start": "Heure de début de la période nuit",
+          "day_start_mon": "Début de la période jour (lundi)",
+          "day_end_mon": "Fin de la période jour (lundi)",
+          "day_start_tue": "Début de la période jour (mardi)",
+          "day_end_tue": "Fin de la période jour (mardi)",
+          "day_start_wed": "Début de la période jour (mercredi)",
+          "day_end_wed": "Fin de la période jour (mercredi)",
+          "day_start_thu": "Début de la période jour (jeudi)",
+          "day_end_thu": "Fin de la période jour (jeudi)",
+          "day_start_fri": "Début de la période jour (vendredi)",
+          "day_end_fri": "Fin de la période jour (vendredi)",
+          "day_start_sat": "Début de la période jour (samedi)",
+          "day_end_sat": "Fin de la période jour (samedi)",
+          "day_start_sun": "Début de la période jour (dimanche)",
+          "day_end_sun": "Fin de la période jour (dimanche)",
           "return_time": "Heure de retour en mode absence",
           "split_offset": "Décalage de consigne des splits (°C)",
           "boiler_demand_setpoint": "Consigne de demande chaudière (°C)",
@@ -78,8 +90,20 @@
           "hysteresis": "Hystérésis (°C)",
           "outdoor_threshold": "Seuil extérieur de bascule PAC/chaudière (°C)",
           "production_threshold": "Seuil de production solaire (W)",
-          "day_start": "Heure de début de la période jour",
-          "night_start": "Heure de début de la période nuit",
+          "day_start_mon": "Début de la période jour (lundi)",
+          "day_end_mon": "Fin de la période jour (lundi)",
+          "day_start_tue": "Début de la période jour (mardi)",
+          "day_end_tue": "Fin de la période jour (mardi)",
+          "day_start_wed": "Début de la période jour (mercredi)",
+          "day_end_wed": "Fin de la période jour (mercredi)",
+          "day_start_thu": "Début de la période jour (jeudi)",
+          "day_end_thu": "Fin de la période jour (jeudi)",
+          "day_start_fri": "Début de la période jour (vendredi)",
+          "day_end_fri": "Fin de la période jour (vendredi)",
+          "day_start_sat": "Début de la période jour (samedi)",
+          "day_end_sat": "Fin de la période jour (samedi)",
+          "day_start_sun": "Début de la période jour (dimanche)",
+          "day_end_sun": "Fin de la période jour (dimanche)",
           "return_time": "Heure de retour en mode absence",
           "split_offset": "Décalage de consigne des splits (°C)",
           "boiler_demand_setpoint": "Consigne de demande chaudière (°C)",
@@ -264,11 +288,47 @@
       }
     },
     "time": {
-      "day_start": {
-        "name": "Début de la période jour"
+      "day_start_mon": {
+        "name": "Début de journée (lundi)"
       },
-      "night_start": {
-        "name": "Début de la période nuit"
+      "day_end_mon": {
+        "name": "Fin de journée (lundi)"
+      },
+      "day_start_tue": {
+        "name": "Début de journée (mardi)"
+      },
+      "day_end_tue": {
+        "name": "Fin de journée (mardi)"
+      },
+      "day_start_wed": {
+        "name": "Début de journée (mercredi)"
+      },
+      "day_end_wed": {
+        "name": "Fin de journée (mercredi)"
+      },
+      "day_start_thu": {
+        "name": "Début de journée (jeudi)"
+      },
+      "day_end_thu": {
+        "name": "Fin de journée (jeudi)"
+      },
+      "day_start_fri": {
+        "name": "Début de journée (vendredi)"
+      },
+      "day_end_fri": {
+        "name": "Fin de journée (vendredi)"
+      },
+      "day_start_sat": {
+        "name": "Début de journée (samedi)"
+      },
+      "day_end_sat": {
+        "name": "Fin de journée (samedi)"
+      },
+      "day_start_sun": {
+        "name": "Début de journée (dimanche)"
+      },
+      "day_end_sun": {
+        "name": "Fin de journée (dimanche)"
       },
       "return_time": {
         "name": "Heure de retour en absence"

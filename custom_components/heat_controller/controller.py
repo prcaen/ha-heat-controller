@@ -60,6 +60,9 @@ from .const import (
     CONF_NOTIFY_SERVICE,
     DOMAIN,
     SETTING_DEFAULTS,
+    WEEKDAYS,
+    day_end_key,
+    day_start_key,
     HVAC_MODE_DELAY_SECONDS,
     POLL_INTERVAL_SECONDS,
     SERVICE_TIMEOUT_SECONDS,
@@ -145,6 +148,19 @@ def settings_from_config(config: Mapping[str, Any]) -> Settings:
         parsed = parse_time(config.get(key, SETTING_DEFAULTS[key]))
         return parsed if parsed is not None else parse_time(SETTING_DEFAULTS[key])
 
+    def day_moment(key: str, legacy_key: str) -> timedelta:
+        # Weekly schedule key; entries configured before the schedule existed
+        # only carry the legacy single day_start/night_start pair.
+        if key in config:
+            parsed = parse_time(config[key])
+        elif legacy_key in config:
+            parsed = parse_time(config[legacy_key])
+        else:
+            parsed = None
+        if parsed is not None:
+            return parsed
+        return parse_time(SETTING_DEFAULTS[key])
+
     return Settings(
         outdoor_threshold=number(CONF_OUTDOOR_THRESHOLD),
         night_setpoint=number(CONF_NIGHT_SETPOINT),
@@ -153,8 +169,14 @@ def settings_from_config(config: Mapping[str, Any]) -> Settings:
         frost_setpoint=number(CONF_FROST_SETPOINT),
         hysteresis=number(CONF_HYSTERESIS),
         production_threshold=number(CONF_PRODUCTION_THRESHOLD),
-        day_start=moment(CONF_DAY_START),
-        night_start=moment(CONF_NIGHT_START),
+        **{
+            day_start_key(day): day_moment(day_start_key(day), CONF_DAY_START)
+            for day in WEEKDAYS
+        },
+        **{
+            day_end_key(day): day_moment(day_end_key(day), CONF_NIGHT_START)
+            for day in WEEKDAYS
+        },
         return_time=moment(CONF_RETURN_TIME),
         split_offset=number(CONF_SPLIT_OFFSET),
         boiler_demand_setpoint=number(CONF_BOILER_DEMAND_SETPOINT),

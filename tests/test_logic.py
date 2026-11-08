@@ -4,7 +4,7 @@ import importlib.util
 import os
 import sys
 import unittest
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 # logic.py does not depend on Home Assistant: direct loading by path
 # to avoid importing the package (which depends on homeassistant).
@@ -60,8 +60,83 @@ class TestSettingsDefaults(unittest.TestCase):
         self.assertEqual(s.min_cycle_minutes, 5.0)
         self.assertEqual(s.split_offset, 2.0)
         self.assertEqual(s.boiler_demand_setpoint, 21.0)
-        self.assertEqual(s.day_start, timedelta(hours=7))
-        self.assertEqual(s.night_start, timedelta(hours=22))
+        for day in logic.WEEKDAYS:
+            self.assertEqual(getattr(s, f"day_start_{day}"), timedelta(hours=7))
+            self.assertEqual(getattr(s, f"day_end_{day}"), timedelta(hours=22))
+
+
+class TestSchedule(unittest.TestCase):
+    """Weekly day period: in_day_period and next_day_start (2026-10-21 = Wednesday)."""
+
+    def test_in_day_period_default_window(self):
+        s = Settings()
+        self.assertTrue(logic.in_day_period(s, datetime(2026, 10, 21, 12, 0)))
+        self.assertTrue(logic.in_day_period(s, datetime(2026, 10, 21, 7, 0)))  # start inclusive
+        self.assertFalse(logic.in_day_period(s, datetime(2026, 10, 21, 22, 0)))  # end exclusive
+        self.assertFalse(logic.in_day_period(s, datetime(2026, 10, 21, 3, 0)))
+
+    def test_in_day_period_per_weekday(self):
+        s = Settings(day_start_sat=timedelta(hours=9), day_end_sat=timedelta(hours=23))
+        self.assertFalse(logic.in_day_period(s, datetime(2026, 10, 24, 8, 0)))  # Saturday
+        self.assertTrue(logic.in_day_period(s, datetime(2026, 10, 24, 9, 0)))
+        self.assertFalse(logic.in_day_period(s, datetime(2026, 10, 24, 23, 0)))
+        self.assertTrue(logic.in_day_period(s, datetime(2026, 10, 25, 10, 0)))  # Sunday: default
+        self.assertTrue(logic.in_day_period(s, datetime(2026, 10, 21, 8, 0)))  # Wednesday: default
+
+    def test_inverted_window_is_always_night(self):
+        s = Settings(day_start_wed=timedelta(hours=23), day_end_wed=timedelta(hours=22))
+        self.assertFalse(logic.in_day_period(s, datetime(2026, 10, 21, 12, 0)))
+        self.assertFalse(logic.in_day_period(s, datetime(2026, 10, 21, 23, 30)))
+
+    def test_next_day_start_same_day(self):
+        s = Settings()
+        self.assertEqual(
+            logic.next_day_start(s, datetime(2026, 10, 21, 5, 0)),
+            datetime(2026, 10, 21, 7, 0),
+        )
+
+    def test_next_day_start_rolls_to_the_next_day(self):
+        s = Settings()
+        self.assertEqual(
+            logic.next_day_start(s, datetime(2026, 10, 21, 23, 0)),
+            datetime(2026, 10, 22, 7, 0),
+        )
+
+    def test_next_day_start_uses_the_weekday_window(self):
+        s = Settings(day_start_sat=timedelta(hours=9), day_end_sat=timedelta(hours=23))
+        # Thursday 23:30 -> the next window is Saturday 09:00 (Friday 07:00 first).
+        self.assertEqual(
+            logic.next_day_start(s, datetime(2026, 10, 22, 23, 30)),
+            datetime(2026, 10, 23, 7, 0),
+        )
+        self.assertEqual(
+            logic.next_day_start(s, datetime(2026, 10, 23, 23, 30)),
+            datetime(2026, 10, 24, 9, 0),
+        )
+
+    def test_next_day_start_skips_inverted_days(self):
+        s = Settings(day_start_thu=timedelta(hours=23), day_end_thu=timedelta(hours=22))
+        # Wednesday night -> Thursday is inverted, Friday 07:00 is next.
+        self.assertEqual(
+            logic.next_day_start(s, datetime(2026, 10, 21, 23, 0)),
+            datetime(2026, 10, 23, 7, 0),
+        )
+
+    def test_next_day_start_wraps_the_week(self):
+        s = Settings(day_start_sun=timedelta(hours=10), day_end_sun=timedelta(hours=20))
+        # Sunday 21:00 -> the next window is Monday 07:00.
+        self.assertEqual(
+            logic.next_day_start(s, datetime(2026, 10, 25, 21, 0)),
+            datetime(2026, 10, 26, 7, 0),
+        )
+
+    def test_next_day_start_none_without_any_valid_window(self):
+        kwargs = {}
+        for day in logic.WEEKDAYS:
+            kwargs[f"day_start_{day}"] = timedelta(hours=23)
+            kwargs[f"day_end_{day}"] = timedelta(hours=22)
+        s = Settings(**kwargs)
+        self.assertIsNone(logic.next_day_start(s, datetime(2026, 10, 21, 12, 0)))
 
 
 class TestTargetTemperature(unittest.TestCase):

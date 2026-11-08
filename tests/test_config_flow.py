@@ -87,6 +87,27 @@ class TestSchemas(unittest.TestCase):
             self.assertEqual(as_number(result[key]), as_number(value), key)
         self.assertEqual(as_number(result[CONF_IDLE_SETPOINT]), 12.0)
 
+    def test_schedule_seeded_from_the_legacy_day_times(self):
+        # An old entry only has day_start/night_start: the weekly schedule
+        # fields of the form are seeded with them (migration).
+        data = {
+            key: value
+            for key, value in SETTING_DEFAULTS.items()
+            if not key.startswith("day_")
+        }
+        data["day_start"] = "06:30:00"
+        data["night_start"] = "21:00:00"
+        result = config_flow._settings_schema(data)({})
+        self.assertEqual(result["day_start_mon"], "06:30:00")
+        self.assertEqual(result["day_start_sun"], "06:30:00")
+        self.assertEqual(result["day_end_mon"], "21:00:00")
+        self.assertEqual(result["day_end_sun"], "21:00:00")
+        # A schedule key set explicitly wins over the legacy value.
+        data["day_start_sun"] = "09:00:00"
+        result = config_flow._settings_schema(data)({})
+        self.assertEqual(result["day_start_sun"], "09:00:00")
+        self.assertEqual(result["day_start_mon"], "06:30:00")
+
     def test_outdoor_threshold_bounds(self):
         entity_keys = set(config_flow.SETTING_ENTITIES)
         factory = config_flow._settings_schema(dict(SETTING_DEFAULTS))

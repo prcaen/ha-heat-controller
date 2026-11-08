@@ -18,6 +18,7 @@ except ImportError:  # pragma: no cover
 from homeassistant.util import dt as dt_util
 
 from custom_components.heat_controller import controller as controller_module
+from custom_components.heat_controller.const import WEEKDAYS
 from custom_components.heat_controller.controller import (
     HeatController,
     settings_from_config,
@@ -109,7 +110,8 @@ BASE_DATA = {
     "consumption_sensor": "sensor.conso",
     "boiler_climate": "climate.boiler",
     "accessory_fans": ["fan.acc"],
-    # windows covering the whole day: time-independent tests
+    # legacy single day period covering the whole day, migrated to the
+    # whole week: time-independent tests
     "day_start": "00:00:00",
     "night_start": "23:59:00",
 }
@@ -178,7 +180,9 @@ class TestSettingsFromConfig(unittest.TestCase):
         self.assertEqual(settings.outdoor_threshold, 3.0)
         self.assertEqual(settings.idle_setpoint, 12.0)
         self.assertEqual(settings.night_setpoint, 16.0)
-        self.assertEqual(settings.day_start.total_seconds(), 7 * 3600)
+        for day in WEEKDAYS:
+            self.assertEqual(getattr(settings, f"day_start_{day}").total_seconds(), 7 * 3600)
+            self.assertEqual(getattr(settings, f"day_end_{day}").total_seconds(), 22 * 3600)
 
     def test_overrides_and_fallbacks(self):
         settings = settings_from_config(
@@ -193,8 +197,40 @@ class TestSettingsFromConfig(unittest.TestCase):
         settings = settings_from_config(
             {"day_start": "00:00:00", "night_start": "x"}
         )
-        self.assertEqual(settings.day_start.total_seconds(), 0)
-        self.assertEqual(settings.night_start.total_seconds(), 22 * 3600)
+        self.assertEqual(settings.day_start_mon.total_seconds(), 0)
+        self.assertEqual(settings.day_end_mon.total_seconds(), 22 * 3600)
+
+    def test_legacy_day_times_migrate_to_the_whole_week(self):
+        settings = settings_from_config(
+            {"day_start": "06:30:00", "night_start": "21:00:00"}
+        )
+        for day in WEEKDAYS:
+            self.assertEqual(
+                getattr(settings, f"day_start_{day}"), timedelta(hours=6, minutes=30)
+            )
+            self.assertEqual(
+                getattr(settings, f"day_end_{day}"), timedelta(hours=21)
+            )
+
+    def test_schedule_keys_override_the_legacy_times(self):
+        settings = settings_from_config(
+            {
+                "day_start": "06:00:00",
+                "night_start": "21:00:00",
+                "day_start_sun": "09:00:00",
+                "day_end_sun": "20:00:00",
+            }
+        )
+        self.assertEqual(settings.day_start_mon, timedelta(hours=6))
+        self.assertEqual(settings.day_end_mon, timedelta(hours=21))
+        self.assertEqual(settings.day_start_sun, timedelta(hours=9))
+        self.assertEqual(settings.day_end_sun, timedelta(hours=20))
+
+    def test_schedule_key_without_legacy_falls_back_to_the_default(self):
+        settings = settings_from_config({"day_start_sun": "09:00:00"})
+        self.assertEqual(settings.day_start_sun, timedelta(hours=9))
+        self.assertEqual(settings.day_start_mon, timedelta(hours=7))
+        self.assertEqual(settings.day_end_mon, timedelta(hours=22))
 
 
 class TestHybridRooms(unittest.IsolatedAsyncioTestCase):
@@ -369,7 +405,7 @@ class TestHybridRooms(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(controller._trigger_demand)
 
     async def test_night_forces_the_splits_off(self):
-        # day_start after night_start: the day period is always over.
+        # day period start after its end (migrated to every day): always night.
         controller, shared, services, states = build(
             {"day_start": "23:00:00", "night_start": "22:00:00"},
             subentries=self.rooms_subentries(),
