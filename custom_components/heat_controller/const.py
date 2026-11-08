@@ -46,9 +46,21 @@ CONF_IDLE_SETPOINT = "idle_setpoint"
 CONF_FROST_SETPOINT = "frost_setpoint"
 CONF_HYSTERESIS = "hysteresis"
 CONF_PRODUCTION_THRESHOLD = "production_threshold"
+# Legacy single day period, migrated to the weekly schedule (day_start_<day>).
 CONF_DAY_START = "day_start"
 CONF_NIGHT_START = "night_start"
 CONF_RETURN_TIME = "return_time"
+
+# Weekly schedule: one day period per weekday, Monday first (date.weekday()).
+WEEKDAYS = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
+
+
+def day_start_key(day: str) -> str:
+    return f"day_start_{day}"
+
+
+def day_end_key(day: str) -> str:
+    return f"day_end_{day}"
 
 # Hybrid (multi-room) settings.
 CONF_SPLIT_OFFSET = "split_offset"
@@ -72,7 +84,7 @@ DEFAULT_FROST_SETPOINT = 7.0
 DEFAULT_HYSTERESIS = 0.3
 DEFAULT_PRODUCTION_THRESHOLD = 500.0
 DEFAULT_DAY_START = "07:00:00"
-DEFAULT_NIGHT_START = "22:00:00"
+DEFAULT_DAY_END = "22:00:00"
 DEFAULT_RETURN_TIME = "18:00:00"
 
 DEFAULT_SPLIT_OFFSET = 2.0
@@ -114,8 +126,8 @@ SETTING_DEFAULTS = {
     CONF_OUTDOOR_THRESHOLD: DEFAULT_OUTDOOR_THRESHOLD,
     CONF_HYSTERESIS: DEFAULT_HYSTERESIS,
     CONF_PRODUCTION_THRESHOLD: DEFAULT_PRODUCTION_THRESHOLD,
-    CONF_DAY_START: DEFAULT_DAY_START,
-    CONF_NIGHT_START: DEFAULT_NIGHT_START,
+    **{day_start_key(day): DEFAULT_DAY_START for day in WEEKDAYS},
+    **{day_end_key(day): DEFAULT_DAY_END for day in WEEKDAYS},
     CONF_RETURN_TIME: DEFAULT_RETURN_TIME,
     CONF_SPLIT_OFFSET: DEFAULT_SPLIT_OFFSET,
     CONF_BOILER_DEMAND_SETPOINT: DEFAULT_BOILER_DEMAND_SETPOINT,
@@ -216,11 +228,15 @@ SETTING_BOOLEANS: dict[str, dict[str, Any]] = {
     CONF_SPLIT_FAN_OSCILLATING: {},
 }
 
-# Time settings exposed as `time` entities.
+# Time settings exposed as `time` entities: the weekly schedule (one day
+# period per weekday) plus the away return time.
 SETTING_TIMES = (
-    CONF_DAY_START,
-    CONF_NIGHT_START,
-    CONF_RETURN_TIME,
+    tuple(
+        key
+        for day in WEEKDAYS
+        for key in (day_start_key(day), day_end_key(day))
+    )
+    + (CONF_RETURN_TIME,)
 )
 
 # --- Behavior -----------------------------------------------------------------

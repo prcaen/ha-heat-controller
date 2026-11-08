@@ -67,7 +67,7 @@ drives a soft overheating of the split rooms.
 | `datetime.heating_away_until` | datetime | absence end (date + time) |
 | `climate.heating_thermostat` | climate | thermostat card (room temp + setpoint) |
 | `number.heating_*` (15 entities) | number | the numeric settings |
-| `time.heating_*` (3 entities) | time | day/night start, away return time |
+| `time.heating_*` (15 entities) | time | weekly day period start/end (one per weekday), away return time |
 | `select.heating_split_fan_preset` | select | split fan preset (global) |
 | `switch.heating_split_fan_oscillating` | switch | split fan oscillation |
 | `sensor.heating_mode` | sensor | `day` / `night` / `away`, with the solar surplus, the boiler setpoint and the splits state as attributes |
@@ -111,8 +111,9 @@ Settings → Devices and services → **Add integration** →
    the accessory fans (on with the splits, off with the boiler mode).
    The splits themselves are configured per room (« Add room »).
 3. **Settings** : night/away/**idle**/**frost protection** setpoints,
-   hysteresis, outdoor threshold, production threshold, day/night/return
-   hours, and the hybrid settings (split offset, boiler demand setpoint,
+   hysteresis, outdoor threshold, production threshold, the weekly
+   schedule (day period start/end per weekday) and the away return time,
+   and the hybrid settings (split offset, boiler demand setpoint,
    surplus threshold and bonus, fallback delay, minimum run/stop time,
    pre-heating durations, fan preset and oscillation, optional weather
    entity and notification service).

@@ -118,7 +118,7 @@ DATA = {
     "consumption_sensor": "sensor.conso",
     "boiler_climate": "climate.netatmo",
     "accessory_fans": ["fan.acc1"],
-    # windows covering the whole day: time-independent test
+    # legacy single day period covering the whole day, migrated to the week
     "day_start": "00:00:00",
     "night_start": "23:59:00",
 }
@@ -201,7 +201,7 @@ async def run_pass():
     mock_ctl.config = dict(DATA)
     num = number.HeatSettingNumber(entry, shared, mock_ctl, "night_setpoint")
     assert num.native_value == 16.0
-    tim = time_platform.HeatSettingTime(entry, shared, mock_ctl, "day_start")
+    tim = time_platform.HeatSettingTime(entry, shared, mock_ctl, "day_start_mon")
     assert tim.native_value.hour == 0
     sel = select.HeatSourceOverrideSelect(entry, shared, mock_ctl)
     assert sel.current_option == "auto"

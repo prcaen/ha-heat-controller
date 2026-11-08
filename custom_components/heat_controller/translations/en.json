@@ -29,8 +29,20 @@
           "hysteresis": "Hysteresis (°C)",
           "outdoor_threshold": "Outdoor threshold for heat pump/boiler switch (°C)",
           "production_threshold": "Solar production threshold (W)",
-          "day_start": "Day period start time",
-          "night_start": "Night period start time",
+          "day_start_mon": "Day period start (Monday)",
+          "day_end_mon": "Day period end (Monday)",
+          "day_start_tue": "Day period start (Tuesday)",
+          "day_end_tue": "Day period end (Tuesday)",
+          "day_start_wed": "Day period start (Wednesday)",
+          "day_end_wed": "Day period end (Wednesday)",
+          "day_start_thu": "Day period start (Thursday)",
+          "day_end_thu": "Day period end (Thursday)",
+          "day_start_fri": "Day period start (Friday)",
+          "day_end_fri": "Day period end (Friday)",
+          "day_start_sat": "Day period start (Saturday)",
+          "day_end_sat": "Day period end (Saturday)",
+          "day_start_sun": "Day period start (Sunday)",
+          "day_end_sun": "Day period end (Sunday)",
           "return_time": "Return time in away mode",
           "split_offset": "Split setpoint offset (°C)",
           "boiler_demand_setpoint": "Boiler demand setpoint (°C)",
@@ -78,8 +90,20 @@
           "hysteresis": "Hysteresis (°C)",
           "outdoor_threshold": "Outdoor threshold for heat pump/boiler switch (°C)",
           "production_threshold": "Solar production threshold (W)",
-          "day_start": "Day period start time",
-          "night_start": "Night period start time",
+          "day_start_mon": "Day period start (Monday)",
+          "day_end_mon": "Day period end (Monday)",
+          "day_start_tue": "Day period start (Tuesday)",
+          "day_end_tue": "Day period end (Tuesday)",
+          "day_start_wed": "Day period start (Wednesday)",
+          "day_end_wed": "Day period end (Wednesday)",
+          "day_start_thu": "Day period start (Thursday)",
+          "day_end_thu": "Day period end (Thursday)",
+          "day_start_fri": "Day period start (Friday)",
+          "day_end_fri": "Day period end (Friday)",
+          "day_start_sat": "Day period start (Saturday)",
+          "day_end_sat": "Day period end (Saturday)",
+          "day_start_sun": "Day period start (Sunday)",
+          "day_end_sun": "Day period end (Sunday)",
           "return_time": "Return time in away mode",
           "split_offset": "Split setpoint offset (°C)",
           "boiler_demand_setpoint": "Boiler demand setpoint (°C)",
@@ -264,11 +288,47 @@
       }
     },
     "time": {
-      "day_start": {
-        "name": "Day period start"
+      "day_start_mon": {
+        "name": "Day start (Monday)"
       },
-      "night_start": {
-        "name": "Night period start"
+      "day_end_mon": {
+        "name": "Day end (Monday)"
+      },
+      "day_start_tue": {
+        "name": "Day start (Tuesday)"
+      },
+      "day_end_tue": {
+        "name": "Day end (Tuesday)"
+      },
+      "day_start_wed": {
+        "name": "Day start (Wednesday)"
+      },
+      "day_end_wed": {
+        "name": "Day end (Wednesday)"
+      },
+      "day_start_thu": {
+        "name": "Day start (Thursday)"
+      },
+      "day_end_thu": {
+        "name": "Day end (Thursday)"
+      },
+      "day_start_fri": {
+        "name": "Day start (Friday)"
+      },
+      "day_end_fri": {
+        "name": "Day end (Friday)"
+      },
+      "day_start_sat": {
+        "name": "Day start (Saturday)"
+      },
+      "day_end_sat": {
+        "name": "Day end (Saturday)"
+      },
+      "day_start_sun": {
+        "name": "Day start (Sunday)"
+      },
+      "day_end_sun": {
+        "name": "Day end (Sunday)"
       },
       "return_time": {
         "name": "Away return time"
