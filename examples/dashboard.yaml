@@ -58,18 +58,8 @@ cards:
       - entity: number.heating_frost_setpoint
       - entity: number.heating_outdoor_threshold
       - entity: number.heating_hysteresis
-      - entity: time.heating_day_start_mon
-      - entity: time.heating_day_end_mon
-      - entity: time.heating_day_start_tue
-      - entity: time.heating_day_end_tue
-      - entity: time.heating_day_start_wed
-      - entity: time.heating_day_end_wed
-      - entity: time.heating_day_start_thu
-      - entity: time.heating_day_end_thu
-      - entity: time.heating_day_start_fri
-      - entity: time.heating_day_end_fri
-      - entity: time.heating_day_start_sat
-      - entity: time.heating_day_end_sat
-      - entity: time.heating_day_start_sun
-      - entity: time.heating_day_end_sun
+      - entity: time.heating_day_start_week
+      - entity: time.heating_day_end_week
+      - entity: time.heating_day_start_weekend
+      - entity: time.heating_day_end_weekend
       - entity: time.heating_return_time

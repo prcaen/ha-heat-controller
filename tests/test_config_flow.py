@@ -98,15 +98,15 @@ class TestSchemas(unittest.TestCase):
         data["day_start"] = "06:30:00"
         data["night_start"] = "21:00:00"
         result = config_flow._settings_schema(data)({})
-        self.assertEqual(result["day_start_mon"], "06:30:00")
-        self.assertEqual(result["day_start_sun"], "06:30:00")
-        self.assertEqual(result["day_end_mon"], "21:00:00")
-        self.assertEqual(result["day_end_sun"], "21:00:00")
+        self.assertEqual(result["day_start_week"], "06:30:00")
+        self.assertEqual(result["day_start_weekend"], "06:30:00")
+        self.assertEqual(result["day_end_week"], "21:00:00")
+        self.assertEqual(result["day_end_weekend"], "21:00:00")
         # A schedule key set explicitly wins over the legacy value.
-        data["day_start_sun"] = "09:00:00"
+        data["day_start_weekend"] = "09:00:00"
         result = config_flow._settings_schema(data)({})
-        self.assertEqual(result["day_start_sun"], "09:00:00")
-        self.assertEqual(result["day_start_mon"], "06:30:00")
+        self.assertEqual(result["day_start_weekend"], "09:00:00")
+        self.assertEqual(result["day_start_week"], "06:30:00")
 
     def test_outdoor_threshold_bounds(self):
         entity_keys = set(config_flow.SETTING_ENTITIES)

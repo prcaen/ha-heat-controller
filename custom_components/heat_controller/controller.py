@@ -35,7 +35,11 @@ from .const import (
     CONF_BOILER_CLIMATE,
     CONF_BOILER_DEMAND_SETPOINT,
     CONF_CONSUMPTION_SENSOR,
+    CONF_DAY_END_WEEK,
+    CONF_DAY_END_WEEKEND,
     CONF_DAY_START,
+    CONF_DAY_START_WEEK,
+    CONF_DAY_START_WEEKEND,
     CONF_FALLBACK_MINUTES,
     CONF_FROST_SETPOINT,
     CONF_HYSTERESIS,
@@ -60,9 +64,6 @@ from .const import (
     CONF_NOTIFY_SERVICE,
     DOMAIN,
     SETTING_DEFAULTS,
-    WEEKDAYS,
-    day_end_key,
-    day_start_key,
     HVAC_MODE_DELAY_SECONDS,
     POLL_INTERVAL_SECONDS,
     SERVICE_TIMEOUT_SECONDS,
@@ -149,8 +150,8 @@ def settings_from_config(config: Mapping[str, Any]) -> Settings:
         return parsed if parsed is not None else parse_time(SETTING_DEFAULTS[key])
 
     def day_moment(key: str, legacy_key: str) -> timedelta:
-        # Weekly schedule key; entries configured before the schedule existed
-        # only carry the legacy single day_start/night_start pair.
+        # Week/weekend schedule key; entries configured before the schedule
+        # existed only carry the legacy single day_start/night_start pair.
         if key in config:
             parsed = parse_time(config[key])
         elif legacy_key in config:
@@ -169,14 +170,10 @@ def settings_from_config(config: Mapping[str, Any]) -> Settings:
         frost_setpoint=number(CONF_FROST_SETPOINT),
         hysteresis=number(CONF_HYSTERESIS),
         production_threshold=number(CONF_PRODUCTION_THRESHOLD),
-        **{
-            day_start_key(day): day_moment(day_start_key(day), CONF_DAY_START)
-            for day in WEEKDAYS
-        },
-        **{
-            day_end_key(day): day_moment(day_end_key(day), CONF_NIGHT_START)
-            for day in WEEKDAYS
-        },
+        day_start_week=day_moment(CONF_DAY_START_WEEK, CONF_DAY_START),
+        day_end_week=day_moment(CONF_DAY_END_WEEK, CONF_NIGHT_START),
+        day_start_weekend=day_moment(CONF_DAY_START_WEEKEND, CONF_DAY_START),
+        day_end_weekend=day_moment(CONF_DAY_END_WEEKEND, CONF_NIGHT_START),
         return_time=moment(CONF_RETURN_TIME),
         split_offset=number(CONF_SPLIT_OFFSET),
         boiler_demand_setpoint=number(CONF_BOILER_DEMAND_SETPOINT),

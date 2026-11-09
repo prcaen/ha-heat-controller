@@ -34,7 +34,11 @@ from .const import (
     CONF_ACCESSORY_FANS,
     CONF_BOILER_CLIMATE,
     CONF_CONSUMPTION_SENSOR,
+    CONF_DAY_END_WEEK,
+    CONF_DAY_END_WEEKEND,
     CONF_DAY_START,
+    CONF_DAY_START_WEEK,
+    CONF_DAY_START_WEEKEND,
     CONF_NIGHT_START,
     CONF_OUTDOOR_TEMP_SENSOR,
     CONF_PRODUCTION_SENSOR,
@@ -60,15 +64,15 @@ from .const import (
     SETTING_TEXTS,
     SETTING_TIMES,
     SUBENTRY_ROOM,
-    WEEKDAYS,
-    day_end_key,
-    day_start_key,
 )
 
-# Legacy single day period -> weekly schedule keys (migration of old entries).
+# Legacy single day period -> week/weekend schedule keys (migration of old
+# entries: the old start/end apply to both the week and the weekend).
 _LEGACY_SCHEDULE_KEYS = {
-    **{day_start_key(day): CONF_DAY_START for day in WEEKDAYS},
-    **{day_end_key(day): CONF_NIGHT_START for day in WEEKDAYS},
+    CONF_DAY_START_WEEK: CONF_DAY_START,
+    CONF_DAY_END_WEEK: CONF_NIGHT_START,
+    CONF_DAY_START_WEEKEND: CONF_DAY_START,
+    CONF_DAY_END_WEEKEND: CONF_NIGHT_START,
 }
 
 
