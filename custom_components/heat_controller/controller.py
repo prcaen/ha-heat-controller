@@ -35,7 +35,11 @@ from .const import (
     CONF_BOILER_CLIMATE,
     CONF_BOILER_DEMAND_SETPOINT,
     CONF_CONSUMPTION_SENSOR,
+    CONF_DAY_END_WEEK,
+    CONF_DAY_END_WEEKEND,
     CONF_DAY_START,
+    CONF_DAY_START_WEEK,
+    CONF_DAY_START_WEEKEND,
     CONF_FALLBACK_MINUTES,
     CONF_FROST_SETPOINT,
     CONF_HYSTERESIS,
@@ -58,11 +62,12 @@ from .const import (
     CONF_MAX_PREHEAT_MINUTES,
     CONF_WEATHER_ENTITY,
     CONF_NOTIFY_SERVICE,
+    DAY_END_WEEKEND_FALLBACK,
+    DAY_END_WEEK_FALLBACK,
+    DAY_START_WEEKEND_FALLBACK,
+    DAY_START_WEEK_FALLBACK,
     DOMAIN,
     SETTING_DEFAULTS,
-    WEEKDAYS,
-    day_end_key,
-    day_start_key,
     HVAC_MODE_DELAY_SECONDS,
     POLL_INTERVAL_SECONDS,
     SERVICE_TIMEOUT_SECONDS,
@@ -153,15 +158,20 @@ def settings_from_config(config: Mapping[str, Any]) -> Settings:
         parsed = parse_time(config.get(key, SETTING_DEFAULTS[key]))
         return parsed if parsed is not None else parse_time(SETTING_DEFAULTS[key])
 
-    def day_moment(key: str, legacy_key: str) -> timedelta:
-        # Weekly schedule key; entries configured before the schedule existed
-        # only carry the legacy single day_start/night_start pair.
+    def day_moment(key: str, fallbacks: tuple[str, ...]) -> timedelta:
+        # Week/weekend schedule key. Older entries carry the per-weekday
+        # keys of the intermediate schedule (most recent, tried first) or
+        # the legacy single day_start/night_start pair; an explicit but
+        # invalid value falls back to the default, like `moment`.
         if key in config:
             parsed = parse_time(config[key])
-        elif legacy_key in config:
-            parsed = parse_time(config[legacy_key])
         else:
             parsed = None
+            for fallback in fallbacks:
+                if fallback in config:
+                    parsed = parse_time(config[fallback])
+                    if parsed is not None:
+                        break
         if parsed is not None:
             return parsed
         return parse_time(SETTING_DEFAULTS[key])
@@ -174,14 +184,18 @@ def settings_from_config(config: Mapping[str, Any]) -> Settings:
         frost_setpoint=number(CONF_FROST_SETPOINT),
         hysteresis=number(CONF_HYSTERESIS),
         production_threshold=number(CONF_PRODUCTION_THRESHOLD),
-        **{
-            day_start_key(day): day_moment(day_start_key(day), CONF_DAY_START)
-            for day in WEEKDAYS
-        },
-        **{
-            day_end_key(day): day_moment(day_end_key(day), CONF_NIGHT_START)
-            for day in WEEKDAYS
-        },
+        day_start_week=day_moment(
+            CONF_DAY_START_WEEK, (DAY_START_WEEK_FALLBACK, CONF_DAY_START)
+        ),
+        day_end_week=day_moment(
+            CONF_DAY_END_WEEK, (DAY_END_WEEK_FALLBACK, CONF_NIGHT_START)
+        ),
+        day_start_weekend=day_moment(
+            CONF_DAY_START_WEEKEND, (DAY_START_WEEKEND_FALLBACK, CONF_DAY_START)
+        ),
+        day_end_weekend=day_moment(
+            CONF_DAY_END_WEEKEND, (DAY_END_WEEKEND_FALLBACK, CONF_NIGHT_START)
+        ),
         return_time=moment(CONF_RETURN_TIME),
         split_offset=number(CONF_SPLIT_OFFSET),
         boiler_demand_setpoint=number(CONF_BOILER_DEMAND_SETPOINT),

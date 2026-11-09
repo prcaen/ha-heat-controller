@@ -47,21 +47,22 @@ CONF_IDLE_SETPOINT = "idle_setpoint"
 CONF_FROST_SETPOINT = "frost_setpoint"
 CONF_HYSTERESIS = "hysteresis"
 CONF_PRODUCTION_THRESHOLD = "production_threshold"
-# Legacy single day period, migrated to the weekly schedule (day_start_<day>).
+# Legacy single day period, migrated to the week/weekend schedule.
 CONF_DAY_START = "day_start"
 CONF_NIGHT_START = "night_start"
+# Per-weekday keys of the intermediate schedule (one day period per weekday,
+# since replaced by the week/weekend one): migration fallback, a weekday
+# stands for the week, a Saturday for the weekend.
+DAY_START_WEEK_FALLBACK = "day_start_mon"
+DAY_END_WEEK_FALLBACK = "day_end_mon"
+DAY_START_WEEKEND_FALLBACK = "day_start_sat"
+DAY_END_WEEKEND_FALLBACK = "day_end_sat"
+# Schedule: one day period for the week (Mon-Fri), one for the weekend.
+CONF_DAY_START_WEEK = "day_start_week"
+CONF_DAY_END_WEEK = "day_end_week"
+CONF_DAY_START_WEEKEND = "day_start_weekend"
+CONF_DAY_END_WEEKEND = "day_end_weekend"
 CONF_RETURN_TIME = "return_time"
-
-# Weekly schedule: one day period per weekday, Monday first (date.weekday()).
-WEEKDAYS = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
-
-
-def day_start_key(day: str) -> str:
-    return f"day_start_{day}"
-
-
-def day_end_key(day: str) -> str:
-    return f"day_end_{day}"
 
 # Hybrid (multi-room) settings.
 CONF_SPLIT_OFFSET = "split_offset"
@@ -127,8 +128,10 @@ SETTING_DEFAULTS = {
     CONF_OUTDOOR_THRESHOLD: DEFAULT_OUTDOOR_THRESHOLD,
     CONF_HYSTERESIS: DEFAULT_HYSTERESIS,
     CONF_PRODUCTION_THRESHOLD: DEFAULT_PRODUCTION_THRESHOLD,
-    **{day_start_key(day): DEFAULT_DAY_START for day in WEEKDAYS},
-    **{day_end_key(day): DEFAULT_DAY_END for day in WEEKDAYS},
+    CONF_DAY_START_WEEK: DEFAULT_DAY_START,
+    CONF_DAY_END_WEEK: DEFAULT_DAY_END,
+    CONF_DAY_START_WEEKEND: DEFAULT_DAY_START,
+    CONF_DAY_END_WEEKEND: DEFAULT_DAY_END,
     CONF_RETURN_TIME: DEFAULT_RETURN_TIME,
     CONF_SPLIT_OFFSET: DEFAULT_SPLIT_OFFSET,
     CONF_BOILER_DEMAND_SETPOINT: DEFAULT_BOILER_DEMAND_SETPOINT,
@@ -229,15 +232,14 @@ SETTING_BOOLEANS: dict[str, dict[str, Any]] = {
     CONF_SPLIT_FAN_OSCILLATING: {},
 }
 
-# Time settings exposed as `time` entities: the weekly schedule (one day
-# period per weekday) plus the away return time.
+# Time settings exposed as `time` entities: the week/weekend day periods
+# plus the away return time.
 SETTING_TIMES = (
-    tuple(
-        key
-        for day in WEEKDAYS
-        for key in (day_start_key(day), day_end_key(day))
-    )
-    + (CONF_RETURN_TIME,)
+    CONF_DAY_START_WEEK,
+    CONF_DAY_END_WEEK,
+    CONF_DAY_START_WEEKEND,
+    CONF_DAY_END_WEEKEND,
+    CONF_RETURN_TIME,
 )
 
 # --- Behavior -----------------------------------------------------------------

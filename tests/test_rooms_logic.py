@@ -34,9 +34,12 @@ def settings(**kwargs) -> Settings:
         split_offset=2.0,
         boiler_demand_setpoint=21.0,
     )
-    for day in logic.WEEKDAYS:
-        base[f"day_start_{day}"] = timedelta(hours=7)
-        base[f"day_end_{day}"] = timedelta(hours=22)
+    base.update(
+        day_start_week=timedelta(hours=7),
+        day_end_week=timedelta(hours=22),
+        day_start_weekend=timedelta(hours=7),
+        day_end_weekend=timedelta(hours=22),
+    )
     base.update(kwargs)
     return Settings(**base)
 
@@ -60,13 +63,18 @@ def states_of(rooms, temps):
 
 
 class TestScheduleKeys(unittest.TestCase):
-    def test_const_and_logic_weekdays_match(self):
+    def test_week_weekend_keys_are_settings_and_time_entities(self):
         const = load_pure("const")
-        self.assertEqual(const.WEEKDAYS, logic.WEEKDAYS)
         s = Settings()
-        for day in const.WEEKDAYS:
-            self.assertTrue(hasattr(s, f"day_start_{day}"))
-            self.assertTrue(hasattr(s, f"day_end_{day}"))
+        for key in (
+            "day_start_week",
+            "day_end_week",
+            "day_start_weekend",
+            "day_end_weekend",
+        ):
+            self.assertTrue(hasattr(s, key), key)
+            self.assertIn(key, const.SETTING_TIMES)
+        self.assertIn("return_time", const.SETTING_TIMES)
 
 
 class TestHouseMode(unittest.TestCase):
@@ -78,18 +86,20 @@ class TestHouseMode(unittest.TestCase):
         away = house_inputs(away_mode=True)
         self.assertEqual(rooms_logic.house_mode(s, away), "away")
 
-    def test_weekday_specific_window(self):
-        s = settings(day_start_sat=timedelta(hours=9), day_end_sat=timedelta(hours=23))
+    def test_weekend_window(self):
+        s = settings(day_start_weekend=timedelta(hours=9), day_end_weekend=timedelta(hours=23))
         sat_early = house_inputs(now=datetime(2026, 10, 24, 8, 0))  # Saturday 08:00
         self.assertEqual(rooms_logic.house_mode(s, sat_early), "night")
         sat = house_inputs(now=datetime(2026, 10, 24, 10, 0))
         self.assertEqual(rooms_logic.house_mode(s, sat), "day")
-        sun = house_inputs(now=datetime(2026, 10, 25, 10, 0))  # Sunday: default 7-22
-        self.assertEqual(rooms_logic.house_mode(s, sun), "day")
+        wed = house_inputs(now=datetime(2026, 10, 21, 10, 0))  # Wednesday: week window
+        self.assertEqual(rooms_logic.house_mode(s, wed), "day")
 
     def test_inverted_window_is_always_night(self):
-        s = settings(day_start_wed=timedelta(hours=23), day_end_wed=timedelta(hours=22))
-        self.assertEqual(rooms_logic.house_mode(s, house_inputs()), "night")
+        s = settings(day_start_week=timedelta(hours=23), day_end_week=timedelta(hours=22))
+        self.assertEqual(rooms_logic.house_mode(s, house_inputs()), "night")  # Wednesday
+        sat = house_inputs(now=datetime(2026, 10, 24, 12, 0))  # weekend window untouched
+        self.assertEqual(rooms_logic.house_mode(s, sat), "day")
 
 
 class TestSplitsAllowed(unittest.TestCase):
@@ -743,26 +753,29 @@ class TestPreheat(unittest.TestCase):
         self.assertTrue(active)
         self.assertEqual(start, datetime(2026, 10, 21, 6, 0))
 
-    def test_preheat_targets_the_next_weekday_window(self):
+    def test_preheat_targets_the_next_weekend_window(self):
         s = settings(
             initial_preheat_minutes=60,
-            day_start_thu=timedelta(hours=9),
-            day_end_thu=timedelta(hours=23),
+            day_start_weekend=timedelta(hours=9),
+            day_end_weekend=timedelta(hours=23),
         )
-        # Wednesday 23:30: the next day period starts Thursday 09:00.
-        inputs = house_inputs(now=datetime(2026, 10, 21, 23, 30))
+        # Friday 23:30: the next day period starts Saturday 09:00.
+        inputs = house_inputs(now=datetime(2026, 10, 23, 23, 30))
         active, start = rooms_logic.preheat_window(s, inputs, 60, "night")
         self.assertFalse(active)
-        # Thursday 08:15: pre-heating towards 09:00.
-        inputs = house_inputs(now=datetime(2026, 10, 22, 8, 15))
+        # Saturday 08:15: pre-heating towards 09:00.
+        inputs = house_inputs(now=datetime(2026, 10, 24, 8, 15))
         active, start = rooms_logic.preheat_window(s, inputs, 60, "night")
         self.assertTrue(active)
-        self.assertEqual(start, datetime(2026, 10, 22, 8, 0))
+        self.assertEqual(start, datetime(2026, 10, 24, 8, 0))
 
     def test_no_preheat_without_any_valid_window(self):
-        kwargs = {f"day_start_{d}": timedelta(hours=23) for d in logic.WEEKDAYS}
-        kwargs.update({f"day_end_{d}": timedelta(hours=22) for d in logic.WEEKDAYS})
-        s = settings(**kwargs)
+        s = settings(
+            day_start_week=timedelta(hours=23),
+            day_end_week=timedelta(hours=22),
+            day_start_weekend=timedelta(hours=23),
+            day_end_weekend=timedelta(hours=22),
+        )
         inputs = house_inputs(now=datetime(2026, 10, 21, 5, 0))
         active, start = rooms_logic.preheat_window(s, inputs, 60, "night")
         self.assertFalse(active)
