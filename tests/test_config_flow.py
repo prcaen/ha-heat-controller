@@ -214,7 +214,9 @@ class TestSchemas(unittest.TestCase):
             if isinstance(config, dict)
             else (lambda k: getattr(config, k))
         )
-        self.assertEqual(get("domain"), "binary_sensor")
+        # Recent HA versions normalize the domain to a list.
+        domain = get("domain")
+        self.assertIn("binary_sensor", domain if isinstance(domain, list) else [domain])
         self.assertEqual(get("device_class"), "opening")
         self.assertTrue(get("multiple"))
         base = {
