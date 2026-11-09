@@ -27,6 +27,7 @@ from .const import (
     CONF_ROOM_TARGET,
     CONF_ROOM_TEMP_SENSOR,
     CONF_ROOM_THERMOSTAT_ROOM,
+    CONF_ROOM_WINDOW_SENSORS,
     ROOM_FAN_PRESET_INHERIT,
     SPLIT_FAN_PRESET_OPTIONS,
     SUBENTRY_ROOM,
@@ -48,6 +49,7 @@ class RoomConfig:
     fans: tuple[str, ...] = field(default_factory=tuple)
     fan_preset: str = ROOM_FAN_PRESET_INHERIT  # per-room override, "inherit" = global
     preheat_with_splits: bool = False  # the PAC (splits) may pre-heat this room
+    window_sensors: tuple[str, ...] = field(default_factory=tuple)  # open = on
 
     @property
     def has_splits(self) -> bool:
@@ -108,6 +110,7 @@ def room_from_subentry(subentry: Any) -> Optional[RoomConfig]:
         fans=_entities(data.get(CONF_ROOM_FANS)),
         fan_preset=_fan_preset(data.get(CONF_ROOM_FAN_PRESET)),
         preheat_with_splits=bool(data.get(CONF_ROOM_PREHEAT_WITH_SPLITS, False)),
+        window_sensors=_entities(data.get(CONF_ROOM_WINDOW_SENSORS)),
     )
 
 
@@ -139,6 +142,7 @@ def rooms_signature(rooms: list[RoomConfig]) -> tuple:
             room.fans,
             room.fan_preset,
             room.preheat_with_splits,
+            room.window_sensors,
         )
         for room in rooms
     )

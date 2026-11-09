@@ -23,6 +23,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import Optional
 
+from .const import WINDOW_RECLOSE_DELAY_MINUTES
 from .logic import (
     SOURCE_AUTO,
     SOURCE_BOILER,
@@ -76,6 +77,11 @@ class RoomState:
     ref_outdoor: Optional[float] = None  # outdoor temp when the rate was learned
     preheat_minutes: float = 0.0
     next_preheat: Optional[datetime] = None
+    # Window cutoff: an open window stops the splits of the room.
+    window_open: bool = False  # observed state of the window sensors
+    window_was_open: bool = False  # previous pass (closing edge detection)
+    window_closed_at: Optional[datetime] = None  # last closing instant
+    window_notified: bool = False  # the cutoff notification was sent
 
 
 @dataclass(frozen=True)
@@ -139,6 +145,8 @@ class RoomDecision:
     next_preheat: Optional[datetime]
     boiler_trigger_cold: bool  # below target - hysteresis (trigger rooms)
     source: str
+    window_open: bool = False  # a window of the room is open
+    window_blocked: bool = False  # the splits are blocked (open, or just closed)
 
 
 @dataclass
@@ -311,12 +319,29 @@ def compute_house(
             base_target = base_target + settings.solar_bonus
         target = room_target(settings, effective_mode, base_target)
         controllable = temp is not None and target is not None
+        # Window cutoff: an open window stops the splits at once (the
+        # minimum run/stop time is bypassed on the way down); once the
+        # window is closed again, the splits may restart only after a
+        # short delay (the minimum cycle time still applies on the way
+        # up).
+        if state.window_open:
+            state.window_closed_at = None
+        elif state.window_was_open:
+            state.window_closed_at = inputs.now
+        state.window_was_open = state.window_open
+        window_blocked = state.window_open or (
+            state.window_closed_at is not None
+            and inputs.now - state.window_closed_at
+            < timedelta(minutes=WINDOW_RECLOSE_DELAY_MINUTES)
+        )
+
         # The splits do not run while pre-heating, unless the room opted
         # in: its splits (the PAC) then do the pre-heating of this room.
         room_allowed = (
             outdoor_ok
             and effective_mode == MODE_DAY
             and (not preheating or room.preheat_with_splits)
+            and not window_blocked
         )
 
         if room.has_splits and controllable and room_allowed and not left_alone:
@@ -327,12 +352,14 @@ def compute_house(
             else:
                 want = temp < target - settings.hysteresis
             # Compressor protection: a non-forced change of state waits
-            # for the minimum run/stop time since the last change.
+            # for the minimum run/stop time since the last change. The
+            # window cutoff is forced: it stops the splits immediately.
             if (
                 want != state.splits_on
                 and state.last_change is not None
                 and (inputs.now - state.last_change)
                 < timedelta(minutes=settings.min_cycle_minutes)
+                and not (window_blocked and state.splits_on)
             ):
                 want = state.splits_on
         else:
@@ -357,6 +384,8 @@ def compute_house(
                 next_preheat=next_preheat,
                 boiler_trigger_cold=trigger_cold,
                 source=SOURCE_IDLE,
+                window_open=state.window_open,
+                window_blocked=window_blocked,
             )
         )
 

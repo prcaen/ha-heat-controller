@@ -48,6 +48,7 @@ from .const import (
     CONF_ROOM_TARGET,
     CONF_ROOM_TEMP_SENSOR,
     CONF_ROOM_THERMOSTAT_ROOM,
+    CONF_ROOM_WINDOW_SENSORS,
     CONNECTION_KEYS,
     DOMAIN,
     ROOM_FAN_PRESET_INHERIT,
@@ -178,6 +179,11 @@ def _room_schema(other_rooms: list[tuple[str, str]], exclude_id: str | None = No
             ),
             vol.Optional(CONF_ROOM_FANS): EntitySelector(
                 EntitySelectorConfig(domain="fan", multiple=True)
+            ),
+            vol.Optional(CONF_ROOM_WINDOW_SENSORS): EntitySelector(
+                EntitySelectorConfig(
+                    domain="binary_sensor", device_class="opening", multiple=True
+                )
             ),
             vol.Optional(
                 CONF_ROOM_FAN_PRESET, default=ROOM_FAN_PRESET_INHERIT

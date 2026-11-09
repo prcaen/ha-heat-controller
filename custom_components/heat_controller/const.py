@@ -36,6 +36,7 @@ CONF_ROOM_CLIMATES = "climates"
 CONF_ROOM_FANS = "fans"
 CONF_ROOM_FAN_PRESET = "fan_preset"
 CONF_ROOM_PREHEAT_WITH_SPLITS = "preheat_with_splits"
+CONF_ROOM_WINDOW_SENSORS = "window_sensors"
 
 # --- Settings ----------------------------------------------------------------
 
@@ -246,3 +247,4 @@ STARTUP_DELAY_SECONDS = 5  # wait after startup for states to restore
 SERVICE_TIMEOUT_SECONDS = 15  # max delay of a service call
 HVAC_MODE_DELAY_SECONDS = 5  # delay after HVAC mode change
 SWITCH_WAIT_TIMEOUT_SECONDS = 20  # wait for a power switch to turn on
+WINDOW_RECLOSE_DELAY_MINUTES = 1  # splits restart delay after a window closes

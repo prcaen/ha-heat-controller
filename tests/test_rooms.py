@@ -99,6 +99,7 @@ class TestRooms(unittest.TestCase):
                     "fans": ["fan.g", "fan.d"],
                     "fan_preset": "low",
                     "preheat_with_splits": True,
+                    "window_sensors": ["binary_sensor.fenetre_salon"],
                 },
             )
         )
@@ -114,6 +115,7 @@ class TestRooms(unittest.TestCase):
         self.assertEqual(room.fan_preset, "low")
         self.assertEqual(room.fan_preset_or("auto"), "low")
         self.assertTrue(room.preheat_with_splits)
+        self.assertEqual(room.window_sensors, ("binary_sensor.fenetre_salon",))
 
     def test_preheat_with_splits_off_by_default(self):
         rooms = self.room_module()
@@ -123,6 +125,7 @@ class TestRooms(unittest.TestCase):
             FakeSubentry("s1", "room", "Salon", {"temperature_sensor": "sensor.salon"})
         )
         self.assertFalse(room.preheat_with_splits)
+        self.assertEqual(room.window_sensors, ())
 
     def test_fan_preset_inherits_by_default(self):
         rooms = self.room_module()
@@ -231,6 +234,12 @@ class TestRooms(unittest.TestCase):
             [rooms.room_from_subentry(FakeSubentry("s1", "room", "Salon", changed_preheat))]
         )
         self.assertNotEqual(first, other_preheat)
+        # ...and so are the window sensors.
+        changed_window = dict(data, window_sensors=["binary_sensor.fenetre"])
+        other_window = rooms.rooms_signature(
+            [rooms.room_from_subentry(FakeSubentry("s1", "room", "Salon", changed_window))]
+        )
+        self.assertNotEqual(first, other_window)
 
 
 if __name__ == "__main__":

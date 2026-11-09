@@ -137,7 +137,14 @@ entities. A room can also override the **fan preset** for its own
 fans (form field, or the `select.<room>_fan_preset` entity; `inherit`
 keeps the global `split fan preset`), and opt in to **pre-heat with
 the heat pump (the splits)**: during a pre-heating, its splits heat
-the room via the PAC instead of the boiler. At least one room is required;
+the room via the PAC instead of the boiler. A room can also declare
+**window open sensors** (binary sensors): while any of them is on, the
+room's splits are stopped at once — power switches, climate modes and
+fans all off, like switching the heating off — and a notification is
+sent when a running split is cut; the splits restart 1 minute after
+all the sensors are off again (the minimum run/stop time still applies
+on restart). An unavailable sensor counts as closed, and the boiler is
+never affected. At least one room is required;
 the room flagged as thermostat
 room drives the boiler and the thermostat card (the first room if
 none is flagged).

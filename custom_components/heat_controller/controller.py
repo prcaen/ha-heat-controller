@@ -95,6 +95,7 @@ from .state import HeatState
 _LOGGER = logging.getLogger(__name__)
 
 HVAC_HEAT = "heat"
+HVAC_OFF = "off"
 
 STORAGE_VERSION = 1  # learned heating rates
 FORECAST_CACHE_MINUTES = 30
@@ -110,6 +111,8 @@ NOTIFICATIONS: dict[str, dict[str, str]] = {
         "unresponsive": "The splits in {room} are not responding.",
         "surplus": "Solar surplus in use ({surplus} W): the split rooms are "
         "heated above their target (+{bonus} °C).",
+        "window_open": "A window is open in {room}: its splits are stopped "
+        "until it is closed.",
     },
     "fr": {
         "away_start": "Mode absence activé. Retour prévu : {when}.",
@@ -120,6 +123,8 @@ NOTIFICATIONS: dict[str, dict[str, str]] = {
         "unresponsive": "Le split de {room} ne répond pas.",
         "surplus": "Surplus solaire utilisé ({surplus} W) : les pièces avec "
         "splits sont chauffées au-dessus de leur consigne (+{bonus} °C).",
+        "window_open": "Une fenêtre est ouverte dans {room} : ses splits sont "
+        "arrêtés jusqu'à sa fermeture.",
     },
 }
 
@@ -262,6 +267,8 @@ class HeatController:
             if entity
         ]
         watched.extend(room.sensor for room in self.rooms if room.sensor)
+        for room in self.rooms:
+            watched.extend(sensor for sensor in room.window_sensors if sensor)
         self._cancel.append(
             async_track_state_change_event(self.hass, watched, self._on_state_change)
         )
@@ -502,6 +509,19 @@ class HeatController:
                 state.last_change = dt_util.now()  # for the minimum run/stop time
             state.splits_on = actual_on
             state.base_target = resolve_target(self.rooms, room)
+            # Window sensors: any "on" means open; an unavailable or
+            # unknown sensor counts as closed (the splits may run).
+            window_open = any(
+                self.hass.states.is_state(sensor, STATE_ON)
+                for sensor in room.window_sensors
+            )
+            state.window_open = window_open
+            if window_open and actual_on and not state.window_notified:
+                # A running split is cut because of an open window.
+                state.window_notified = True
+                await self._notify("window_open", room=room.name)
+            if not window_open:
+                state.window_notified = False
             # A split changed by someone else: leave the room alone until
             # the next mode transition. A command never followed is
             # reported once as unresponsive.
@@ -749,6 +769,30 @@ class HeatController:
             return
         state = self.room_states[room.id]
         now = dt_util.now()
+
+        if decision.window_blocked:
+            # Open (or just closed) window: everything off, like
+            # switching the heating off — power switches, climate modes
+            # and fans.
+            for switch in room.switches:
+                await self._power_off(switch)
+            for clim in room.climates:
+                climate_state = self.hass.states.get(clim)
+                if climate_state is not None and climate_state.state != HVAC_OFF:
+                    await self._call(
+                        "climate", "set_hvac_mode", clim, hvac_mode=HVAC_OFF
+                    )
+            for fan in room.fans:
+                if self._is_on(fan):
+                    await self._call("fan", "turn_off", fan)
+            if state.last_want is not False:
+                # New command: the switches must follow it (the
+                # confirmation is checked on the next passes).
+                state.cmd_on = False
+                state.cmd_time = now
+                state.confirmed = False
+            state.last_want = False
+            return
 
         if not decision.splits_allowed:
             # Forced stop (night, away, cold outside): only through the

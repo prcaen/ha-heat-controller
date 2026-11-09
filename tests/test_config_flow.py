@@ -33,6 +33,7 @@ from custom_components.heat_controller.const import (
     CONF_ROOM_TARGET,
     CONF_ROOM_TEMP_SENSOR,
     CONF_ROOM_THERMOSTAT_ROOM,
+    CONF_ROOM_WINDOW_SENSORS,
     ROOM_FAN_PRESET_INHERIT,
     ROOM_FAN_PRESET_OPTIONS,
     SETTING_DEFAULTS,
@@ -149,6 +150,7 @@ class TestSchemas(unittest.TestCase):
                 CONF_ROOM_FANS,
                 CONF_ROOM_FAN_PRESET,
                 CONF_ROOM_PREHEAT_WITH_SPLITS,
+                CONF_ROOM_WINDOW_SENSORS,
             },
         )
         # No followable room yet: the follow selector is absent.
@@ -197,6 +199,42 @@ class TestSchemas(unittest.TestCase):
                 CONF_ROOM_PREHEAT_WITH_SPLITS
             ],
             True,
+        )
+
+    def test_room_window_sensors_selector(self):
+        schema = config_flow._room_schema([])
+        fields = {
+            key.schema if isinstance(key, vol.Marker) else key: value
+            for key, value in schema.schema.items()
+        }
+        selector = fields[CONF_ROOM_WINDOW_SENSORS]
+        config = selector.config
+        get = (
+            (lambda k: config[k])
+            if isinstance(config, dict)
+            else (lambda k: getattr(config, k))
+        )
+        self.assertEqual(get("domain"), "binary_sensor")
+        self.assertEqual(get("device_class"), "opening")
+        self.assertTrue(get("multiple"))
+        base = {
+            CONF_ROOM_NAME: "Salon",
+            CONF_ROOM_TEMP_SENSOR: "sensor.salon",
+            CONF_ROOM_TARGET: 19.5,
+        }
+        # Optional: absent by default, several accepted.
+        self.assertNotIn(CONF_ROOM_WINDOW_SENSORS, schema(base))
+        self.assertEqual(
+            schema(
+                {
+                    **base,
+                    CONF_ROOM_WINDOW_SENSORS: [
+                        "binary_sensor.fenetre_1",
+                        "binary_sensor.fenetre_2",
+                    ],
+                }
+            )[CONF_ROOM_WINDOW_SENSORS],
+            ["binary_sensor.fenetre_1", "binary_sensor.fenetre_2"],
         )
 
     def test_validate_room_input(self):
