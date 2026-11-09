@@ -516,6 +516,129 @@ class TestMinCycle(unittest.TestCase):
         self.assertFalse(house.room("salon").want_splits)
 
 
+class TestWindowCutoff(unittest.TestCase):
+    def setUp(self):
+        self.rooms = [room("salon", "Salon", "sensor.salon", target=19.5,
+                           thermostat_room=True, switches=("sw1",), climates=("cl1",))]
+        self.settings = settings(min_cycle_minutes=5)
+
+    def compute(self, temp=18.0, splits_on=False, window_open=False,
+                now=NOW, last_change=None):
+        states = states_of(self.rooms, {"salon": temp})
+        state = states["salon"]
+        state.splits_on = splits_on
+        state.window_open = window_open
+        if last_change is not None:
+            state.last_change = last_change
+        house = compute_house(
+            self.settings, house_inputs(now=now), self.rooms, states
+        )
+        return house.room("salon"), state
+
+    def test_open_window_stops_a_running_split_immediately(self):
+        # The split started a minute ago: the minimum run time would
+        # normally hold it on, the window cutoff stops it at once.
+        decision, _ = self.compute(temp=18.0, splits_on=True, window_open=True,
+                                   last_change=NOW - timedelta(minutes=1))
+        self.assertTrue(decision.window_open)
+        self.assertTrue(decision.window_blocked)
+        self.assertFalse(decision.splits_allowed)
+        self.assertFalse(decision.want_splits)
+
+    def test_open_window_blocks_the_start_below_target(self):
+        decision, _ = self.compute(temp=18.0, splits_on=False, window_open=True)
+        self.assertTrue(decision.window_blocked)
+        self.assertFalse(decision.want_splits)
+
+    def test_no_window_no_block(self):
+        decision, _ = self.compute(temp=18.0, splits_on=False)
+        self.assertFalse(decision.window_open)
+        self.assertFalse(decision.window_blocked)
+        self.assertTrue(decision.want_splits)
+
+    def test_restart_is_delayed_one_minute_after_closing(self):
+        states = states_of(self.rooms, {"salon": 18.0})
+        state = states["salon"]
+        # The window is open at NOW.
+        state.window_open = True
+        house = compute_house(self.settings, house_inputs(now=NOW), self.rooms, states)
+        self.assertFalse(house.room("salon").want_splits)
+        # It closes 30 s later: still blocked (the restart delay runs
+        # from the closing, detected on this pass).
+        closed_at = NOW + timedelta(seconds=30)
+        state.window_open = False
+        house = compute_house(
+            self.settings, house_inputs(now=closed_at), self.rooms, states
+        )
+        decision = house.room("salon")
+        self.assertFalse(decision.window_open)
+        self.assertTrue(decision.window_blocked)
+        self.assertFalse(decision.want_splits)
+        # One minute after closing: the splits may restart.
+        house = compute_house(
+            self.settings,
+            house_inputs(now=closed_at + timedelta(seconds=61)),
+            self.rooms,
+            states,
+        )
+        decision = house.room("salon")
+        self.assertFalse(decision.window_blocked)
+        self.assertTrue(decision.want_splits)
+
+    def test_restart_still_respects_the_min_cycle(self):
+        states = states_of(self.rooms, {"salon": 18.0})
+        state = states["salon"]
+        state.window_open = True
+        compute_house(self.settings, house_inputs(now=NOW), self.rooms, states)
+        # Closed 30 s later; the restart delay passed 61 s after that.
+        closed_at = NOW + timedelta(seconds=30)
+        state.window_open = False
+        now = closed_at + timedelta(seconds=61)
+        compute_house(self.settings, house_inputs(now=closed_at), self.rooms, states)
+        # The split stopped a minute ago: the minimum stop time holds it off.
+        state.splits_on = False
+        state.last_change = now - timedelta(minutes=1)
+        house = compute_house(
+            self.settings, house_inputs(now=now), self.rooms, states
+        )
+        self.assertFalse(house.room("salon").window_blocked)
+        self.assertFalse(house.room("salon").want_splits)
+        # The minimum stop time passed: the split restarts.
+        state.last_change = now - timedelta(minutes=6)
+        house = compute_house(
+            self.settings, house_inputs(now=now), self.rooms, states
+        )
+        self.assertTrue(house.room("salon").want_splits)
+
+    def test_window_blocks_the_pac_preheating(self):
+        rooms = [room("salon", "Salon", "sensor.salon", target=19.5,
+                      thermostat_room=True, switches=("sw1",), climates=("cl1",),
+                      preheat_with_splits=True)]
+        s = settings(min_cycle_minutes=5, initial_preheat_minutes=90)
+        states = states_of(rooms, {"salon": 17.0})
+        states["salon"].window_open = True
+        # 05:45, day at 07:00, 90 min pre-heating: the window is open.
+        inputs = house_inputs(now=datetime(2026, 10, 21, 5, 45))
+        house = compute_house(s, inputs, rooms, states)
+        decision = house.room("salon")
+        self.assertTrue(decision.preheating)
+        self.assertTrue(decision.window_blocked)
+        self.assertFalse(decision.splits_allowed)
+        self.assertFalse(decision.want_splits)
+
+    def test_window_does_not_affect_boiler_trigger_rooms(self):
+        # Rooms without splits are not concerned: the window only stops
+        # the splits, the boiler may still be requested.
+        rooms = [room("cuisine", "Cuisine", "sensor.cuisine", target=19.5)]
+        states = states_of(rooms, {"cuisine": 17.0})
+        states["cuisine"].window_open = True
+        house = compute_house(self.settings, house_inputs(), rooms, states)
+        decision = house.room("cuisine")
+        self.assertTrue(decision.window_blocked)
+        self.assertTrue(decision.boiler_trigger_cold)
+        self.assertFalse(decision.want_splits)
+
+
 class TestLearning(unittest.TestCase):
     def setUp(self):
         self.rooms = [room("salon", "Salon", "sensor.salon", target=19.5,

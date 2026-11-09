@@ -355,7 +355,8 @@
             "climates": "Entités climate des splits",
             "fans": "Entités fan des splits",
             "fan_preset": "Preset du ventilateur (cette pièce)",
-            "preheat_with_splits": "Préchauffer avec la PAC (splits)"
+            "preheat_with_splits": "Préchauffer avec la PAC (splits)",
+            "window_sensors": "Capteurs d'ouverture de fenêtre"
           },
           "data_description": {
             "target": "Laisser vide si la pièce suit une autre pièce.",
@@ -363,7 +364,8 @@
             "climates": "Utilisés pour le mode et la température, jamais pour éteindre.",
             "fans": "Utilisés pour le preset et l'oscillation.",
             "fan_preset": "Remplace le preset global du ventilateur pour cette pièce ; « Hériter » garde le réglage global.",
-            "preheat_with_splits": "Pendant un préchauffage (avant la période jour ou le retour prévu), les splits de cette pièce chauffent via la PAC ; les autres pièces gardent le préchauffage par la chaudière."
+            "preheat_with_splits": "Pendant un préchauffage (avant la période jour ou le retour prévu), les splits de cette pièce chauffent via la PAC ; les autres pièces gardent le préchauffage par la chaudière.",
+            "window_sensors": "Tant que l'un est ouvert, les splits de la pièce sont arrêtés (interrupteurs, climates et ventilateurs éteints) et redémarrent 1 minute après la fermeture de tous. Un capteur indisponible compte comme fermé."
           }
         },
         "reconfigure": {
@@ -378,7 +380,8 @@
             "climates": "Entités climate des splits",
             "fans": "Entités fan des splits",
             "fan_preset": "Preset du ventilateur (cette pièce)",
-            "preheat_with_splits": "Préchauffer avec la PAC (splits)"
+            "preheat_with_splits": "Préchauffer avec la PAC (splits)",
+            "window_sensors": "Capteurs d'ouverture de fenêtre"
           },
           "data_description": {
             "target": "Laisser vide si la pièce suit une autre pièce.",
@@ -386,7 +389,8 @@
             "climates": "Utilisés pour le mode et la température, jamais pour éteindre.",
             "fans": "Utilisés pour le preset et l'oscillation.",
             "fan_preset": "Remplace le preset global du ventilateur pour cette pièce ; « Hériter » garde le réglage global.",
-            "preheat_with_splits": "Pendant un préchauffage (avant la période jour ou le retour prévu), les splits de cette pièce chauffent via la PAC ; les autres pièces gardent le préchauffage par la chaudière."
+            "preheat_with_splits": "Pendant un préchauffage (avant la période jour ou le retour prévu), les splits de cette pièce chauffent via la PAC ; les autres pièces gardent le préchauffage par la chaudière.",
+            "window_sensors": "Tant que l'un est ouvert, les splits de la pièce sont arrêtés (interrupteurs, climates et ventilateurs éteints) et redémarrent 1 minute après la fermeture de tous. Un capteur indisponible compte comme fermé."
           }
         }
       },

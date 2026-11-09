@@ -355,7 +355,8 @@
             "climates": "Split climate entities",
             "fans": "Split fan entities",
             "fan_preset": "Split fan preset (this room)",
-            "preheat_with_splits": "Pre-heat with the heat pump (splits)"
+            "preheat_with_splits": "Pre-heat with the heat pump (splits)",
+            "window_sensors": "Window open sensors (binary sensors)"
           },
           "data_description": {
             "target": "Leave empty if the room follows another room.",
@@ -363,7 +364,8 @@
             "climates": "Used for mode and temperature, never to turn off.",
             "fans": "Used for the preset mode and the oscillation.",
             "fan_preset": "Overrides the global split fan preset for this room; Inherit keeps the global setting.",
-            "preheat_with_splits": "During a pre-heating (before the day period or a planned return), this room's splits heat via the heat pump; the other rooms keep the boiler pre-heating."
+            "preheat_with_splits": "During a pre-heating (before the day period or a planned return), this room's splits heat via the heat pump; the other rooms keep the boiler pre-heating.",
+            "window_sensors": "While any of them is on, the room's splits are stopped (switches, climates and fans off) and restart 1 minute after all are off. An unavailable sensor counts as closed."
           }
         },
         "reconfigure": {
@@ -378,7 +380,8 @@
             "climates": "Split climate entities",
             "fans": "Split fan entities",
             "fan_preset": "Split fan preset (this room)",
-            "preheat_with_splits": "Pre-heat with the heat pump (splits)"
+            "preheat_with_splits": "Pre-heat with the heat pump (splits)",
+            "window_sensors": "Window open sensors (binary sensors)"
           },
           "data_description": {
             "target": "Leave empty if the room follows another room.",
@@ -386,7 +389,8 @@
             "climates": "Used for mode and temperature, never to turn off.",
             "fans": "Used for the preset mode and the oscillation.",
             "fan_preset": "Overrides the global split fan preset for this room; Inherit keeps the global setting.",
-            "preheat_with_splits": "During a pre-heating (before the day period or a planned return), this room's splits heat via the heat pump; the other rooms keep the boiler pre-heating."
+            "preheat_with_splits": "During a pre-heating (before the day period or a planned return), this room's splits heat via the heat pump; the other rooms keep the boiler pre-heating.",
+            "window_sensors": "While any of them is on, the room's splits are stopped (switches, climates and fans off) and restart 1 minute after all are off. An unavailable sensor counts as closed."
           }
         }
       },
