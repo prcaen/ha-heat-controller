@@ -34,8 +34,16 @@ from .const import (
     CONF_ACCESSORY_FANS,
     CONF_BOILER_CLIMATE,
     CONF_CONSUMPTION_SENSOR,
+    CONF_DAY_END_WEEK,
+    CONF_DAY_END_WEEKEND,
     CONF_DAY_START,
+    CONF_DAY_START_WEEK,
+    CONF_DAY_START_WEEKEND,
     CONF_NIGHT_START,
+    DAY_END_WEEKEND_FALLBACK,
+    DAY_END_WEEK_FALLBACK,
+    DAY_START_WEEKEND_FALLBACK,
+    DAY_START_WEEK_FALLBACK,
     CONF_OUTDOOR_TEMP_SENSOR,
     CONF_PRODUCTION_SENSOR,
     CONF_ROOM_CLIMATES,
@@ -61,15 +69,17 @@ from .const import (
     SETTING_TEXTS,
     SETTING_TIMES,
     SUBENTRY_ROOM,
-    WEEKDAYS,
-    day_end_key,
-    day_start_key,
 )
 
-# Legacy single day period -> weekly schedule keys (migration of old entries).
+# Migration of old entries to the week/weekend schedule keys: the legacy
+# single day_start/night_start pair applies to both, and so do the
+# per-weekday keys of the intermediate schedule (a weekday stands for the
+# week, a Saturday for the weekend).
 _LEGACY_SCHEDULE_KEYS = {
-    **{day_start_key(day): CONF_DAY_START for day in WEEKDAYS},
-    **{day_end_key(day): CONF_NIGHT_START for day in WEEKDAYS},
+    CONF_DAY_START_WEEK: (DAY_START_WEEK_FALLBACK, CONF_DAY_START),
+    CONF_DAY_END_WEEK: (DAY_END_WEEK_FALLBACK, CONF_NIGHT_START),
+    CONF_DAY_START_WEEKEND: (DAY_START_WEEKEND_FALLBACK, CONF_DAY_START),
+    CONF_DAY_END_WEEKEND: (DAY_END_WEEKEND_FALLBACK, CONF_NIGHT_START),
 }
 
 
@@ -215,10 +225,10 @@ def _settings_schema(data: dict[str, Any]) -> vol.Schema:
     def setting(key: str) -> Any:
         if key in data:
             return data[key]
-        # Schedule keys of an old entry: seeded from the legacy day period.
-        legacy = _LEGACY_SCHEDULE_KEYS.get(key)
-        if legacy is not None and legacy in data:
-            return data[legacy]
+        # Schedule keys of an old entry: seeded from the legacy values.
+        for legacy in _LEGACY_SCHEDULE_KEYS.get(key, ()):
+            if legacy in data:
+                return data[legacy]
         return SETTING_DEFAULTS[key]
 
     schema: dict[Any, Any] = {}

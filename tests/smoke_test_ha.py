@@ -201,7 +201,7 @@ async def run_pass():
     mock_ctl.config = dict(DATA)
     num = number.HeatSettingNumber(entry, shared, mock_ctl, "night_setpoint")
     assert num.native_value == 16.0
-    tim = time_platform.HeatSettingTime(entry, shared, mock_ctl, "day_start_mon")
+    tim = time_platform.HeatSettingTime(entry, shared, mock_ctl, "day_start_week")
     assert tim.native_value.hour == 0
     sel = select.HeatSourceOverrideSelect(entry, shared, mock_ctl)
     assert sel.current_option == "auto"

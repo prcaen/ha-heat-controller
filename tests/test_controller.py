@@ -18,7 +18,6 @@ except ImportError:  # pragma: no cover
 from homeassistant.util import dt as dt_util
 
 from custom_components.heat_controller import controller as controller_module
-from custom_components.heat_controller.const import WEEKDAYS
 from custom_components.heat_controller.controller import (
     HeatController,
     settings_from_config,
@@ -180,9 +179,10 @@ class TestSettingsFromConfig(unittest.TestCase):
         self.assertEqual(settings.outdoor_threshold, 3.0)
         self.assertEqual(settings.idle_setpoint, 12.0)
         self.assertEqual(settings.night_setpoint, 16.0)
-        for day in WEEKDAYS:
-            self.assertEqual(getattr(settings, f"day_start_{day}").total_seconds(), 7 * 3600)
-            self.assertEqual(getattr(settings, f"day_end_{day}").total_seconds(), 22 * 3600)
+        self.assertEqual(settings.day_start_week.total_seconds(), 7 * 3600)
+        self.assertEqual(settings.day_end_week.total_seconds(), 22 * 3600)
+        self.assertEqual(settings.day_start_weekend.total_seconds(), 7 * 3600)
+        self.assertEqual(settings.day_end_weekend.total_seconds(), 22 * 3600)
 
     def test_overrides_and_fallbacks(self):
         settings = settings_from_config(
@@ -197,40 +197,76 @@ class TestSettingsFromConfig(unittest.TestCase):
         settings = settings_from_config(
             {"day_start": "00:00:00", "night_start": "x"}
         )
-        self.assertEqual(settings.day_start_mon.total_seconds(), 0)
-        self.assertEqual(settings.day_end_mon.total_seconds(), 22 * 3600)
+        self.assertEqual(settings.day_start_week.total_seconds(), 0)
+        self.assertEqual(settings.day_end_week.total_seconds(), 22 * 3600)
 
-    def test_legacy_day_times_migrate_to_the_whole_week(self):
+    def test_legacy_day_times_migrate_to_week_and_weekend(self):
         settings = settings_from_config(
             {"day_start": "06:30:00", "night_start": "21:00:00"}
         )
-        for day in WEEKDAYS:
-            self.assertEqual(
-                getattr(settings, f"day_start_{day}"), timedelta(hours=6, minutes=30)
-            )
-            self.assertEqual(
-                getattr(settings, f"day_end_{day}"), timedelta(hours=21)
-            )
+        self.assertEqual(settings.day_start_week, timedelta(hours=6, minutes=30))
+        self.assertEqual(settings.day_end_week, timedelta(hours=21))
+        self.assertEqual(settings.day_start_weekend, timedelta(hours=6, minutes=30))
+        self.assertEqual(settings.day_end_weekend, timedelta(hours=21))
 
     def test_schedule_keys_override_the_legacy_times(self):
         settings = settings_from_config(
             {
                 "day_start": "06:00:00",
                 "night_start": "21:00:00",
-                "day_start_sun": "09:00:00",
-                "day_end_sun": "20:00:00",
+                "day_start_weekend": "09:00:00",
+                "day_end_weekend": "20:00:00",
             }
         )
-        self.assertEqual(settings.day_start_mon, timedelta(hours=6))
-        self.assertEqual(settings.day_end_mon, timedelta(hours=21))
-        self.assertEqual(settings.day_start_sun, timedelta(hours=9))
-        self.assertEqual(settings.day_end_sun, timedelta(hours=20))
+        self.assertEqual(settings.day_start_week, timedelta(hours=6))
+        self.assertEqual(settings.day_end_week, timedelta(hours=21))
+        self.assertEqual(settings.day_start_weekend, timedelta(hours=9))
+        self.assertEqual(settings.day_end_weekend, timedelta(hours=20))
 
     def test_schedule_key_without_legacy_falls_back_to_the_default(self):
-        settings = settings_from_config({"day_start_sun": "09:00:00"})
-        self.assertEqual(settings.day_start_sun, timedelta(hours=9))
-        self.assertEqual(settings.day_start_mon, timedelta(hours=7))
-        self.assertEqual(settings.day_end_mon, timedelta(hours=22))
+        settings = settings_from_config({"day_start_weekend": "09:00:00"})
+        self.assertEqual(settings.day_start_weekend, timedelta(hours=9))
+        self.assertEqual(settings.day_start_week, timedelta(hours=7))
+        self.assertEqual(settings.day_end_week, timedelta(hours=22))
+
+    def test_per_weekday_keys_of_the_intermediate_schedule_migrate(self):
+        # Entries configured with the intermediate per-weekday schedule:
+        # a weekday stands for the week, a Saturday for the weekend.
+        settings = settings_from_config(
+            {
+                "day_start_mon": "06:00:00",
+                "day_end_mon": "21:00:00",
+                "day_start_sat": "09:00:00",
+                "day_end_sat": "20:00:00",
+            }
+        )
+        self.assertEqual(settings.day_start_week, timedelta(hours=6))
+        self.assertEqual(settings.day_end_week, timedelta(hours=21))
+        self.assertEqual(settings.day_start_weekend, timedelta(hours=9))
+        self.assertEqual(settings.day_end_weekend, timedelta(hours=20))
+
+    def test_per_weekday_fallback_wins_over_the_legacy_pair(self):
+        settings = settings_from_config(
+            {
+                "day_start": "05:00:00",
+                "day_start_mon": "06:00:00",
+                "day_start_sat": "09:00:00",
+            }
+        )
+        self.assertEqual(settings.day_start_week, timedelta(hours=6))
+        self.assertEqual(settings.day_start_weekend, timedelta(hours=9))
+
+    def test_week_weekend_key_wins_over_every_fallback(self):
+        settings = settings_from_config(
+            {
+                "day_start": "05:00:00",
+                "day_start_mon": "06:00:00",
+                "day_start_week": "07:30:00",
+            }
+        )
+        self.assertEqual(settings.day_start_week, timedelta(hours=7, minutes=30))
+        # No day_start_sat: the weekend falls back to the legacy day_start.
+        self.assertEqual(settings.day_start_weekend, timedelta(hours=5))
 
 
 class TestHybridRooms(unittest.IsolatedAsyncioTestCase):
