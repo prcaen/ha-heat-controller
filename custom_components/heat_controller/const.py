@@ -77,6 +77,8 @@ CONF_INITIAL_PREHEAT_MINUTES = "initial_preheat_minutes"
 CONF_MAX_PREHEAT_MINUTES = "max_preheat_minutes"
 CONF_WEATHER_ENTITY = "weather_entity"
 CONF_NOTIFY_SERVICE = "notify_service"
+CONF_NOTIFY_TARGET = "notify_target"
+CONF_NOTIFICATIONS_ENABLED = "notifications_enabled"
 
 DEFAULT_OUTDOOR_THRESHOLD = 3.0
 DEFAULT_NIGHT_SETPOINT = 16.0
@@ -99,6 +101,7 @@ DEFAULT_FALLBACK_MINUTES = 120
 DEFAULT_MIN_CYCLE_MINUTES = 5
 DEFAULT_INITIAL_PREHEAT_MINUTES = 60
 DEFAULT_MAX_PREHEAT_MINUTES = 180
+DEFAULT_NOTIFICATIONS_ENABLED = True
 
 SPLIT_FAN_PRESET_OPTIONS = ("low", "medium", "high", "auto")
 
@@ -145,6 +148,8 @@ SETTING_DEFAULTS = {
     CONF_MAX_PREHEAT_MINUTES: DEFAULT_MAX_PREHEAT_MINUTES,
     CONF_WEATHER_ENTITY: "",
     CONF_NOTIFY_SERVICE: "",
+    CONF_NOTIFY_TARGET: "",
+    CONF_NOTIFICATIONS_ENABLED: DEFAULT_NOTIFICATIONS_ENABLED,
 }
 
 # --- Settings entities -------------------------------------------------------
@@ -215,6 +220,7 @@ SETTING_NUMBERS: dict[str, dict[str, Any]] = {
 # Entity settings: configured in the flow, no dashboard entity.
 SETTING_ENTITIES: dict[str, dict[str, Any]] = {
     CONF_WEATHER_ENTITY: {"domain": "weather"},
+    CONF_NOTIFY_TARGET: {"domain": "notify"},
 }
 
 # Free-text settings: configured in the flow, no dashboard entity.
@@ -230,6 +236,7 @@ SETTING_SELECTS: dict[str, dict[str, Any]] = {
 # Boolean settings exposed as `switch` entities.
 SETTING_BOOLEANS: dict[str, dict[str, Any]] = {
     CONF_SPLIT_FAN_OSCILLATING: {},
+    CONF_NOTIFICATIONS_ENABLED: {},
 }
 
 # Time settings exposed as `time` entities: the week/weekend day periods

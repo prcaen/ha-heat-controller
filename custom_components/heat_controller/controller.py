@@ -62,6 +62,8 @@ from .const import (
     CONF_MAX_PREHEAT_MINUTES,
     CONF_WEATHER_ENTITY,
     CONF_NOTIFY_SERVICE,
+    CONF_NOTIFY_TARGET,
+    CONF_NOTIFICATIONS_ENABLED,
     DAY_END_WEEKEND_FALLBACK,
     DAY_END_WEEK_FALLBACK,
     DAY_START_WEEKEND_FALLBACK,
@@ -118,6 +120,11 @@ NOTIFICATIONS: dict[str, dict[str, str]] = {
         "heated above their target (+{bonus} °C).",
         "window_open": "A window is open in {room}: its splits are stopped "
         "until it is closed.",
+        "heating_start": "Heating started — source: {source}, target "
+        "{target} °C (outdoor {outdoor} °C).",
+        "heating_stop": "Heating stopped.",
+        "source_heat_pump": "heat pump (splits)",
+        "source_boiler": "boiler",
     },
     "fr": {
         "away_start": "Mode absence activé. Retour prévu : {when}.",
@@ -130,6 +137,11 @@ NOTIFICATIONS: dict[str, dict[str, str]] = {
         "splits sont chauffées au-dessus de leur consigne (+{bonus} °C).",
         "window_open": "Une fenêtre est ouverte dans {room} : ses splits sont "
         "arrêtés jusqu'à sa fermeture.",
+        "heating_start": "Chauffage enclenché — source : {source}, consigne "
+        "{target} °C (extérieur {outdoor} °C).",
+        "heating_stop": "Chauffage arrêté.",
+        "source_heat_pump": "pompe à chaleur (splits)",
+        "source_boiler": "chaudière",
     },
 }
 
@@ -209,6 +221,11 @@ def settings_from_config(config: Mapping[str, Any]) -> Settings:
         split_fan_oscillating=bool(
             config.get(CONF_SPLIT_FAN_OSCILLATING, SETTING_DEFAULTS[CONF_SPLIT_FAN_OSCILLATING])
         ),
+        notifications_enabled=bool(
+            config.get(
+                CONF_NOTIFICATIONS_ENABLED, SETTING_DEFAULTS[CONF_NOTIFICATIONS_ENABLED]
+            )
+        ),
     )
 
 
@@ -260,6 +277,7 @@ class HeatController:
         self._cancel: list[Callable] = []
         self._first_run = True
         self._away_last = shared.away_mode  # no away notification on startup
+        self._heating_last: Optional[bool] = None  # no heating notification on startup
         # Learned heating rates: persisted store + forecast cache.
         self._store = None  # created in async_start (needs a real hass)
         self._forecast_temp: Optional[float] = None
@@ -379,6 +397,7 @@ class HeatController:
                 shared.set_decision(None)
             if shared.house is not None:
                 shared.set_house(None)
+            self._heating_last = None
             return
 
         # Away mode start/end notifications (whatever triggered them).
@@ -409,6 +428,7 @@ class HeatController:
                 shared.set_decision(None)
             if shared.house is not None:
                 shared.set_house(None)
+            self._heating_last = None
             return
 
         await self._update_rooms(return_passed)
@@ -640,6 +660,19 @@ class HeatController:
         shared.set_demand(decision.heating_needed)
         shared.set_preheating(any_preheating)
 
+        if self._heating_last is not None and decision.heating_needed != self._heating_last:
+            if decision.heating_needed:
+                outdoor = _as_float(self.hass.states.get(self.outdoor_sensor))
+                await self._notify(
+                    "heating_start",
+                    source=self._source_label(decision.should_use_heat_pump),
+                    target=f"{decision.target_setpoint:g}",
+                    outdoor=f"{outdoor:g}" if outdoor is not None else "?",
+                )
+            else:
+                await self._notify("heating_stop")
+        self._heating_last = decision.heating_needed
+
         boiler_heating = self._boiler_heating()
         update_room_states(house, self.room_states, boiler_heating)
 
@@ -759,19 +792,36 @@ class HeatController:
                 break
         return self._forecast_temp
 
+    def _notification_catalog(self) -> dict[str, str]:
+        """Notification messages in the configured language."""
+        language = str(getattr(self.hass.config, "language", "en") or "en")
+        return NOTIFICATIONS.get("fr" if language.startswith("fr") else "en")
+
+    def _source_label(self, heat_pump: bool) -> str:
+        """Localized name of a heat source."""
+        catalog = self._notification_catalog()
+        return catalog["source_heat_pump" if heat_pump else "source_boiler"]
+
     async def _notify(self, key: str, **kwargs: Any) -> None:
         """Send a notification through the configured notify service."""
+        if not self.settings.notifications_enabled:
+            return
         service = str(self.config.get(CONF_NOTIFY_SERVICE, "") or "")
         if not service:
             return
-        language = str(getattr(self.hass.config, "language", "en") or "en")
-        catalog = NOTIFICATIONS.get("fr" if language.startswith("fr") else "en")
-        message = catalog[key].format(**kwargs)
+        message = self._notification_catalog()[key].format(**kwargs)
+        payload: dict[str, Any] = {
+            "title": NOTIFICATION_TITLE,
+            "message": message,
+        }
+        target = str(self.config.get(CONF_NOTIFY_TARGET, "") or "")
+        if target:
+            payload["target"] = {ATTR_ENTITY_ID: target}
         try:
             await self.hass.services.async_call(
                 "notify",
                 service.removeprefix("notify."),
-                {"title": NOTIFICATION_TITLE, "message": message},
+                payload,
                 blocking=True,
             )
         except Exception:  # noqa: BLE001 - missing service or entity

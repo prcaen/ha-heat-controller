@@ -45,7 +45,9 @@
           "initial_preheat_minutes": "Pre-heating duration before a rate is learned (min)",
           "max_preheat_minutes": "Maximum pre-heating duration (min)",
           "weather_entity": "Weather entity (forecast, optional)",
-          "notify_service": "Notification service (optional, e.g. notify.mobile_app_phone)"
+          "notify_service": "Notification service (optional, e.g. notify.mobile_app_phone or send_message)",
+          "notify_target": "Notification target (optional, used by notify.send_message, e.g. notify.pierrick_phone)",
+          "notifications_enabled": "Enable notifications"
         }
       }
     },
@@ -96,7 +98,9 @@
           "initial_preheat_minutes": "Pre-heating duration before a rate is learned (min)",
           "max_preheat_minutes": "Maximum pre-heating duration (min)",
           "weather_entity": "Weather entity (forecast, optional)",
-          "notify_service": "Notification service (optional, e.g. notify.mobile_app_phone)"
+          "notify_service": "Notification service (optional, e.g. notify.mobile_app_phone or send_message)",
+          "notify_target": "Notification target (optional, used by notify.send_message, e.g. notify.pierrick_phone)",
+          "notifications_enabled": "Enable notifications"
         }
       }
     },
@@ -120,6 +124,9 @@
       },
       "split_fan_oscillating": {
         "name": "Split fan oscillation"
+      },
+      "notifications_enabled": {
+        "name": "Notifications"
       }
     },
     "climate": {
