@@ -45,7 +45,9 @@
           "initial_preheat_minutes": "Durée de préchauffe avant qu'une vitesse soit apprise (min)",
           "max_preheat_minutes": "Durée maximale de préchauffe (min)",
           "weather_entity": "Entité météo (prévisions, optionnel)",
-          "notify_service": "Service de notification (optionnel, ex. notify.mobile_app_telephone)"
+          "notify_service": "Service de notification (optionnel, ex. notify.mobile_app_telephone ou send_message)",
+          "notify_target": "Cible de notification (optionnel, pour notify.send_message, ex. notify.pierrick_phone)",
+          "notifications_enabled": "Activer les notifications"
         }
       }
     },
@@ -96,7 +98,9 @@
           "initial_preheat_minutes": "Durée de préchauffe avant qu'une vitesse soit apprise (min)",
           "max_preheat_minutes": "Durée maximale de préchauffe (min)",
           "weather_entity": "Entité météo (prévisions, optionnel)",
-          "notify_service": "Service de notification (optionnel, ex. notify.mobile_app_telephone)"
+          "notify_service": "Service de notification (optionnel, ex. notify.mobile_app_telephone ou send_message)",
+          "notify_target": "Cible de notification (optionnel, pour notify.send_message, ex. notify.pierrick_phone)",
+          "notifications_enabled": "Activer les notifications"
         }
       }
     },
@@ -120,6 +124,9 @@
       },
       "split_fan_oscillating": {
         "name": "Oscillation du ventilateur des splits"
+      },
+      "notifications_enabled": {
+        "name": "Notifications"
       }
     },
     "climate": {

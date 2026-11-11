@@ -115,6 +115,7 @@ class Settings:
     min_cycle_minutes: float = 5.0
     initial_preheat_minutes: float = 60.0
     max_preheat_minutes: float = 180.0
+    notifications_enabled: bool = True
 
 
 @dataclass(frozen=True)

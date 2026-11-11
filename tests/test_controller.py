@@ -183,6 +183,7 @@ class TestSettingsFromConfig(unittest.TestCase):
         self.assertEqual(settings.day_end_week.total_seconds(), 22 * 3600)
         self.assertEqual(settings.day_start_weekend.total_seconds(), 7 * 3600)
         self.assertEqual(settings.day_end_weekend.total_seconds(), 22 * 3600)
+        self.assertTrue(settings.notifications_enabled)
 
     def test_overrides_and_fallbacks(self):
         settings = settings_from_config(
@@ -879,15 +880,21 @@ class TestHybridRooms(unittest.IsolatedAsyncioTestCase):
         shared.set_away_mode(True)
         shared.set_away_until(dt_util.now() + timedelta(hours=8))
         await controller._update_locked()
-        self.assertEqual(len(notify_calls()), 2)
-        self.assertIn("Planned return", notify_calls()[1][2]["message"])
+        away_calls = [
+            c for c in notify_calls() if "Away mode" in c[2]["message"]
+        ]
+        self.assertEqual(len(away_calls), 1)
+        self.assertIn("Planned return", away_calls[0][2]["message"])
 
         # Away mode ends: another one.
         shared.set_away_mode(False)
         shared.set_away_until(None)
         await controller._update_locked()
-        self.assertEqual(len(notify_calls()), 3)
-        self.assertIn("ended", notify_calls()[2][2]["message"])
+        away_calls = [
+            c for c in notify_calls() if "Away mode" in c[2]["message"]
+        ]
+        self.assertEqual(len(away_calls), 2)
+        self.assertIn("ended", away_calls[1][2]["message"])
 
     async def test_no_notification_without_a_configured_service(self):
         controller, shared, services, states = build(
@@ -900,6 +907,98 @@ class TestHybridRooms(unittest.IsolatedAsyncioTestCase):
         shared.set_away_mode(False)
         await controller._update_locked()
         self.assertFalse(any(call[0] == "notify" for call in services.calls))
+
+    async def test_heating_start_stop_notification_with_source_and_target(self):
+        controller, shared, services, states = build(
+            {
+                "notify_service": "send_message",
+                "notify_target": "notify.pierrick_phone",
+            },
+            subentries=self.rooms_subentries(),
+        )
+        self.seed_room_states(states)
+        states.set("sensor.salon_temp", "19.5")  # at target: no heating yet
+        await controller._update_locked()
+        self.assertFalse(shared.decision.heating_needed)
+        # First pass: no notification (no transition known yet).
+        self.assertFalse(any(call[0] == "notify" for call in services.calls))
+
+        # The salon cools down: the splits start, one notification.
+        states.set("sensor.salon_temp", "17.0")
+        await controller._update_locked()
+        self.assertTrue(shared.decision.heating_needed)
+        notify_calls = [call for call in services.calls if call[0] == "notify"]
+        self.assertEqual(len(notify_calls), 1)
+        domain, service, payload = notify_calls[0]
+        self.assertEqual(service, "send_message")
+        self.assertEqual(payload["target"], {"entity_id": "notify.pierrick_phone"})
+        self.assertIn("Heating started", payload["message"])
+        self.assertIn("heat pump (splits)", payload["message"])
+        self.assertIn("19.5", payload["message"])
+
+        # Still heating on the next pass: no repeated notification.
+        await controller._update_locked()
+        notify_calls = [call for call in services.calls if call[0] == "notify"]
+        self.assertEqual(len(notify_calls), 1)
+
+        # The salon is back at target (past the minimum run time): stop.
+        states.set("sensor.salon_temp", "20.0")
+        controller.room_states["salon"].last_change = dt_util.now() - timedelta(minutes=6)
+        await controller._update_locked()
+        self.assertFalse(shared.decision.heating_needed)
+        notify_calls = [call for call in services.calls if call[0] == "notify"]
+        self.assertEqual(len(notify_calls), 2)
+        self.assertIn("Heating stopped", notify_calls[1][2]["message"])
+
+    async def test_heating_start_notification_reports_the_boiler_source(self):
+        controller, shared, services, states = build(
+            {"notify_service": "notify.mobile_app_phone"},
+            outdoor="-2.0",  # too cold for the splits: the boiler heats
+            subentries=self.rooms_subentries(),
+        )
+        self.seed_room_states(states)
+        states.set("sensor.cuisine_temp", "19.5")  # no demand yet
+        await controller._update_locked()
+        self.assertFalse(any(call[0] == "notify" for call in services.calls))
+
+        states.set("sensor.cuisine_temp", "18.0")  # trigger room cold
+        await controller._update_locked()
+        self.assertTrue(shared.decision.heating_needed)
+        notify_calls = [call for call in services.calls if call[0] == "notify"]
+        self.assertEqual(len(notify_calls), 1)
+        self.assertIn("Heating started", notify_calls[0][2]["message"])
+        self.assertIn("boiler", notify_calls[0][2]["message"])
+        self.assertNotIn("heat pump", notify_calls[0][2]["message"])
+
+    async def test_notifications_disabled_by_setting(self):
+        controller, shared, services, states = build(
+            {
+                "notify_service": "send_message",
+                "notify_target": "notify.pierrick_phone",
+                "notifications_enabled": False,
+            },
+            subentries=self.rooms_subentries(),
+        )
+        self.seed_room_states(states)
+        states.set("sensor.salon_temp", "19.5")
+        await controller._update_locked()
+        states.set("sensor.salon_temp", "17.0")
+        await controller._update_locked()
+        states.set("sensor.salon_temp", "20.0")
+        controller.room_states["salon"].last_change = dt_util.now() - timedelta(minutes=6)
+        await controller._update_locked()
+        shared.set_away_mode(True)
+        await controller._update_locked()
+        self.assertFalse(any(call[0] == "notify" for call in services.calls))
+
+    def test_source_labels_follow_the_configured_language(self):
+        controller, shared, services, states = build()
+        controller.hass.config.language = "fr"
+        self.assertEqual(controller._source_label(True), "pompe à chaleur (splits)")
+        self.assertEqual(controller._source_label(False), "chaudière")
+        controller.hass.config.language = "en"
+        self.assertEqual(controller._source_label(True), "heat pump (splits)")
+        self.assertEqual(controller._source_label(False), "boiler")
 
 
 if __name__ == "__main__":

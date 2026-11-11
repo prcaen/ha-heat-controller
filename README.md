@@ -27,8 +27,11 @@ drives a soft overheating of the split rooms.
   observed sessions and persisted; the pre-heating before the day period
   and before a planned return is (target − current) / rate, adjusted
   with the weather forecast when a weather entity is configured.
-- **Notifications**: an optional notify service receives the away
-  start/end, the unresponsive splits and the boiler takeovers.
+- **Notifications**: an optional notify service (with an optional target,
+  e.g. `notify.send_message` with `notify.pierrick_phone`) receives the
+  heating start/stop with the active source and target, the away
+  start/end, the unresponsive splits and the boiler takeovers; a
+  "Notifications" setting disables them all.
 - **Settings on the dashboard**: every setpoint, threshold, delay and
   schedule is also exposed as a `number`, `time`, `select` or `switch`
   entity — adjust them from a dashboard; they are applied live and
@@ -186,8 +189,11 @@ The hybrid regulation:
   observed sessions and persisted; the pre-heating duration is
   (target − current) / rate, adjusted with the weather forecast when
   a weather entity is configured.
-- **Notifications**: an optional notify service receives the away
-  start/end, the unresponsive splits and the boiler takeovers.
+- **Notifications**: an optional notify service (with an optional target,
+  e.g. `notify.send_message` with `notify.pierrick_phone`) receives the
+  heating start/stop with the active source and target, the away
+  start/end, the unresponsive splits and the boiler takeovers; a
+  "Notifications" setting disables them all.
 
 Entries without rooms keep the original single-zone behaviour.
 

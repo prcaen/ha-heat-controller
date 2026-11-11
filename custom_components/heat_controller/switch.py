@@ -9,7 +9,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.restore_state import RestoreEntity
 
-from .const import SETTING_BOOLEANS
+from .const import CONF_NOTIFICATIONS_ENABLED, SETTING_BOOLEANS
 from .controller import HeatController
 from .entity import HeatControllerEntity, HeatSettingEntity
 from .state import HeatState
@@ -113,6 +113,8 @@ class HeatSettingSwitch(HeatSettingEntity, SwitchEntity):
     ) -> None:
         super().__init__(entry, shared, controller, key)
         self._attr_translation_key = key
+        if key == CONF_NOTIFICATIONS_ENABLED:
+            self._attr_icon = "mdi:bell-outline"
 
     @property
     def is_on(self) -> bool:
