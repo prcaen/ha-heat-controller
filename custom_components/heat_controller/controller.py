@@ -120,9 +120,9 @@ NOTIFICATIONS: dict[str, dict[str, str]] = {
         "heated above their target (+{bonus} °C).",
         "window_open": "A window is open in {room}: its splits are stopped "
         "until it is closed.",
-        "heating_start": "Heating started — source: {source}, target "
-        "{target} °C (outdoor {outdoor} °C).",
-        "heating_stop": "Heating stopped.",
+        "heating_start": "Heating started in {rooms} — source: {source}, "
+        "target {target} °C (outdoor {outdoor} °C).",
+        "heating_stop": "Heating stopped in {rooms}.",
         "source_heat_pump": "heat pump (splits)",
         "source_boiler": "boiler",
     },
@@ -137,9 +137,9 @@ NOTIFICATIONS: dict[str, dict[str, str]] = {
         "splits sont chauffées au-dessus de leur consigne (+{bonus} °C).",
         "window_open": "Une fenêtre est ouverte dans {room} : ses splits sont "
         "arrêtés jusqu'à sa fermeture.",
-        "heating_start": "Chauffage enclenché — source : {source}, consigne "
-        "{target} °C (extérieur {outdoor} °C).",
-        "heating_stop": "Chauffage arrêté.",
+        "heating_start": "Chauffage enclenché dans {rooms} — source : {source}, "
+        "consigne {target} °C (extérieur {outdoor} °C).",
+        "heating_stop": "Chauffage arrêté dans {rooms}.",
         "source_heat_pump": "pompe à chaleur (splits)",
         "source_boiler": "chaudière",
     },
@@ -278,6 +278,7 @@ class HeatController:
         self._first_run = True
         self._away_last = shared.away_mode  # no away notification on startup
         self._heating_last: Optional[bool] = None  # no heating notification on startup
+        self._heating_rooms: list[str] = []  # rooms of the last heating pass (stop notification)
         # Learned heating rates: persisted store + forecast cache.
         self._store = None  # created in async_start (needs a real hass)
         self._forecast_temp: Optional[float] = None
@@ -660,18 +661,21 @@ class HeatController:
         shared.set_demand(decision.heating_needed)
         shared.set_preheating(any_preheating)
 
+        heating_rooms = self._heating_room_names(house) if decision.heating_needed else []
         if self._heating_last is not None and decision.heating_needed != self._heating_last:
             if decision.heating_needed:
                 outdoor = _as_float(self.hass.states.get(self.outdoor_sensor))
                 await self._notify(
                     "heating_start",
+                    rooms=", ".join(heating_rooms),
                     source=self._source_label(decision.should_use_heat_pump),
                     target=f"{decision.target_setpoint:g}",
                     outdoor=f"{outdoor:g}" if outdoor is not None else "?",
                 )
             else:
-                await self._notify("heating_stop")
+                await self._notify("heating_stop", rooms=", ".join(self._heating_rooms))
         self._heating_last = decision.heating_needed
+        self._heating_rooms = heating_rooms
 
         boiler_heating = self._boiler_heating()
         update_room_states(house, self.room_states, boiler_heating)
@@ -801,6 +805,29 @@ class HeatController:
         """Localized name of a heat source."""
         catalog = self._notification_catalog()
         return catalog["source_heat_pump" if heat_pump else "source_boiler"]
+
+    def _heating_room_names(self, house: HouseDecision) -> list[str]:
+        """Names of the rooms heated by this decision (splits, boiler or frost)."""
+        names = {room.id: room.name for room in self.rooms}
+        ids: list[str] = []
+        for room_decision in house.rooms:
+            if (
+                room_decision.want_splits
+                or room_decision.boiler_trigger_cold
+                or (
+                    room_decision.temp is not None
+                    and room_decision.temp <= self.settings.frost_setpoint
+                )
+            ):
+                ids.append(room_decision.room_id)
+        ids.extend(
+            room_id for room_id, state in self.room_states.items() if state.fallback
+        )
+        if not ids:
+            thermostat = self.thermostat_room()
+            if thermostat is not None:
+                ids.append(thermostat.id)
+        return [names[room_id] for room_id in dict.fromkeys(ids) if room_id in names]
 
     async def _notify(self, key: str, **kwargs: Any) -> None:
         """Send a notification through the configured notify service."""

@@ -29,7 +29,8 @@ drives a soft overheating of the split rooms.
   with the weather forecast when a weather entity is configured.
 - **Notifications**: an optional notify service (with an optional target,
   e.g. `notify.send_message` with `notify.pierrick_phone`) receives the
-  heating start/stop with the active source and target, the away
+  heating start/stop with the heated rooms, the active source and
+  target, the away
   start/end, the unresponsive splits and the boiler takeovers; a
   "Notifications" setting disables them all.
 - **Settings on the dashboard**: every setpoint, threshold, delay and
@@ -191,7 +192,8 @@ The hybrid regulation:
   a weather entity is configured.
 - **Notifications**: an optional notify service (with an optional target,
   e.g. `notify.send_message` with `notify.pierrick_phone`) receives the
-  heating start/stop with the active source and target, the away
+  heating start/stop with the heated rooms, the active source and
+  target, the away
   start/end, the unresponsive splits and the boiler takeovers; a
   "Notifications" setting disables them all.
 

@@ -933,6 +933,7 @@ class TestHybridRooms(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(service, "send_message")
         self.assertEqual(payload["target"], {"entity_id": "notify.pierrick_phone"})
         self.assertIn("Heating started", payload["message"])
+        self.assertIn("Salon", payload["message"])  # the heated room
         self.assertIn("heat pump (splits)", payload["message"])
         self.assertIn("19.5", payload["message"])
 
@@ -949,6 +950,7 @@ class TestHybridRooms(unittest.IsolatedAsyncioTestCase):
         notify_calls = [call for call in services.calls if call[0] == "notify"]
         self.assertEqual(len(notify_calls), 2)
         self.assertIn("Heating stopped", notify_calls[1][2]["message"])
+        self.assertIn("Salon", notify_calls[1][2]["message"])
 
     async def test_heating_start_notification_reports_the_boiler_source(self):
         controller, shared, services, states = build(
@@ -967,6 +969,7 @@ class TestHybridRooms(unittest.IsolatedAsyncioTestCase):
         notify_calls = [call for call in services.calls if call[0] == "notify"]
         self.assertEqual(len(notify_calls), 1)
         self.assertIn("Heating started", notify_calls[0][2]["message"])
+        self.assertIn("Cuisine", notify_calls[0][2]["message"])  # the trigger room
         self.assertIn("boiler", notify_calls[0][2]["message"])
         self.assertNotIn("heat pump", notify_calls[0][2]["message"])
 
