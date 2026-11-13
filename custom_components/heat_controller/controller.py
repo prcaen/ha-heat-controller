@@ -841,15 +841,16 @@ class HeatController:
             "title": NOTIFICATION_TITLE,
             "message": message,
         }
+        call_kwargs: dict[str, Any] = {"blocking": True}
         target = str(self.config.get(CONF_NOTIFY_TARGET, "") or "")
         if target:
-            payload["target"] = {ATTR_ENTITY_ID: target}
+            call_kwargs["target"] = {ATTR_ENTITY_ID: target}
         try:
             await self.hass.services.async_call(
                 "notify",
                 service.removeprefix("notify."),
                 payload,
-                blocking=True,
+                **call_kwargs,
             )
         except Exception:  # noqa: BLE001 - missing service or entity
             _LOGGER.warning("Could not send the %s notification", key, exc_info=True)
