@@ -69,7 +69,7 @@ class FakeServices:
         self.calls = []
         self._states = states
 
-    async def async_call(self, domain, service, data, blocking=True):
+    async def async_call(self, domain, service, data, blocking=True, target=None):
         self.calls.append((domain, service, dict(data)))
         if domain == "notify":
             return

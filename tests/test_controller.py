@@ -62,7 +62,7 @@ class FakeServices:
     """Minimal stand-in for hass.services, recording the calls."""
 
     def __init__(self, states: FakeStates) -> None:
-        self.calls: list[tuple[str, str, dict]] = []
+        self.calls: list[tuple[str, str, dict, dict | None]] = []
         self._states = states
         # Switches in this set accept switch.turn_on but never switch on,
         # like a relay that ignores the command.
@@ -72,8 +72,8 @@ class FakeServices:
         # unpowered).
         self.power_restores: dict[str, str] = {}
 
-    async def async_call(self, domain, service, data, blocking=True) -> None:
-        self.calls.append((domain, service, dict(data)))
+    async def async_call(self, domain, service, data, blocking=True, target=None) -> None:
+        self.calls.append((domain, service, dict(data), target))
         if domain == "notify":
             return  # notifications have no entity_id
         entity_id = data["entity_id"]
@@ -929,9 +929,10 @@ class TestHybridRooms(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(shared.decision.heating_needed)
         notify_calls = [call for call in services.calls if call[0] == "notify"]
         self.assertEqual(len(notify_calls), 1)
-        domain, service, payload = notify_calls[0]
+        domain, service, payload, target = notify_calls[0]
         self.assertEqual(service, "send_message")
-        self.assertEqual(payload["target"], {"entity_id": "notify.pierrick_phone"})
+        self.assertNotIn("target", payload)
+        self.assertEqual(target, {"entity_id": "notify.pierrick_phone"})
         self.assertIn("Heating started", payload["message"])
         self.assertIn("Salon", payload["message"])  # the heated room
         self.assertIn("heat pump (splits)", payload["message"])
@@ -972,6 +973,35 @@ class TestHybridRooms(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Cuisine", notify_calls[0][2]["message"])  # the trigger room
         self.assertIn("boiler", notify_calls[0][2]["message"])
         self.assertNotIn("heat pump", notify_calls[0][2]["message"])
+
+    async def test_notify_target_is_passed_as_the_call_target(self):
+        """Regression: a "target" key inside the service data is rejected by
+        the notify.send_message schema; the target must be the call target."""
+        import voluptuous as vol
+        from homeassistant.helpers import config_validation as cv
+
+        controller, shared, services, states = build(
+            {
+                "notify_service": "send_message",
+                "notify_target": "notify.pierrick_phone",
+            },
+            subentries=self.rooms_subentries(),
+        )
+        self.seed_room_states(states)
+        shared.set_away_mode(True)
+        shared.set_away_until(dt_util.now() + timedelta(hours=8))
+        await controller._update_locked()
+        notify_calls = [call for call in services.calls if call[0] == "notify"]
+        self.assertEqual(len(notify_calls), 1)
+        _, service, data, target = notify_calls[0]
+        self.assertEqual(service, "send_message")
+        self.assertNotIn("target", data)
+        self.assertEqual(target, {"entity_id": "notify.pierrick_phone"})
+        # What the service registry validates: data + target merged.
+        send_message_schema = cv.make_entity_service_schema(
+            {vol.Required("message"): cv.string, vol.Optional("title"): cv.string}
+        )
+        send_message_schema({**data, **(target or {})})
 
     async def test_notifications_disabled_by_setting(self):
         controller, shared, services, states = build(
