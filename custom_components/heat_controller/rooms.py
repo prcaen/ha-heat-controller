@@ -2,8 +2,10 @@
 
 A room is described by a config sub-entry (`SUBENTRY_ROOM`): name, room
 temperature sensor, day target (or the room it follows), whether it may
-request the boiler, whether the boiler thermostat lives in it, and the
-splits that heat it (power switches, climate entities, fans).
+request the boiler, whether the boiler thermostat lives in it, the
+splits that heat it (power switches, climate entities, fans) and,
+optionally, the compressor (`SUBENTRY_COMPRESSOR`) its splits are
+connected to.
 
 This module is voluntarily independent of Home Assistant: the room
 configuration is built from duck-typed sub-entries so the decision logic
@@ -14,10 +16,11 @@ in `rooms_logic`.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Mapping, Optional
+from typing import AbstractSet, Any, Mapping, Optional
 
 from .const import (
     CONF_ROOM_CLIMATES,
+    CONF_ROOM_COMPRESSOR,
     CONF_ROOM_FANS,
     CONF_ROOM_FAN_PRESET,
     CONF_ROOM_FOLLOW_ROOM,
@@ -30,6 +33,7 @@ from .const import (
     CONF_ROOM_WINDOW_SENSORS,
     ROOM_FAN_PRESET_INHERIT,
     SPLIT_FAN_PRESET_OPTIONS,
+    SUBENTRY_COMPRESSOR,
     SUBENTRY_ROOM,
 )
 
@@ -50,6 +54,9 @@ class RoomConfig:
     fan_preset: str = ROOM_FAN_PRESET_INHERIT  # per-room override, "inherit" = global
     preheat_with_splits: bool = False  # the PAC (splits) may pre-heat this room
     window_sensors: tuple[str, ...] = field(default_factory=tuple)  # open = on
+    # The compressor (outdoor unit) the room's splits are connected to: the
+    # rooms sharing a compressor join a running cycle (see rooms_logic).
+    compressor: Optional[str] = None
 
     @property
     def has_splits(self) -> bool:
@@ -92,12 +99,22 @@ def _fan_preset(value: Any) -> str:
     return ROOM_FAN_PRESET_INHERIT
 
 
-def room_from_subentry(subentry: Any) -> Optional[RoomConfig]:
-    """Build a room from a config sub-entry (None if malformed)."""
+def room_from_subentry(
+    subentry: Any, compressors: Optional[AbstractSet[str]] = None
+) -> Optional[RoomConfig]:
+    """Build a room from a config sub-entry (None if malformed).
+
+    `compressors` is the set of the configured compressor sub-entry ids:
+    a stored compressor reference that no longer exists (deleted sub-entry)
+    is dropped.
+    """
     data: Mapping[str, Any] = getattr(subentry, "data", None) or {}
     sensor = str(data.get(CONF_ROOM_TEMP_SENSOR) or "")
     if not sensor:
         return None
+    compressor = data.get(CONF_ROOM_COMPRESSOR)
+    if compressor and compressors is not None and str(compressor) not in compressors:
+        compressor = None
     return RoomConfig(
         id=str(getattr(subentry, "subentry_id", "")),
         name=str(data.get(CONF_ROOM_NAME) or getattr(subentry, "title", "") or ""),
@@ -111,16 +128,23 @@ def room_from_subentry(subentry: Any) -> Optional[RoomConfig]:
         fan_preset=_fan_preset(data.get(CONF_ROOM_FAN_PRESET)),
         preheat_with_splits=bool(data.get(CONF_ROOM_PREHEAT_WITH_SPLITS, False)),
         window_sensors=_entities(data.get(CONF_ROOM_WINDOW_SENSORS)),
+        compressor=(str(compressor) if compressor else None),
     )
 
 
 def rooms_from_subentries(subentries: Any) -> list[RoomConfig]:
     """All the room sub-entries of a config entry, in a stable order."""
+    subs = subentries or {}
+    compressor_ids = {
+        str(subentry_id)
+        for subentry_id, subentry in subs.items()
+        if getattr(subentry, "subentry_type", None) == SUBENTRY_COMPRESSOR
+    }
     rooms = []
-    for subentry in (subentries or {}).values():
+    for subentry in subs.values():
         if getattr(subentry, "subentry_type", None) != SUBENTRY_ROOM:
             continue
-        room = room_from_subentry(subentry)
+        room = room_from_subentry(subentry, compressor_ids)
         if room is not None:
             rooms.append(room)
     return rooms
@@ -143,6 +167,7 @@ def rooms_signature(rooms: list[RoomConfig]) -> tuple:
             room.fan_preset,
             room.preheat_with_splits,
             room.window_sensors,
+            room.compressor,
         )
         for room in rooms
     )

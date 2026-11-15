@@ -153,6 +153,18 @@ the room flagged as thermostat
 room drives the boiler and the thermostat card (the first room if
 none is flagged).
 
+**Compressors** (outdoor units) are declared on the integration page
+(« Add compressor »), and each room with splits can pick the compressor
+its splits are connected to. On a multi-split, the compressor of several
+rooms is one: while it already runs for a requesting room, another room
+of the same compressor whose temperature sits in the hysteresis band
+joins the cycle instead of starting its own right after — it is only
+**held** (its splits aim at its current temperature, not at the target)
+and it stops with the requesting room. A room with an open window, a
+manual override or no usable sensor never joins, and the minimum
+run/stop time still applies. This only happens while the splits are
+allowed (mild day, day period or PAC pre-heating).
+
 A room **without** splits can automatically request the boiler on mild
 days (the boiler is its only heat source); a room **with** splits
 cannot — it falls back to the boiler only through the automatic stall

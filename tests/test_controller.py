@@ -119,9 +119,11 @@ BASE_DATA = {
 class FakeSubentry:
     """Minimal stand-in for a config sub-entry."""
 
-    def __init__(self, subentry_id: str, title: str, data: dict) -> None:
+    def __init__(
+        self, subentry_id: str, title: str, data: dict, subentry_type: str = "room"
+    ) -> None:
         self.subentry_id = subentry_id
-        self.subentry_type = "room"
+        self.subentry_type = subentry_type
         self.title = title
         self.data = data
 
@@ -355,6 +357,66 @@ class TestHybridRooms(unittest.IsolatedAsyncioTestCase):
         )
         # Accessory fans follow the splits mode.
         self.assertIn(("fan", "turn_on", "fan.acc", None, None), calls)
+
+    async def test_compressor_cooperation_holds_the_in_band_room(self):
+        """Two rooms on one compressor: the in-band room joins, held, and
+        stops with the requester; its split aims at its temperature."""
+        subentries = {
+            "pac": FakeSubentry(
+                "pac", "PAC chambres", {"name": "PAC chambres"},
+                subentry_type="compressor",
+            ),
+            "c1": FakeSubentry("c1", "Chambre 1", {
+                "name": "Chambre 1",
+                "temperature_sensor": "sensor.c1_temp",
+                "target": 19.0,
+                "switches": ["switch.c1"],
+                "climates": ["climate.c1"],
+                "compressor": "pac",
+            }),
+            "c2": FakeSubentry("c2", "Chambre 2", {
+                "name": "Chambre 2",
+                "temperature_sensor": "sensor.c2_temp",
+                "target": 19.0,
+                "switches": ["switch.c2"],
+                "climates": ["climate.c2"],
+                "compressor": "pac",
+            }),
+        }
+        controller, shared, services, states = build(
+            entry_data={"min_cycle_minutes": 0},
+            subentries=subentries,
+        )
+        states.set("sensor.c1_temp", "18.0")  # cold: requests heat
+        states.set("sensor.c2_temp", "18.8")  # in the hysteresis band [18.7, 19.0)
+        states.set("switch.c1", "off")
+        states.set("switch.c2", "off")
+        states.set("climate.c1", "off", dict(CLIMATE_ATTRIBUTES))
+        states.set("climate.c2", "off", {**CLIMATE_ATTRIBUTES, "target_temp_step": 0.1})
+        await controller._update_locked()
+        house = shared.house
+        self.assertTrue(house.room("c1").want_splits)
+        self.assertFalse(house.room("c1").cooperative)
+        self.assertTrue(house.room("c2").want_splits)
+        self.assertTrue(house.room("c2").cooperative)
+        calls = summarise(services)
+        self.assertIn(("switch", "turn_on", "switch.c1", None, None), calls)
+        self.assertIn(("switch", "turn_on", "switch.c2", None, None), calls)
+        # Requester: setpoint = target + offset (19 + 2 = 21.5); the held
+        # room aims at its current temperature + offset (18.8 + 2 = 20.8).
+        self.assertIn(("climate", "set_temperature", "climate.c1", None, 21.5), calls)
+        self.assertIn(("climate", "set_temperature", "climate.c2", None, 20.8), calls)
+
+        # Next pass: c1 reached its target, the held room stops with it.
+        services.calls.clear()
+        states.set("sensor.c1_temp", "19.0")
+        await controller._update_locked()
+        self.assertFalse(shared.house.room("c1").want_splits)
+        self.assertFalse(shared.house.room("c2").want_splits)
+        self.assertFalse(shared.house.room("c2").cooperative)
+        calls = summarise(services)
+        self.assertIn(("switch", "turn_off", "switch.c1", None, None), calls)
+        self.assertIn(("switch", "turn_off", "switch.c2", None, None), calls)
 
     async def test_room_fan_preset_overrides_the_global_one(self):
         subentries = self.rooms_subentries()

@@ -939,7 +939,12 @@ class HeatController:
             if climate_state is not None and climate_state.state != HVAC_HEAT:
                 await self._call("climate", "set_hvac_mode", clim, hvac_mode=HVAC_HEAT)
                 await asyncio.sleep(HVAC_MODE_DELAY_SECONDS)
-            setpoint = (decision.target or 0.0) + self.settings.split_offset
+            if decision.cooperative and decision.temp is not None:
+                # Held by the compressor group: aim at the current
+                # temperature, not at the target.
+                setpoint = decision.temp + self.settings.split_offset
+            else:
+                setpoint = (decision.target or 0.0) + self.settings.split_offset
             await self._push_setpoint(clim, setpoint)
 
         # Fan preset and oscillation are (re)applied on each start; the

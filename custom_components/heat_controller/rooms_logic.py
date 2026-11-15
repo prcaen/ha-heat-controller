@@ -15,6 +15,13 @@ boiler follows the thermostat room's target, raised to the demand
 setpoint while there is a demand. A room may opt in to pre-heat with
 its own splits (the PAC) during its pre-heating window; the other rooms
 keep the boiler pre-heating.
+
+Compressor cooperation (multi-split): the splits of several rooms may
+share one outdoor unit (compressor sub-entry). While the compressor
+already runs for a requesting room, another room of the same compressor
+whose temperature sits in the hysteresis band joins the cycle instead of
+starting its own right after: it is only held (its splits aim at its
+current temperature) and it stops with the requesting room.
 """
 
 from __future__ import annotations
@@ -82,6 +89,9 @@ class RoomState:
     window_was_open: bool = False  # previous pass (closing edge detection)
     window_closed_at: Optional[datetime] = None  # last closing instant
     window_notified: bool = False  # the cutoff notification was sent
+    # Held by the compressor group (previous cycle): the room runs only
+    # because another room of the same compressor is requesting heat.
+    cooperative: bool = False
 
 
 @dataclass(frozen=True)
@@ -147,6 +157,7 @@ class RoomDecision:
     source: str
     window_open: bool = False  # a window of the room is open
     window_blocked: bool = False  # the splits are blocked (open, or just closed)
+    cooperative: bool = False  # held by the compressor group (not a requester)
 
 
 @dataclass
@@ -389,6 +400,82 @@ def compute_house(
             )
         )
 
+    # Compressor cooperation (multi-split): the splits of several rooms
+    # may share one outdoor unit. While the compressor already runs for a
+    # requesting room, another room of the same compressor whose
+    # temperature sits in the hysteresis band joins the cycle instead of
+    # starting its own right after; a held room stops with the requesting
+    # room. Rooms with an open window, a manual override, no usable
+    # sensor or splits not allowed never join.
+    by_compressor: dict[str, list[RoomDecision]] = {}
+    for decision in decisions:
+        compressor = states[decision.room_id].config.compressor
+        if compressor:
+            by_compressor.setdefault(compressor, []).append(decision)
+    min_cycle = timedelta(minutes=settings.min_cycle_minutes)
+
+    def requests_heat(decision: RoomDecision) -> bool:
+        """A running room that is a genuine requester (not held)."""
+        if not decision.want_splits:
+            return False
+        if not states[decision.room_id].cooperative:
+            return True
+        # A held room that fell below the hysteresis band asks on its own.
+        return bool(
+            decision.temp is not None
+            and decision.target is not None
+            and decision.temp < decision.target - settings.hysteresis
+        )
+
+    for group in by_compressor.values():
+        requesting = any(requests_heat(d) for d in group)
+        for decision in group:
+            state = states[decision.room_id]
+            genuine_cold = bool(
+                decision.temp is not None
+                and decision.target is not None
+                and decision.temp < decision.target - settings.hysteresis
+            )
+            if requesting:
+                if decision.want_splits:
+                    # Still running: a held room stays held, unless it
+                    # fell below the band and requests on its own.
+                    decision.cooperative = bool(
+                        state.cooperative and not genuine_cold
+                    )
+                    continue
+                if not (
+                    decision.controllable
+                    and decision.splits_allowed
+                    and not decision.left_alone
+                    and not decision.window_blocked
+                    and decision.temp is not None
+                    and decision.target is not None
+                    and decision.target - settings.hysteresis
+                    <= decision.temp
+                    < decision.target
+                ):
+                    continue
+                if (
+                    state.last_change is not None
+                    and inputs.now - state.last_change < min_cycle
+                ):
+                    continue  # minimum run/stop time, like the regulation
+                decision.want_splits = True
+                decision.cooperative = True
+            elif state.cooperative and decision.want_splits:
+                # No demand left on this compressor: the held room stops
+                # with the requesting room, once the minimum run/stop
+                # time has passed.
+                if (
+                    state.last_change is not None
+                    and inputs.now - state.last_change < min_cycle
+                ):
+                    decision.cooperative = True  # kept on by the minimum cycle
+                    continue
+                decision.want_splits = False
+                decision.cooperative = False
+
     # Boiler demand: latched while any trigger room is too cold, released
     # only when all of them are back at their target — and only once the
     # demand debounce (the minimum run/stop time) has expired, so a
@@ -518,6 +605,7 @@ def update_room_states(
         state.mode = decision.mode
         state.target = decision.target
         state.want_splits = decision.want_splits
+        state.cooperative = decision.cooperative
         if decision.want_splits:
             state.source = SOURCE_SPLITS
         elif (
