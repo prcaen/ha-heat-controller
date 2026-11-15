@@ -240,6 +240,52 @@ class TestRooms(unittest.TestCase):
             [rooms.room_from_subentry(FakeSubentry("s1", "room", "Salon", changed_window))]
         )
         self.assertNotEqual(first, other_window)
+        # ...and so is the compressor.
+        changed_comp = dict(data, compressor="comp1")
+        other_comp = rooms.rooms_signature(
+            [rooms.room_from_subentry(FakeSubentry("s1", "room", "Salon", changed_comp))]
+        )
+        self.assertNotEqual(first, other_comp)
+
+    def test_room_compressor_parsed(self):
+        rooms = self.room_module()
+        subs = {
+            "comp1": FakeSubentry("comp1", "compressor", "PAC chambres", {"name": "PAC chambres"}),
+            "s1": FakeSubentry("s1", "room", "Chambre 1", {
+                "temperature_sensor": "sensor.c1",
+                "target": 19.0,
+                "switches": ["switch.c1"],
+                "climates": ["climate.c1"],
+                "compressor": "comp1",
+            }),
+        }
+        found = rooms.rooms_from_subentries(subs)
+        self.assertEqual(len(found), 1)
+        self.assertEqual(found[0].compressor, "comp1")
+
+    def test_room_compressor_defaults_to_none(self):
+        rooms = self.room_module()
+        room = rooms.room_from_subentry(
+            FakeSubentry("s1", "room", "Salon", {"temperature_sensor": "sensor.salon"})
+        )
+        self.assertIsNone(room.compressor)
+
+    def test_dangling_compressor_reference_is_dropped(self):
+        rooms = self.room_module()
+        # The compressor sub-entry was deleted but the room still refers
+        # to it: the reference is dropped (no cooperation group).
+        subs = {
+            "s1": FakeSubentry("s1", "room", "Chambre 1", {
+                "temperature_sensor": "sensor.c1",
+                "target": 19.0,
+                "compressor": "gone",
+            }),
+        }
+        found = rooms.rooms_from_subentries(subs)
+        self.assertIsNone(found[0].compressor)
+        # Without the compressor set, the stored value is kept as is.
+        direct = rooms.room_from_subentry(subs["s1"])
+        self.assertEqual(direct.compressor, "gone")
 
 
 if __name__ == "__main__":

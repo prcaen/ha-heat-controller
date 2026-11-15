@@ -33,6 +33,7 @@ from homeassistant.helpers.selector import (
 from .const import (
     CONF_ACCESSORY_FANS,
     CONF_BOILER_CLIMATE,
+    CONF_COMPRESSOR_NAME,
     CONF_CONSUMPTION_SENSOR,
     CONF_DAY_END_WEEK,
     CONF_DAY_END_WEEKEND,
@@ -47,6 +48,7 @@ from .const import (
     CONF_OUTDOOR_TEMP_SENSOR,
     CONF_PRODUCTION_SENSOR,
     CONF_ROOM_CLIMATES,
+    CONF_ROOM_COMPRESSOR,
     CONF_ROOM_FANS,
     CONF_ROOM_FAN_PRESET,
     CONF_ROOM_FOLLOW_ROOM,
@@ -68,6 +70,7 @@ from .const import (
     SETTING_SELECTS,
     SETTING_TEXTS,
     SETTING_TIMES,
+    SUBENTRY_COMPRESSOR,
     SUBENTRY_ROOM,
 )
 
@@ -158,12 +161,40 @@ def _devices_schema(data: dict[str, Any]) -> vol.Schema:
     )
 
 
-def _room_schema(other_rooms: list[tuple[str, str]], exclude_id: str | None = None) -> vol.Schema:
-    """Room sub-entry form; `other_rooms` are the followable rooms."""
+def _compressor_schema(data: dict[str, Any]) -> vol.Schema:
+    """Compressor sub-entry form: just a name."""
+    return vol.Schema(
+        {
+            vol.Required(
+                CONF_COMPRESSOR_NAME, default=data.get(CONF_COMPRESSOR_NAME)
+            ): TextSelector()
+        }
+    )
+
+
+def validate_compressor_input(user_input: dict[str, Any]) -> dict[str, str]:
+    """Validation errors of a compressor form, empty when valid."""
+    errors: dict[str, str] = {}
+    if not str(user_input.get(CONF_COMPRESSOR_NAME) or "").strip():
+        errors["base"] = "name_required"
+    return errors
+
+
+def _room_schema(
+    other_rooms: list[tuple[str, str]],
+    compressors: list[tuple[str, str]] | None = None,
+    exclude_id: str | None = None,
+) -> vol.Schema:
+    """Room sub-entry form; `other_rooms` are the followable rooms and
+    `compressors` the configured compressors (outdoor units)."""
     follow_options = [
         SelectOptionDict(value=sub_id, label=label)
         for sub_id, label in other_rooms
         if sub_id != exclude_id
+    ]
+    compressor_options = [
+        SelectOptionDict(value=sub_id, label=label)
+        for sub_id, label in (compressors or [])
     ]
     fields: dict[Any, Any] = {
         vol.Required(CONF_ROOM_NAME): TextSelector(),
@@ -177,6 +208,12 @@ def _room_schema(other_rooms: list[tuple[str, str]], exclude_id: str | None = No
     if follow_options:
         fields[vol.Optional(CONF_ROOM_FOLLOW_ROOM)] = SelectSelector(
             SelectSelectorConfig(options=follow_options, mode=SelectSelectorMode.DROPDOWN)
+        )
+    if compressor_options:
+        fields[vol.Optional(CONF_ROOM_COMPRESSOR)] = SelectSelector(
+            SelectSelectorConfig(
+                options=compressor_options, mode=SelectSelectorMode.DROPDOWN
+            )
         )
     fields.update(
         {
@@ -273,8 +310,11 @@ class HeatControllerConfigFlow(ConfigFlow, domain=DOMAIN):
     def async_get_supported_subentry_types(
         cls, config_entry
     ) -> dict[str, type[ConfigSubentryFlow]]:
-        """Rooms are configured as sub-entries of the entry."""
-        return {SUBENTRY_ROOM: RoomSubentryFlow}
+        """Rooms and compressors are configured as sub-entries of the entry."""
+        return {
+            SUBENTRY_ROOM: RoomSubentryFlow,
+            SUBENTRY_COMPRESSOR: CompressorSubentryFlow,
+        }
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         errors: dict[str, str] = {}
@@ -356,6 +396,47 @@ class HeatControllerOptionsFlow(OptionsFlow):
             data_schema=_settings_schema(self._data),
         )
 
+class CompressorSubentryFlow(ConfigSubentryFlow):
+    """Add or edit a compressor (outdoor unit) sub-entry."""
+
+    async def async_step_user(self, user_input: dict[str, Any] | None = None) -> SubentryFlowResult:
+        """Add a compressor."""
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            errors = validate_compressor_input(user_input)
+            if not errors:
+                return self.async_create_entry(
+                    title=user_input[CONF_COMPRESSOR_NAME], data=user_input
+                )
+        schema = _compressor_schema({})
+        if user_input is not None:
+            schema = self.add_suggested_values_to_schema(schema, user_input)
+        return self.async_show_form(step_id="user", data_schema=schema, errors=errors)
+
+    async def async_step_reconfigure(
+        self, user_input: dict[str, Any] | None = None
+    ) -> SubentryFlowResult:
+        """Edit a compressor."""
+        subentry = self._get_reconfigure_subentry()
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            errors = validate_compressor_input(user_input)
+            if not errors:
+                return self.async_update_and_abort(
+                    self._get_entry(),
+                    subentry,
+                    title=user_input[CONF_COMPRESSOR_NAME],
+                    data=user_input,
+                )
+        schema = _compressor_schema({})
+        schema = self.add_suggested_values_to_schema(
+            schema, user_input or dict(subentry.data)
+        )
+        return self.async_show_form(
+            step_id="reconfigure", data_schema=schema, errors=errors
+        )
+
+
 class RoomSubentryFlow(ConfigSubentryFlow):
     """Add or edit a room sub-entry."""
 
@@ -367,6 +448,14 @@ class RoomSubentryFlow(ConfigSubentryFlow):
             if subentry.subentry_type == SUBENTRY_ROOM
         ]
 
+    def _compressors(self) -> list[tuple[str, str]]:
+        entry = self._get_entry()
+        return [
+            (subentry_id, subentry.title)
+            for subentry_id, subentry in entry.subentries.items()
+            if subentry.subentry_type == SUBENTRY_COMPRESSOR
+        ]
+
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> SubentryFlowResult:
         """Add a room."""
         errors: dict[str, str] = {}
@@ -376,7 +465,7 @@ class RoomSubentryFlow(ConfigSubentryFlow):
                 return self.async_create_entry(
                     title=user_input[CONF_ROOM_NAME], data=user_input
                 )
-        schema = _room_schema(self._other_rooms())
+        schema = _room_schema(self._other_rooms(), self._compressors())
         if user_input is not None:
             schema = self.add_suggested_values_to_schema(schema, user_input)
         return self.async_show_form(step_id="user", data_schema=schema, errors=errors)
@@ -396,7 +485,11 @@ class RoomSubentryFlow(ConfigSubentryFlow):
                     title=user_input[CONF_ROOM_NAME],
                     data=user_input,
                 )
-        schema = _room_schema(self._other_rooms(), exclude_id=subentry.subentry_id)
+        schema = _room_schema(
+            self._other_rooms(),
+            self._compressors(),
+            exclude_id=subentry.subentry_id,
+        )
         schema = self.add_suggested_values_to_schema(
             schema, user_input or dict(subentry.data)
         )

@@ -20,10 +20,12 @@ from custom_components.heat_controller import config_flow
 from custom_components.heat_controller.const import (
     CONF_ACCESSORY_FANS,
     CONF_BOILER_CLIMATE,
+    CONF_COMPRESSOR_NAME,
     CONF_FROST_SETPOINT,
     CONF_IDLE_SETPOINT,
     CONF_OUTDOOR_THRESHOLD,
     CONF_ROOM_CLIMATES,
+    CONF_ROOM_COMPRESSOR,
     CONF_ROOM_FANS,
     CONF_ROOM_FAN_PRESET,
     CONF_ROOM_FOLLOW_ROOM,
@@ -259,6 +261,42 @@ class TestSchemas(unittest.TestCase):
             ["binary_sensor.fenetre_1", "binary_sensor.fenetre_2"],
         )
 
+    def test_room_schema_compressor_selector(self):
+        # Without a configured compressor, the field is absent.
+        keys = schema_keys(config_flow._room_schema([]))
+        self.assertNotIn(CONF_ROOM_COMPRESSOR, keys)
+        # With compressors, the field offers them and accepts one.
+        schema = config_flow._room_schema([], [("comp1", "PAC chambres")])
+        self.assertIn(CONF_ROOM_COMPRESSOR, schema_keys(schema))
+        base = {
+            CONF_ROOM_NAME: "Chambre 1",
+            CONF_ROOM_TEMP_SENSOR: "sensor.c1",
+            CONF_ROOM_TARGET: 19.0,
+        }
+        self.assertNotIn(CONF_ROOM_COMPRESSOR, schema(base))  # optional
+        self.assertEqual(
+            schema({**base, CONF_ROOM_COMPRESSOR: "comp1"})[CONF_ROOM_COMPRESSOR],
+            "comp1",
+        )
+
+    def test_compressor_schema_keys(self):
+        keys = schema_keys(config_flow._compressor_schema({}))
+        self.assertEqual(keys, {CONF_COMPRESSOR_NAME})
+
+    def test_validate_compressor_input(self):
+        self.assertEqual(
+            config_flow.validate_compressor_input({CONF_COMPRESSOR_NAME: "PAC chambres"}),
+            {},
+        )
+        self.assertEqual(
+            config_flow.validate_compressor_input({CONF_COMPRESSOR_NAME: "  "}),
+            {"base": "name_required"},
+        )
+        self.assertEqual(
+            config_flow.validate_compressor_input({}),
+            {"base": "name_required"},
+        )
+
     def test_validate_room_input(self):
         valid = {
             CONF_ROOM_NAME: "Salon",
@@ -297,6 +335,13 @@ class TestSubentrySupport(unittest.TestCase):
         )
         self.assertIn("room", supported)
         self.assertIs(supported["room"], config_flow.RoomSubentryFlow)
+
+    def test_compressor_subentry_supported(self):
+        supported = config_flow.HeatControllerConfigFlow.async_get_supported_subentry_types(
+            None
+        )
+        self.assertIn("compressor", supported)
+        self.assertIs(supported["compressor"], config_flow.CompressorSubentryFlow)
 
 
 if __name__ == "__main__":

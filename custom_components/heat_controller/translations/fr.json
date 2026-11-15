@@ -313,7 +313,8 @@
             "fans": "Entités fan des splits",
             "fan_preset": "Preset du ventilateur (cette pièce)",
             "preheat_with_splits": "Préchauffer avec la PAC (splits)",
-            "window_sensors": "Capteurs d'ouverture de fenêtre"
+            "window_sensors": "Capteurs d'ouverture de fenêtre",
+            "compressor": "Compresseur des splits (unité extérieure)"
           },
           "data_description": {
             "target": "Laisser vide si la pièce suit une autre pièce.",
@@ -322,7 +323,8 @@
             "fans": "Utilisés pour le preset et l'oscillation.",
             "fan_preset": "Remplace le preset global du ventilateur pour cette pièce ; « Hériter » garde le réglage global.",
             "preheat_with_splits": "Pendant un préchauffage (avant la période jour ou le retour prévu), les splits de cette pièce chauffent via la PAC ; les autres pièces gardent le préchauffage par la chaudière.",
-            "window_sensors": "Tant que l'un est ouvert, les splits de la pièce sont arrêtés (interrupteurs, climates et ventilateurs éteints) et redémarrent 1 minute après la fermeture de tous. Un capteur indisponible compte comme fermé."
+            "window_sensors": "Tant que l'un est ouvert, les splits de la pièce sont arrêtés (interrupteurs, climates et ventilateurs éteints) et redémarrent 1 minute après la fermeture de tous. Un capteur indisponible compte comme fermé.",
+            "compressor": "Les pièces dont les splits partagent ce compresseur rejoignent un cycle en cours : pendant qu'une pièce chauffe, une autre pièce dans sa bande d'hystérésis est seulement maintenue (à sa température courante) et s'arrête avec elle."
           }
         },
         "reconfigure": {
@@ -338,7 +340,8 @@
             "fans": "Entités fan des splits",
             "fan_preset": "Preset du ventilateur (cette pièce)",
             "preheat_with_splits": "Préchauffer avec la PAC (splits)",
-            "window_sensors": "Capteurs d'ouverture de fenêtre"
+            "window_sensors": "Capteurs d'ouverture de fenêtre",
+            "compressor": "Compresseur des splits (unité extérieure)"
           },
           "data_description": {
             "target": "Laisser vide si la pièce suit une autre pièce.",
@@ -347,7 +350,8 @@
             "fans": "Utilisés pour le preset et l'oscillation.",
             "fan_preset": "Remplace le preset global du ventilateur pour cette pièce ; « Hériter » garde le réglage global.",
             "preheat_with_splits": "Pendant un préchauffage (avant la période jour ou le retour prévu), les splits de cette pièce chauffent via la PAC ; les autres pièces gardent le préchauffage par la chaudière.",
-            "window_sensors": "Tant que l'un est ouvert, les splits de la pièce sont arrêtés (interrupteurs, climates et ventilateurs éteints) et redémarrent 1 minute après la fermeture de tous. Un capteur indisponible compte comme fermé."
+            "window_sensors": "Tant que l'un est ouvert, les splits de la pièce sont arrêtés (interrupteurs, climates et ventilateurs éteints) et redémarrent 1 minute après la fermeture de tous. Un capteur indisponible compte comme fermé.",
+            "compressor": "Les pièces dont les splits partagent ce compresseur rejoignent un cycle en cours : pendant qu'une pièce chauffe, une autre pièce dans sa bande d'hystérésis est seulement maintenue (à sa température courante) et s'arrête avec elle."
           }
         }
       },
@@ -357,6 +361,33 @@
       },
       "abort": {
         "reconfigure_successful": "Pièce mise à jour."
+      }
+    },
+    "compressor": {
+      "initiate_flow": {
+        "user": "Ajouter un compresseur",
+        "reconfigure": "Modifier le compresseur"
+      },
+      "entry_type": "Compresseur",
+      "step": {
+        "user": {
+          "title": "Nouveau compresseur",
+          "data": {
+            "name": "Nom du compresseur (unité extérieure)"
+          }
+        },
+        "reconfigure": {
+          "title": "Modifier le compresseur",
+          "data": {
+            "name": "Nom du compresseur (unité extérieure)"
+          }
+        }
+      },
+      "error": {
+        "name_required": "Donnez un nom au compresseur."
+      },
+      "abort": {
+        "reconfigure_successful": "Compresseur mis à jour."
       }
     }
   }

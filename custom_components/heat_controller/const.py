@@ -23,6 +23,11 @@ CONF_CONSUMPTION_SENSOR = "consumption_sensor"
 CONF_BOILER_CLIMATE = "boiler_climate"
 CONF_ACCESSORY_FANS = "accessory_fans"
 
+# --- Compressors (config sub-entries) ----------------------------------------
+
+SUBENTRY_COMPRESSOR = "compressor"
+CONF_COMPRESSOR_NAME = "name"
+
 # --- Rooms (config sub-entries) ----------------------------------------------
 
 SUBENTRY_ROOM = "room"
@@ -37,6 +42,7 @@ CONF_ROOM_FANS = "fans"
 CONF_ROOM_FAN_PRESET = "fan_preset"
 CONF_ROOM_PREHEAT_WITH_SPLITS = "preheat_with_splits"
 CONF_ROOM_WINDOW_SENSORS = "window_sensors"
+CONF_ROOM_COMPRESSOR = "compressor"
 
 # --- Settings ----------------------------------------------------------------
 

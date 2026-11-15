@@ -19,6 +19,7 @@ compute_house = rooms_logic.compute_house
 update_fallback = rooms_logic.update_fallback
 detect_manual = rooms_logic.detect_manual
 update_learning = rooms_logic.update_learning
+update_room_states = rooms_logic.update_room_states
 
 NOW = datetime(2026, 10, 21, 12, 0, 0)  # a Wednesday, within the day period
 
@@ -896,6 +897,165 @@ class TestPreheat(unittest.TestCase):
         # ...but the thermostat room did not opt in: the boiler does the
         # pre-heating at the thermostat room's day target.
         self.assertEqual(house.boiler_setpoint, 19.5)
+
+
+class TestCompressorCooperation(unittest.TestCase):
+    """Multi-split: rooms sharing a compressor join a running cycle."""
+
+    def setUp(self):
+        self.rooms = [
+            room("c1", "Chambre 1", "sensor.c1", target=19.0,
+                 switches=("sw1",), climates=("cl1",), compressor="pac"),
+            room("c2", "Chambre 2", "sensor.c2", target=19.0,
+                 switches=("sw2",), climates=("cl2",), compressor="pac"),
+            room("c3", "Chambre 3", "sensor.c3", target=19.0,
+                 switches=("sw3",), climates=("cl3",), compressor="pac"),
+            room("salon", "Salon", "sensor.salon", target=20.0,
+                 switches=("sw0",), climates=("cl0",)),  # no compressor
+        ]
+        self.temps = {"c1": 19.0, "c2": 19.0, "c3": 19.0, "salon": 20.0}
+
+    def states(self, **temps):
+        merged = {**self.temps, **temps}
+        return states_of(self.rooms, merged)
+
+    def test_room_in_the_hysteresis_band_joins_a_running_compressor(self):
+        states = self.states(c1=18.0, c2=18.8)  # c1 requests, c2 in [18.7, 19.0)
+        house = compute_house(settings(), house_inputs(), self.rooms, states)
+        self.assertTrue(house.room("c1").want_splits)
+        self.assertFalse(house.room("c1").cooperative)
+        self.assertTrue(house.room("c2").want_splits)
+        self.assertTrue(house.room("c2").cooperative)
+        # c3 is at its target: outside the band, it does not join.
+        self.assertFalse(house.room("c3").want_splits)
+        self.assertFalse(house.room("c3").cooperative)
+        # The salon has no compressor: it never joins.
+        self.assertFalse(house.room("salon").want_splits)
+
+    def test_room_below_the_band_is_a_requester_not_a_helper(self):
+        states = self.states(c1=18.0, c2=18.5)  # 18.5 < 19 - 0.3
+        house = compute_house(settings(), house_inputs(), self.rooms, states)
+        self.assertTrue(house.room("c2").want_splits)
+        self.assertFalse(house.room("c2").cooperative)
+
+    def test_no_compressor_running_no_cooperation(self):
+        # Every room in the band, none below it: nothing runs, nothing joins.
+        states = self.states(c1=18.8, c2=18.9, c3=18.7)
+        house = compute_house(settings(), house_inputs(), self.rooms, states)
+        for room_id in ("c1", "c2", "c3"):
+            self.assertFalse(house.room(room_id).want_splits)
+            self.assertFalse(house.room(room_id).cooperative)
+
+    def test_other_compressors_do_not_cooperate(self):
+        rooms = [
+            room("c1", "Chambre 1", "sensor.c1", target=19.0,
+                 switches=("sw1",), climates=("cl1",), compressor="pac1"),
+            room("c2", "Chambre 2", "sensor.c2", target=19.0,
+                 switches=("sw2",), climates=("cl2",), compressor="pac2"),
+        ]
+        states = states_of(rooms, {"c1": 18.0, "c2": 18.8})
+        house = compute_house(settings(), house_inputs(), rooms, states)
+        self.assertTrue(house.room("c1").want_splits)
+        self.assertFalse(house.room("c2").want_splits)
+        self.assertFalse(house.room("c2").cooperative)
+
+    def test_window_open_room_never_joins(self):
+        states = self.states(c1=18.0, c2=18.8)
+        states["c2"].window_open = True
+        house = compute_house(settings(), house_inputs(), self.rooms, states)
+        self.assertTrue(house.room("c1").want_splits)
+        self.assertFalse(house.room("c2").want_splits)
+        self.assertFalse(house.room("c2").cooperative)
+
+    def test_left_alone_room_never_joins(self):
+        states = self.states(c1=18.0, c2=18.8)
+        states["c2"].override_mode = "day"  # manual override in day mode
+        house = compute_house(settings(), house_inputs(), self.rooms, states)
+        self.assertTrue(house.room("c2").left_alone)
+        self.assertFalse(house.room("c2").want_splits)
+
+    def test_uncontrollable_room_never_joins(self):
+        states = self.states(c1=18.0)
+        states["c2"].temp = None  # sensor unavailable
+        house = compute_house(settings(), house_inputs(), self.rooms, states)
+        self.assertFalse(house.room("c2").controllable)
+        self.assertFalse(house.room("c2").want_splits)
+
+    def test_no_cooperation_when_the_splits_are_not_allowed(self):
+        # Night: the splits are off, no cooperation even in the band.
+        night = house_inputs(now=datetime(2026, 10, 21, 23, 0))
+        states = self.states(c1=18.0, c2=18.8)
+        house = compute_house(settings(), night, self.rooms, states)
+        self.assertFalse(house.room("c1").splits_allowed)
+        self.assertFalse(house.room("c1").want_splits)
+        self.assertFalse(house.room("c2").want_splits)
+        self.assertFalse(house.room("c2").cooperative)
+
+    def test_min_cycle_blocks_the_join(self):
+        s = settings(min_cycle_minutes=5)
+        states = self.states(c1=18.0, c2=18.8)
+        states["c2"].last_change = NOW - timedelta(minutes=1)  # just switched
+        house = compute_house(s, house_inputs(), self.rooms, states)
+        self.assertTrue(house.room("c1").want_splits)
+        self.assertFalse(house.room("c2").want_splits)
+        self.assertFalse(house.room("c2").cooperative)
+
+    def test_held_room_stops_with_the_requester(self):
+        states = self.states(c1=18.0, c2=18.8)
+        house = compute_house(settings(), house_inputs(), self.rooms, states)
+        update_room_states(house, states, boiler_heating=False)
+        self.assertTrue(states["c2"].cooperative)
+        # Next pass: c1 reached its target and stopped, c2 is still on
+        # and in the band, its last change is old enough.
+        states["c1"].temp = 19.0
+        states["c1"].splits_on = False
+        states["c2"].splits_on = True
+        states["c2"].last_change = NOW - timedelta(minutes=10)
+        house = compute_house(settings(), house_inputs(), self.rooms, states)
+        self.assertFalse(house.room("c1").want_splits)
+        self.assertFalse(house.room("c2").want_splits)  # stops with c1
+        self.assertFalse(house.room("c2").cooperative)
+
+    def test_held_room_kept_on_by_the_min_cycle(self):
+        states = self.states(c1=18.0, c2=18.8)
+        house = compute_house(settings(), house_inputs(), self.rooms, states)
+        update_room_states(house, states, boiler_heating=False)
+        states["c1"].temp = 19.0
+        states["c1"].splits_on = False
+        states["c2"].splits_on = True
+        states["c2"].last_change = NOW - timedelta(minutes=1)  # just started
+        house = compute_house(settings(min_cycle_minutes=5), house_inputs(), self.rooms, states)
+        self.assertTrue(house.room("c2").want_splits)  # kept on by the min cycle
+        self.assertTrue(house.room("c2").cooperative)
+
+    def test_held_room_below_the_band_becomes_a_requester(self):
+        states = self.states(c1=18.0, c2=18.8)
+        house = compute_house(settings(), house_inputs(), self.rooms, states)
+        update_room_states(house, states, boiler_heating=False)
+        # c1 stopped, and the held room cooled below the band: it asks on
+        # its own instead of being released.
+        states["c1"].temp = 19.0
+        states["c1"].splits_on = False
+        states["c2"].splits_on = True
+        states["c2"].temp = 18.5
+        states["c2"].last_change = NOW - timedelta(minutes=10)
+        house = compute_house(settings(), house_inputs(), self.rooms, states)
+        self.assertTrue(house.room("c2").want_splits)
+        self.assertFalse(house.room("c2").cooperative)
+
+    def test_held_room_still_stops_at_its_own_target(self):
+        # The held room never overheats: at its target it stops even
+        # while the group runs.
+        states = self.states(c1=18.0, c2=18.8)
+        house = compute_house(settings(), house_inputs(), self.rooms, states)
+        update_room_states(house, states, boiler_heating=False)
+        states["c2"].splits_on = True
+        states["c2"].temp = 19.0  # at target
+        states["c2"].last_change = NOW - timedelta(minutes=10)
+        house = compute_house(settings(), house_inputs(), self.rooms, states)
+        self.assertTrue(house.room("c1").want_splits)
+        self.assertFalse(house.room("c2").want_splits)
+        self.assertFalse(house.room("c2").cooperative)
 
 
 def tearDownModule():
