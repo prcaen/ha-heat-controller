@@ -369,7 +369,7 @@ class TestHybridRooms(unittest.IsolatedAsyncioTestCase):
             "c1": FakeSubentry("c1", "Chambre 1", {
                 "name": "Chambre 1",
                 "temperature_sensor": "sensor.c1_temp",
-                "target": 19.0,
+                "target": 19.5,
                 "switches": ["switch.c1"],
                 "climates": ["climate.c1"],
                 "compressor": "pac",
@@ -377,7 +377,7 @@ class TestHybridRooms(unittest.IsolatedAsyncioTestCase):
             "c2": FakeSubentry("c2", "Chambre 2", {
                 "name": "Chambre 2",
                 "temperature_sensor": "sensor.c2_temp",
-                "target": 19.0,
+                "target": 19.5,
                 "switches": ["switch.c2"],
                 "climates": ["climate.c2"],
                 "compressor": "pac",
@@ -388,11 +388,11 @@ class TestHybridRooms(unittest.IsolatedAsyncioTestCase):
             subentries=subentries,
         )
         states.set("sensor.c1_temp", "18.0")  # cold: requests heat
-        states.set("sensor.c2_temp", "18.8")  # in the hysteresis band [18.7, 19.0)
+        states.set("sensor.c2_temp", "19.2")  # in the hysteresis band [19.2, 19.5)
         states.set("switch.c1", "off")
         states.set("switch.c2", "off")
         states.set("climate.c1", "off", dict(CLIMATE_ATTRIBUTES))
-        states.set("climate.c2", "off", {**CLIMATE_ATTRIBUTES, "target_temp_step": 0.1})
+        states.set("climate.c2", "off", dict(CLIMATE_ATTRIBUTES))
         await controller._update_locked()
         house = shared.house
         self.assertTrue(house.room("c1").want_splits)
@@ -402,14 +402,15 @@ class TestHybridRooms(unittest.IsolatedAsyncioTestCase):
         calls = summarise(services)
         self.assertIn(("switch", "turn_on", "switch.c1", None, None), calls)
         self.assertIn(("switch", "turn_on", "switch.c2", None, None), calls)
-        # Requester: setpoint = target + offset (19 + 2 = 21.5); the held
-        # room aims at its current temperature + offset (18.8 + 2 = 20.8).
+        # Requester: setpoint = target + offset (19.5 + 2 = 21.5); the held
+        # room aims at its current temperature + offset (19.2 + 2 = 21.2,
+        # pushed as 21.0 after the climate's 0.5 step).
         self.assertIn(("climate", "set_temperature", "climate.c1", None, 21.5), calls)
-        self.assertIn(("climate", "set_temperature", "climate.c2", None, 20.8), calls)
+        self.assertIn(("climate", "set_temperature", "climate.c2", None, 21.0), calls)
 
         # Next pass: c1 reached its target, the held room stops with it.
         services.calls.clear()
-        states.set("sensor.c1_temp", "19.0")
+        states.set("sensor.c1_temp", "19.5")
         await controller._update_locked()
         self.assertFalse(shared.house.room("c1").want_splits)
         self.assertFalse(shared.house.room("c2").want_splits)
